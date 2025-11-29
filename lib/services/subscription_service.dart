@@ -14,7 +14,7 @@ import 'package:readreels/services/file_uploader_stub.dart'
 // Класс для взаимодействия с API подписок и профилей
 class SubscriptionService {
   // Базовый URL вашего бэкенда.
-  final String baseUrl = 'http://192.168.1.104:8080';
+  final String baseUrl = 'https://ravell-backend.onrender.com';
   // Инициализируем Uploader, который будет специфичен для платформы
   final _fileUploader =
       getFileUploader(); // Тип FileUploader теперь будет найден из file_uploader_stub.dart

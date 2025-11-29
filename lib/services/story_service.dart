@@ -23,8 +23,8 @@ class StoryService {
 
   // 🚨 ПРОВЕРЬТЕ IP: Убедитесь, что 192.168.1.104 доступен.
   // Для эмулятора Android часто нужно использовать 10.0.2.2.
-  final String rootUrl = 'http://192.168.1.104:8080';
-  final String storiesUrl = 'http://192.168.1.104:8080/stories';
+  final String rootUrl = 'https://ravell-backend.onrender.com';
+  final String storiesUrl = 'https://ravell-backend.onrender.com/stories';
 
   // --------------------------------------------------------------------------
   //                         МЕТОДЫ АВТОРИЗАЦИИ И ЗАГОЛОВКОВ

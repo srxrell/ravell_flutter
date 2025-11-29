@@ -6,7 +6,7 @@ import '../models/comment.dart';
 
 class CommentService {
   // Убедитесь, что этот URL соответствует вашему API
-  final String baseUrl = 'http://192.168.1.104:8080/comments';
+  final String baseUrl = 'https://ravell-backend.onrender.com/comments';
 
   // --- 1. GET Comments for Story ---
   Future<List<Comment>> getCommentsForStory(int storyId) async {

@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   // ⚠️ Убедитесь, что эта константа верна для вашего бэкенда.
   static const String baseUrl =
-      'http://192.168.1.104:8080'; // Для Android Emulator
+      'https://ravell-backend.onrender.com'; // Для Android Emulator
 
   // --- 1. Вспомогательные методы (Добавлены getRefreshToken, isLoggedIn) ---
 
