@@ -28,7 +28,7 @@ class Feed extends StatefulWidget {
 class _FeedState extends State<Feed> {
   final SubscriptionService _subscriptionService = SubscriptionService();
   final st.StoryService _storyService = st.StoryService();
-  int? currentUserId;
+  int? currentuser_id;
   bool isHeartAnimating = false;
   List<Story> stories = [];
   Map<int, bool> likeStatuses = {};
@@ -74,10 +74,10 @@ class _FeedState extends State<Feed> {
     super.dispose();
   }
 
-  // Future<void> _getUserId() async {
+  // Future<void> _getuser_id() async {
   //   final prefs = await SharedPreferences.getInstance();
-  //   currentUserId = prefs.getInt('userId');
-  //   debugPrint('currentUserId: $currentUserId');
+  //   currentuser_id = prefs.getInt('user_id');
+  //   debugPrint('currentuser_id: $currentuser_id');
   // }
 
   // --- ПОЛНЫЙ МЕТОД: Обработка 'Не интересно' ---
@@ -165,10 +165,10 @@ class _FeedState extends State<Feed> {
   // --- ИСПРАВЛЕННЫЙ МЕТОД: Загрузка с проверкой аутентификации ---
   Future<void> _checkAuthStatusAndFetch() async {
     final prefs = await SharedPreferences.getInstance();
-    currentUserId = prefs.getInt('userId');
+    currentuser_id = prefs.getInt('user_id');
     final guestId = prefs.getInt('GUEST_ID');
 
-    if (currentUserId == null && guestId == null && mounted) {
+    if (currentuser_id == null && guestId == null && mounted) {
       debugPrint('Neither User ID nor Guest ID found. Redirecting to /auth.');
       setState(() {
         _isLoading = false;
@@ -224,7 +224,7 @@ class _FeedState extends State<Feed> {
           await _storyService.clearLocalStories();
           await _storyService.saveStoriesLocally(fetchedStories);
 
-          if (currentUserId != null) {
+          if (currentuser_id != null) {
             finalLikeStatuses = await _fetchLikeStatuses(fetchedStories);
           }
         } catch (e) {
@@ -282,7 +282,7 @@ class _FeedState extends State<Feed> {
 
   // --- ПОЛНЫЙ МЕТОД: Загрузка статусов лайков ---
   Future<Map<int, bool>> _fetchLikeStatuses(List<Story> currentStories) async {
-    if (currentUserId == null) return {};
+    if (currentuser_id == null) return {};
     final Map<int, bool> newLikeStatuses = {};
 
     for (var story in currentStories) {
@@ -290,7 +290,7 @@ class _FeedState extends State<Feed> {
       try {
         final isLiked = await _storyService.isStoryLiked(
           story.id!,
-          currentUserId!,
+          currentuser_id!,
         );
         newLikeStatuses[story.id!] = isLiked;
       } catch (e) {
@@ -303,7 +303,7 @@ class _FeedState extends State<Feed> {
   // --- ИЗМЕНЕННЫЙ МЕТОД: Обработка лайка ---
   // 🚨 ИЗМЕНЕНИЕ: Добавлен необязательный параметр isDoubleTap
   Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
-    if (story.id != null && currentUserId != null) {
+    if (story.id != null && currentuser_id != null) {
       try {
         final bool wasLiked = likeStatuses[story.id] ?? false;
         final int oldLikeCount = likeCounts[story.id] ?? 0;
@@ -324,7 +324,7 @@ class _FeedState extends State<Feed> {
 
         final newCount = await _storyService.likeStory(
           story.id!,
-          currentUserId!,
+          currentuser_id!,
         );
 
         setState(() {
@@ -347,15 +347,15 @@ class _FeedState extends State<Feed> {
   }
 
   // --- ПОЛНЫЙ МЕТОД: Переключение подписки ---
-  // Future<void> _handleFollowToggle(int userId) async {
-  //   if (currentUserId == null || userId == currentUserId) return;
+  // Future<void> _handleFollowToggle(int user_id) async {
+  //   if (currentuser_id == null || user_id == currentuser_id) return;
 
   //   try {
-  //     await _subscriptionService.toggleFollow(userId);
+  //     await _subscriptionService.toggleFollow(user_id);
 
-  //     final isCurrentlyFollowing = followStatuses[userId] ?? false;
+  //     final isCurrentlyFollowing = followStatuses[user_id] ?? false;
   //     setState(() {
-  //       followStatuses[userId] = !isCurrentlyFollowing;
+  //       followStatuses[user_id] = !isCurrentlyFollowing;
   //     });
   //   } catch (e) {
   //     debugPrint('Error toggling follow status: $e');

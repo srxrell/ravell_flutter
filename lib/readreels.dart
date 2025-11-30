@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:readreels/screens/authentication.dart';
 import 'package:readreels/screens/profile_screen.dart';
 import 'package:readreels/screens/search.dart';
-import 'package:readreels/screens/verify_otp.dart';
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/profile_stories_list.dart';
 
@@ -34,16 +33,10 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
             builder: (context, state) => const SearchStory(),
           ),
           GoRoute(
-            path: '/verify-otp',
-            builder: (BuildContext context, GoRouterState state) {
-              return const OTPVerificationScreen();
-            },
-          ),
-          GoRoute(
-            path: '/profile/:userId', // Маршрут с обязательным параметром ID
+            path: '/profile/:user_id', // Маршрут с обязательным параметром ID
             builder: (context, state) {
-              final userId = int.parse(state.pathParameters['userId']!);
-              return UserProfileScreen(profileUserId: userId);
+              final user_id = int.parse(state.pathParameters['user_id']!);
+              return UserProfileScreen(profileuser_id: user_id);
             },
           ),
           GoRoute(

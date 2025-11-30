@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/comment.dart';
 
 class CommentService {
-  // Убедитесь, что этот URL соответствует вашему API
-  final String baseUrl = 'https://ravell-backend.onrender.com/comments';
+  // 🟢 ИСПРАВЛЕННЫЙ URL
+  final String baseUrl = 'https://ravell-backend-1.onrender.com';
 
   // --- 1. GET Comments for Story ---
   Future<List<Comment>> getCommentsForStory(int storyId) async {
@@ -14,17 +14,16 @@ class CommentService {
     String? accessToken = prefs.getString('access_token');
 
     final response = await http.get(
-      Uri.parse('$baseUrl/$storyId/'),
+      Uri.parse('$baseUrl/stories/$storyId/comments'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
-        'Authorization': 'Bearer $accessToken',
+        if (accessToken != null) 'Authorization': 'Bearer $accessToken',
       },
     );
 
     if (response.statusCode == 200) {
       try {
         final List<dynamic> body = jsonDecode(response.body);
-        // Предполагаем, что Comment.fromJson существует и корректно парсит данные
         return body.map((dynamic item) => Comment.fromJson(item)).toList();
       } catch (e) {
         debugPrint('Error parsing comments: $e');
@@ -41,27 +40,28 @@ class CommentService {
   // --- 2. POST Add Comment ---
   Future<Comment> addCommentToStory(
     int storyId,
-    int userId, // userId используется для логики, но не отправляется в теле DRF
+    int user_id, // 🟢 В Go API может понадобиться user_id
     String content,
   ) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? accessToken = prefs.getString('access_token');
 
     if (accessToken == null || accessToken.isEmpty) {
-      debugPrint(
-        'Error: access_token is null or empty. User must be logged in.',
-      );
+      debugPrint('Error: access_token is null or empty.');
       throw Exception('User must be logged in to add a comment.');
     }
 
     final response = await http.post(
-      Uri.parse('$baseUrl/$storyId/'),
+      Uri.parse('$baseUrl/comments'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $accessToken',
       },
-      // API ожидает только 'content' в теле для добавления
-      body: jsonEncode(<String, dynamic>{'content': content}),
+      // 🟢 ИСПРАВЛЕНО: Go API ожидает story_id и content
+      body: jsonEncode(<String, dynamic>{
+        'story_id': storyId,
+        'content': content,
+      }),
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -74,15 +74,14 @@ class CommentService {
     }
   }
 
-  // --- 3. PATCH Update Comment (НОВЫЙ МЕТОД) ---
+  // --- 3. PATCH Update Comment ---
   Future<Comment> updateComment(int commentId, String content) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? accessToken = prefs.getString('access_token');
 
     final response = await http.patch(
-      // Используем PATCH для частичного обновления
-      // Предполагаем, что URL для редактирования — /comments/detail/{commentId}/
-      Uri.parse('$baseUrl/detail/$commentId/'),
+      // 🟢 ИСПРАВЛЕННЫЙ URL
+      Uri.parse('$baseUrl/comments/$commentId'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $accessToken',
@@ -100,19 +99,18 @@ class CommentService {
     }
   }
 
-  // --- 4. DELETE Comment (НОВЫЙ МЕТОД) ---
+  // --- 4. DELETE Comment ---
   Future<void> deleteComment(int commentId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? accessToken = prefs.getString('access_token');
 
     final response = await http.delete(
-      // Предполагаем, что URL для удаления — /comments/detail/{commentId}/
-      Uri.parse('$baseUrl/detail/$commentId/'),
+      // 🟢 ИСПРАВЛЕННЫЙ URL
+      Uri.parse('$baseUrl/comments/$commentId'),
       headers: <String, String>{'Authorization': 'Bearer $accessToken'},
     );
 
-    if (response.statusCode != 204) {
-      // 204 No Content - стандартный ответ для успешного DELETE
+    if (response.statusCode != 200 && response.statusCode != 204) {
       debugPrint(
         'Error deleting comment: ${response.statusCode} ${response.body}',
       );

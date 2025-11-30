@@ -16,9 +16,9 @@ import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
 // Предполагается, что в 'package:readreels/theme.dart' определена primaryColor (для иконок в диалоге)
 
 class UserProfileScreen extends StatefulWidget {
-  final int profileUserId;
+  final int profileuser_id;
 
-  const UserProfileScreen({super.key, required this.profileUserId});
+  const UserProfileScreen({super.key, required this.profileuser_id});
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -28,7 +28,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final SubscriptionService _subscriptionService = SubscriptionService();
   final StoryService _storyService = StoryService(); // ✅ StoryService
 
-  int? currentUserId;
+  int? currentuser_id;
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
 
@@ -200,14 +200,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (_profileData == null) return;
 
     // Получаем ID пользователя, чей профиль мы смотрим
-    final userId = _profileData!['user_data']['id'] as int;
+    final user_id = _profileData!['user_data']['id'] as int;
     final username = _profileData!['user_data']['username'] as String;
 
     Navigator.of(context).push(
       MaterialPageRoute(
         builder:
             (context) => SubscriptionsSubscriberListScreen(
-              profileUserId: userId,
+              profileuser_id: user_id,
               profileUsername: username,
               initialTab: initialTab,
               // Передаем колбэк для обновления статистики
@@ -219,10 +219,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _loadProfileData() async {
     final sp = await SharedPreferences.getInstance();
-    currentUserId = sp.getInt('userId');
+    currentuser_id = sp.getInt('user_id');
 
     print(
-      'DEBUG: [UserProfileScreen] Current User ID (key: userId): $currentUserId',
+      'DEBUG: [UserProfileScreen] Current User ID (key: user_id): $currentuser_id',
     );
 
     setState(() {
@@ -230,7 +230,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     });
 
     final data = await _subscriptionService.fetchUserProfile(
-      widget.profileUserId,
+      widget.profileuser_id,
     );
 
     if (data != null && mounted) {
@@ -254,7 +254,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     try {
       final result = await _subscriptionService.toggleFollow(
-        widget.profileUserId,
+        widget.profileuser_id,
       );
       _showSnackbar(result);
 
@@ -412,9 +412,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     // ✅ Определение, является ли это профиль текущего пользователя
     final isMyProfile =
-        (currentUserId != null &&
+        (currentuser_id != null &&
             profileId != null &&
-            currentUserId == profileId);
+            currentuser_id == profileId);
     final isFollowing = _profileData!['is_following'] as bool? ?? false;
 
     final userStories =
@@ -531,7 +531,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   text: 'Редактировать профиль',
                 ),
               )
-            else if (currentUserId != null)
+            else if (currentuser_id != null)
               SizedBox(
                 width: double.infinity,
                 child: NeoButton(

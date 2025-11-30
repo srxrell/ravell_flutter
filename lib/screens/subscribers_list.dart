@@ -3,14 +3,14 @@ import 'package:readreels/services/subscription_service.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
 
 class SubscriptionsSubscriberListScreen extends StatefulWidget {
-  final int profileUserId;
+  final int profileuser_id;
   final String profileUsername;
   final String initialTab; // 'followers' или 'following'
   final VoidCallback onUpdate; // Колбэк для обновления статистики в профиле
 
   const SubscriptionsSubscriberListScreen({
     super.key,
-    required this.profileUserId,
+    required this.profileuser_id,
     required this.profileUsername,
     required this.initialTab,
     required this.onUpdate,
@@ -50,9 +50,9 @@ class _SubscriptionsSubscriberListScreenState
     // ВАЖНО: Мы загружаем ID текущего пользователя здесь,
     // чтобы не делать это в каждом ListTile
     return FutureBuilder<int?>(
-      future: _subscriptionService.getUserId(),
-      builder: (context, currentUserIdSnapshot) {
-        final currentUserId = currentUserIdSnapshot.data;
+      future: _subscriptionService.getuser_id(),
+      builder: (context, currentuser_idSnapshot) {
+        final currentuser_id = currentuser_idSnapshot.data;
 
         return Scaffold(
           appBar: AppBar(
@@ -69,21 +69,21 @@ class _SubscriptionsSubscriberListScreenState
               _UserListWidget(
                 fetchList:
                     () => _subscriptionService.fetchFollowers(
-                      widget.profileUserId,
+                      widget.profileuser_id,
                     ),
                 subscriptionService: _subscriptionService,
                 onActionComplete: widget.onUpdate,
-                currentUserId: currentUserId, // ✅ ПЕРЕДАЕМ ID
+                currentuser_id: currentuser_id, // ✅ ПЕРЕДАЕМ ID
               ),
               // Вкладка 2: Подписки
               _UserListWidget(
                 fetchList:
                     () => _subscriptionService.fetchFollowing(
-                      widget.profileUserId,
+                      widget.profileuser_id,
                     ),
                 subscriptionService: _subscriptionService,
                 onActionComplete: widget.onUpdate,
-                currentUserId: currentUserId, // ✅ ПЕРЕДАЕМ ID
+                currentuser_id: currentuser_id, // ✅ ПЕРЕДАЕМ ID
               ),
             ],
           ),
@@ -99,13 +99,13 @@ class _UserListWidget extends StatefulWidget {
   final Future<List<Map<String, dynamic>>> Function() fetchList;
   final SubscriptionService subscriptionService;
   final VoidCallback onActionComplete;
-  final int? currentUserId; // ID текущего авторизованного пользователя
+  final int? currentuser_id; // ID текущего авторизованного пользователя
 
   const _UserListWidget({
     required this.fetchList,
     required this.subscriptionService,
     required this.onActionComplete,
-    required this.currentUserId, // ✅ ИСПОЛЬЗУЕМ ПЕРЕДАННЫЙ ID
+    required this.currentuser_id, // ✅ ИСПОЛЬЗУЕМ ПЕРЕДАННЫЙ ID
   });
 
   @override
@@ -129,8 +129,8 @@ class _UserListWidgetState extends State<_UserListWidget> {
   }
 
   // --- Обработчик подписки/отписки в списке ---
-  Future<void> _handleFollowToggle(int userIdToToggle) async {
-    if (widget.currentUserId == null) {
+  Future<void> _handleFollowToggle(int user_idToToggle) async {
+    if (widget.currentuser_id == null) {
       // Это должно быть проверено раньше, но на всякий случай
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Для подписки требуется авторизация.')),
@@ -140,7 +140,7 @@ class _UserListWidgetState extends State<_UserListWidget> {
 
     try {
       final result = await widget.subscriptionService.toggleFollow(
-        userIdToToggle,
+        user_idToToggle,
       );
 
       // Перезагружаем список и обновляем статистику в профиле
@@ -181,7 +181,7 @@ class _UserListWidgetState extends State<_UserListWidget> {
           itemBuilder: (context, index) {
             final userEntry = users[index];
             final userData = userEntry['user'] as Map<String, dynamic>;
-            final userId = userData['id'] as int;
+            final user_id = userData['id'] as int;
             final username = userData['username'] as String;
             final isFollowing = userEntry['is_following'] as bool;
 
@@ -193,12 +193,12 @@ class _UserListWidgetState extends State<_UserListWidget> {
 
             // Проверка, является ли этот пользователь текущим авторизованным пользователем
             final isCurrentUser =
-                (widget.currentUserId != null &&
-                    widget.currentUserId == userId);
+                (widget.currentuser_id != null &&
+                    widget.currentuser_id == user_id);
 
             return ListTile(
               // Навигация на профиль при тапе на ListTile (опционально)
-              // onTap: () => context.go('/profile/$userId'),
+              // onTap: () => context.go('/profile/$user_id'),
               leading: const CircleAvatar(child: Icon(Icons.person)),
               title: Text(displayTitle),
               subtitle: Text('@$username'),
@@ -206,7 +206,7 @@ class _UserListWidgetState extends State<_UserListWidget> {
                   isCurrentUser
                       ? const SizedBox.shrink() // Не показываем кнопку, если это наш профиль
                       : ElevatedButton(
-                        onPressed: () => _handleFollowToggle(userId),
+                        onPressed: () => _handleFollowToggle(user_id),
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
                               isFollowing ? Colors.grey : Colors.blue,

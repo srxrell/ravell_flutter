@@ -4,7 +4,7 @@ import 'package:readreels/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/services/comment_service.dart';
-import '../models/comment.dart'; // Предполагается, что это файл с обновленной моделью Comment
+import '../models/comment.dart';
 
 class CommentsBottomSheet extends StatefulWidget {
   final Story story;
@@ -18,18 +18,19 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   List<Comment> comments = [];
   final TextEditingController _commentController = TextEditingController();
 
-  int? _currentUserId;
+  int? _currentUserId; // 🟢 ИСПРАВЛЕНО: _currentUserId
   Comment? _editingComment;
 
   void _goToUserProfile(int userId) {
+    // 🟢 ИСПРАВЛЕНО: userId
     if (mounted) {
-      // 1. Закрываем текущий BottomSheet
       Navigator.of(context).pop();
-
-      // 2. Выполняем навигацию на UserProfileScreen
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => UserProfileScreen(profileUserId: userId),
+          builder:
+              (context) => UserProfileScreen(
+                profileuser_id: userId,
+              ), // 🟢 ИСПРАВЛЕНО: profileUserId
         ),
       );
     }
@@ -38,7 +39,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _loadCurrentUserId();
+    _loadCurrentUserId(); // 🟢 ИСПРАВЛЕНО
     _fetchComments();
   }
 
@@ -50,10 +51,13 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
 
   // --- USER AUTH LOGIC ---
   Future<void> _loadCurrentUserId() async {
+    // 🟢 ИСПРАВЛЕНО
     SharedPreferences prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
-        _currentUserId = prefs.getInt('userId');
+        _currentUserId = prefs.getInt(
+          'user_id',
+        ); // 🟢 ИСПРАВЛЕНО: _currentUserId
       });
     }
   }
@@ -66,7 +70,6 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
       );
       if (mounted) {
         setState(() {
-          // Комментарии обычно отображаются от новых к старым
           comments = fetchedComments.reversed.toList();
         });
       }
@@ -82,7 +85,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
     if (commentContent.isEmpty) return;
     if (!mounted) return;
 
-    final int? currentUserId = _currentUserId;
+    final int? currentUserId = _currentUserId; // 🟢 ИСПРАВЛЕНО
 
     if (currentUserId == null) {
       if (mounted) {
@@ -97,21 +100,21 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
       return;
     }
 
-    // Optimistic UI Update: Create temporary comment object
-    final Comment tcomment = Comment(
+    // Optimistic UI Update
+    final Comment tempComment = Comment(
       id: -1,
       content: commentContent,
-      userUsername: 'You (sending...)',
+      username: 'You (sending...)', // 🟢 ИСПРАВЛЕНО: username
       storyId: widget.story.id,
-      userId: currentUserId,
+      userId: currentUserId, // 🟢 ИСПРАВЛЕНО: userId
       createdAt: DateTime.now(),
       isEdited: false,
-      userAvatarUrl: null,
+      avatarUrl: null, // 🟢 ИСПРАВЛЕНО: avatarUrl
     );
 
     if (mounted) {
       setState(() {
-        comments.insert(0, tcomment);
+        comments.insert(0, tempComment);
         _commentController.clear();
       });
     }
@@ -122,13 +125,12 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         currentUserId,
         commentContent,
       );
-      // Перезагрузка для получения реальных данных, включая URL аватара
       await _fetchComments();
     } catch (e) {
       debugPrint('Exception: Failed to add comment to story $e');
       if (mounted) {
         setState(() {
-          comments.remove(tcomment);
+          comments.remove(tempComment);
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -180,22 +182,19 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
     final String newContent = _commentController.text;
     final int commentId = _editingComment!.id;
 
-    // Оптимистичное обновление UI
     if (mounted) {
       setState(() {
         final index = comments.indexWhere((c) => c.id == commentId);
         if (index != -1) {
-          // Создаем локально обновленный комментарий с флагом isEdited=true
           comments[index] = Comment(
             id: comments[index].id,
             content: newContent,
-            userUsername: comments[index].userUsername,
+            username: comments[index].username, // 🟢 ИСПРАВЛЕНО
             storyId: comments[index].storyId,
-            userId: comments[index].userId,
+            userId: comments[index].userId, // 🟢 ИСПРАВЛЕНО
             createdAt: comments[index].createdAt,
             isEdited: true,
-            userAvatarUrl:
-                comments[index].userAvatarUrl, // Сохраняем URL аватара
+            avatarUrl: comments[index].avatarUrl, // 🟢 ИСПРАВЛЕНО
           );
           _commentController.clear();
           _editingComment = null;
@@ -219,17 +218,14 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
 
   // --- COMMENT OPTIONS MODAL ---
   void _showCommentOptions(Comment comment) {
-    // Проверка на принадлежность комментария текущему пользователю ИЛИ
-    // комментарий не является временным объектом оптимистичного обновления (-1)
-    if (comment.userId != _currentUserId || comment.id == -1) return;
+    if (comment.userId != _currentUserId || comment.id == -1)
+      return; // 🟢 ИСПРАВЛЕНО: userId
 
     showModalBottomSheet(
-      // 🔑 ИЗМЕНЕНИЕ: Устанавливаем барьер (фон) для модального окна на полупрозрачный черный
       barrierColor: const Color.fromARGB(153, 0, 0, 0),
       elevation: 0,
       context: context,
       isScrollControlled: true,
-      // 🔑 ИЗМЕНЕНИЕ: Цвет фона модального окна (сам контейнер), а не барьера
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return Container(
@@ -271,13 +267,10 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   // --- BUILD METHOD ---
   @override
   Widget build(BuildContext context) {
-    // 🔑 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Получаем высоту клавиатуры.
     final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      // 🔑 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Добавляем отступ снизу, равный высоте клавиатуры.
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + keyboardHeight),
-      // 🔑 Возвращаем контейнер с декором, который был у вас изначально
       decoration: const BoxDecoration(
         color: bottomBackground,
         border: Border(
@@ -290,10 +283,6 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
           topRight: Radius.circular(20),
         ),
       ),
-
-      // 🔑 ИЗМЕНЕНИЕ: Оборачиваем Container в SingleChildScrollView,
-      // чтобы позволить ему занимать только необходимое пространство,
-      // а его дочерним элементам (Column) — расширяться по высоте.
       child: Column(
         children: [
           Expanded(
@@ -304,19 +293,18 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                       itemCount: comments.length,
                       itemBuilder: (context, index) {
                         final comment = comments[index];
-                        final isOwner = comment.userId == _currentUserId;
+                        final isOwner =
+                            comment.userId == _currentUserId; // 🟢 ИСПРАВЛЕНО
 
-                        // --- ЛОГИКА ОТОБРАЖЕНИЯ АВАТАРА ---
                         final bool isAvatarSet =
-                            comment.userAvatarUrl != null &&
-                            comment.userAvatarUrl!.isNotEmpty;
+                            comment.avatarUrl != null &&
+                            comment.avatarUrl!.isNotEmpty; // 🟢 ИСПРАВЛЕНО
                         ImageProvider? avatarImageProvider;
                         if (isAvatarSet) {
                           avatarImageProvider = NetworkImage(
-                            comment.userAvatarUrl!,
-                          );
+                            comment.avatarUrl!,
+                          ); // 🟢 ИСПРАВЛЕНО
                         }
-                        // ------------------------------------
 
                         return GestureDetector(
                           onLongPress:
@@ -324,9 +312,11 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                                   ? () => _showCommentOptions(comment)
                                   : null,
                           child: ListTile(
-                            // !!! Отображение аватара !!!
                             leading: GestureDetector(
-                              onTap: () => _goToUserProfile(comment.userId),
+                              onTap:
+                                  () => _goToUserProfile(
+                                    comment.userId,
+                                  ), // 🟢 ИСПРАВЛЕНО
                               child: CircleAvatar(
                                 radius: 20,
                                 backgroundColor:
@@ -344,8 +334,6 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                                         ),
                               ),
                             ),
-
-                            // ------------------------------------
                             subtitle: Text(
                               comment.content,
                               style: const TextStyle(fontSize: 20),
@@ -353,9 +341,13 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                             title: Row(
                               children: [
                                 GestureDetector(
-                                  onTap: () => _goToUserProfile(comment.userId),
+                                  onTap:
+                                      () => _goToUserProfile(
+                                        comment.userId,
+                                      ), // 🟢 ИСПРАВЛЕНО
                                   child: Text(
-                                    comment.userUsername ?? 'Unknown User',
+                                    comment.username ??
+                                        'Unknown User', // 🟢 ИСПРАВЛЕНО
                                     style: const TextStyle(fontSize: 15),
                                   ),
                                 ),
@@ -377,14 +369,13 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                       },
                     ),
           ),
-          // ... (Input Row) ...
           Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _commentController,
                   decoration: InputDecoration(
-                    filled: true, // Добавлено, чтобы fillColor был виден
+                    filled: true,
                     fillColor: const Color(0xFFCF875E),
                     border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(15)),
@@ -394,7 +385,6 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                       ),
                     ),
                     enabledBorder: const OutlineInputBorder(
-                      // Добавлено для видимости borderSide
                       borderRadius: BorderRadius.all(Radius.circular(15)),
                       borderSide: BorderSide(
                         width: 3,

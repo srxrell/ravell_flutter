@@ -225,8 +225,8 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
         if (success && context.mounted) {
           // Успешный вход и верификация
           SharedPreferences prefs = await SharedPreferences.getInstance();
-          int? userId = prefs.getInt('userId');
-          if (userId != null && userId != 0) {
+          int? user_id = prefs.getInt('user_id');
+          if (user_id != null && user_id != 0) {
             context.go('/home');
             return;
           } else {
@@ -250,7 +250,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
         // 🎯 Перенаправление на экран подтверждения OTP после регистрации
         if (context.mounted) {
-          context.go('/verify-otp'); // 👈 Вот ваше перенаправление
+          context.go('/home'); // 👈 Вот ваше перенаправление
           return;
         }
       }
@@ -258,17 +258,6 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       final errorString = e.toString();
 
       // Обработка ошибки неверифицированного аккаунта при входе
-      if (errorString.contains('UNVERIFIED_ACCOUNT')) {
-        _showSnackBar(
-          'Аккаунт требует верификации. Пожалуйста, введите OTP.',
-          isError: true,
-        );
-        if (context.mounted) {
-          // Перенаправление на экран OTP
-          context.go('/verify-otp');
-          return;
-        }
-      }
 
       // Общая обработка ошибок
       _showSnackBar(

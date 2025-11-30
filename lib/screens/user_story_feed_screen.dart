@@ -27,7 +27,7 @@ class UserStoryFeedScreen extends StatefulWidget {
 class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
   final PageController _pageController = PageController(initialPage: 0);
   bool isHeartAnimating = false;
-  String? userId;
+  String? user_id;
   // Состояние лайков и счетчиков
   Map<dynamic, bool> likeStatuses = {};
   late Map<int, int> likeCounts;
@@ -43,21 +43,21 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
       likeCounts[story.id] = story.likesCount ?? 0;
     }
 
-    _getUserId().then((_) {
+    _getuser_id().then((_) {
       _fetchLikeStatuses();
     });
   }
 
   // Получение ID текущего пользователя
-  Future<void> _getUserId() async {
+  Future<void> _getuser_id() async {
     final prefs = await SharedPreferences.getInstance();
-    userId = prefs.getInt('userId')?.toString();
+    user_id = prefs.getInt('user_id')?.toString();
   }
 
   // Получение статусов лайков для всех историй в этой ленте
   Future<void> _fetchLikeStatuses() async {
-    if (userId == null) return;
-    final int currentUserId = int.tryParse(userId!) ?? 0;
+    if (user_id == null) return;
+    final int currentuser_id = int.tryParse(user_id!) ?? 0;
 
     // Используем Map.fromIterable для быстрой инициализации likeStatuses
     final initialStatuses = Map.fromIterable(
@@ -70,7 +70,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
       try {
         final isLiked = await st.StoryService().isStoryLiked(
           story.id,
-          currentUserId,
+          currentuser_id,
         );
         initialStatuses[story.id] = isLiked;
       } catch (e) {
@@ -88,7 +88,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
   // Обработка лайка/отмены лайка
   Future<void> _handleLike(Story story) async {
     // Добавим проверку авторизации
-    if (userId == null) {
+    if (user_id == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Для лайка требуется авторизация.')),
       );
@@ -99,14 +99,14 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
       try {
         final newCount = await st.StoryService().likeStory(
           story.id,
-          int.tryParse(userId!) ?? 0,
+          int.tryParse(user_id!) ?? 0,
         );
 
         // Мы могли бы просто переключить локальное состояние,
         // но для точности лучше перепроверить статус на сервере, как вы и делали.
         final isLiked = await st.StoryService().isStoryLiked(
           story.id,
-          int.tryParse(userId!) ?? 0,
+          int.tryParse(user_id!) ?? 0,
         );
 
         setState(() {
@@ -171,7 +171,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
 
           return GestureDetector(
             onDoubleTapDown: (details) {
-              if (userId == null) {
+              if (user_id == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Для лайка требуется авторизация.'),

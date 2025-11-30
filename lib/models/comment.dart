@@ -1,10 +1,9 @@
 class Comment {
   final int id;
-  final int userId;
+  final int userId; // 🟢 ИСПРАВЛЕНО: userId вместо user_id
   final int storyId;
-  final String? userUsername;
-  // >>> НОВОЕ ПОЛЕ: URL аватара
-  final String? userAvatarUrl;
+  final String? username; // 🟢 ИСПРАВЛЕНО: username вместо userUsername
+  final String? avatarUrl; // 🟢 ИСПРАВЛЕНО: avatarUrl вместо userAvatarUrl
   final String content;
   final DateTime createdAt;
   final bool isEdited;
@@ -13,9 +12,8 @@ class Comment {
     required this.id,
     required this.userId,
     required this.storyId,
-    this.userUsername,
-    // >>> Инициализация нового поля
-    this.userAvatarUrl,
+    this.username,
+    this.avatarUrl,
     required this.content,
     required this.createdAt,
     this.isEdited = false,
@@ -24,11 +22,10 @@ class Comment {
   factory Comment.fromJson(Map<String, dynamic> json) {
     return Comment(
       id: json['id'] as int,
-      userId: json['user'] as int? ?? 0,
-      storyId: json['story'] as int? ?? 0,
-      userUsername: json['user_username'] as String?,
-      // >>> Парсинг нового поля из JSON
-      userAvatarUrl: json['user_avatar_url'] as String?,
+      userId: json['user_id'] as int, // 🟢 ИСПРАВЛЕНО: user_id
+      storyId: json['story_id'] as int, // 🟢 ИСПРАВЛЕНО: story_id
+      username: json['username'] as String?, // 🟢 ИСПРАВЛЕНО: username
+      avatarUrl: json['avatar_url'] as String?, // 🟢 ИСПРАВЛЕНО: avatar_url
       content: json['content'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       isEdited: json['is_edited'] ?? false,

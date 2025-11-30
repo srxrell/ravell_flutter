@@ -19,13 +19,13 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
 
     // 1. Пытаемся получить ID текущего пользователя.
     // Если null, пытаемся получить ID гостя.
-    // Если оба null, userId будет null.
-    final int? userId = prefs.getInt('userId');
-    debugPrint(userId.toString());
+    // Если оба null, user_id будет null.
+    final int? user_id = prefs.getInt('user_id');
+    debugPrint(user_id.toString());
     // Дополнительная проверка на 0, хотя GoRouter должен его ловить
-    if (userId != null) {
+    if (user_id != null) {
       // Переход к профилю с корректным ID
-      context.go('/profile/$userId');
+      context.go('/profile/$user_id');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

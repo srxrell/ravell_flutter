@@ -43,7 +43,7 @@ class _SearchFeedState extends State<SearchFeed> {
   Map<int, int> likeCounts = {};
   Offset tapPosition = Offset.zero;
 
-  int? currentUserId; // Тип изменен на int?
+  int? currentuser_id; // Тип изменен на int?
 
   late PageController _pageController;
 
@@ -51,7 +51,7 @@ class _SearchFeedState extends State<SearchFeed> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: widget.initialIndex);
-    _getUserIdAndFetchInitialData();
+    _getuser_idAndFetchInitialData();
   }
 
   @override
@@ -62,21 +62,21 @@ class _SearchFeedState extends State<SearchFeed> {
 
   // --- МЕТОДЫ ИЗ FEED ---
 
-  Future<void> _getUserIdAndFetchInitialData() async {
+  Future<void> _getuser_idAndFetchInitialData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Логика из Feed: получаем либо userId, либо GUEST_ID
-    final storedUserId = prefs.getInt('userId');
+    // Логика из Feed: получаем либо user_id, либо GUEST_ID
+    final storeduser_id = prefs.getInt('user_id');
     final guestId = prefs.getInt('GUEST_ID');
 
-    // Присваиваем currentUserId
-    if (storedUserId != null) {
-      currentUserId = storedUserId;
+    // Присваиваем currentuser_id
+    if (storeduser_id != null) {
+      currentuser_id = storeduser_id;
     } else if (guestId != null) {
-      currentUserId = guestId;
+      currentuser_id = guestId;
     }
 
-    debugPrint('currentUserId: $currentUserId');
+    debugPrint('currentuser_id: $currentuser_id');
     await _fetchInitialData();
   }
 
@@ -99,7 +99,7 @@ class _SearchFeedState extends State<SearchFeed> {
 
   // Скорректирован для соответствия Feed
   Future<void> _fetchLikeStatuses() async {
-    if (currentUserId == null) return;
+    if (currentuser_id == null) return;
     final Map<int, bool> newLikeStatuses = {};
 
     for (var story in stories) {
@@ -107,7 +107,7 @@ class _SearchFeedState extends State<SearchFeed> {
       try {
         final isLiked = await _storyService.isStoryLiked(
           story.id!,
-          currentUserId!,
+          currentuser_id!,
         );
         newLikeStatuses[story.id!] = isLiked;
       } catch (e) {
@@ -124,7 +124,7 @@ class _SearchFeedState extends State<SearchFeed> {
 
   // --- ИЗМЕНЕННЫЙ МЕТОД: Обработка лайка (с учетом анимации) ---
   Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
-    if (story.id != null && currentUserId != null) {
+    if (story.id != null && currentuser_id != null) {
       try {
         final storyId = story.id!;
         final bool wasLiked = likeStatuses[storyId] ?? false;
@@ -142,7 +142,10 @@ class _SearchFeedState extends State<SearchFeed> {
           }
         });
 
-        final newCount = await _storyService.likeStory(storyId, currentUserId!);
+        final newCount = await _storyService.likeStory(
+          storyId,
+          currentuser_id!,
+        );
 
         if (mounted) {
           setState(() {
@@ -337,8 +340,8 @@ class _SearchFeedState extends State<SearchFeed> {
       );
     }
 
-    // Проверяем, загружен ли currentUserId
-    if (currentUserId == null) {
+    // Проверяем, загружен ли currentuser_id
+    if (currentuser_id == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
         bottomNavigationBar: PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),

@@ -1,33 +1,24 @@
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
-// import 'package:readreels/services/story_storage_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
-// ИМПОРТ: Используем общую точку входа, которая сама выберет
-// мобильную или веб-реализацию (StoryStorageIO или StoryStorageWeb).
 import 'package:readreels/services/story_storage_service.dart';
-
 import '../models/story.dart';
 import '../models/comment.dart';
 import '../models/hashtag.dart';
 import 'auth_service.dart';
 
 class StoryService {
-  // ИНИЦИАЛИЗАЦИЯ: Используем общий интерфейс (StoryStorageInterface)
   final StoryStorageInterface _storageService = createStoryStorage();
-
-  // 🟢 ИСПРАВЛЕНО: Используем единый инстанс AuthService
   final AuthService _authService = AuthService();
 
-  // 🚨 ПРОВЕРЬТЕ IP: Убедитесь, что 192.168.1.104 доступен.
-  // Для эмулятора Android часто нужно использовать 10.0.2.2.
-  final String rootUrl = 'https://ravell-backend.onrender.com';
-  final String storiesUrl = 'https://ravell-backend.onrender.com/stories';
+  // 🟢 ИСПРАВЛЕННЫЕ URLS ДЛЯ GO API
+  final String baseUrl = 'https://ravell-backend-1.onrender.com';
 
   // --------------------------------------------------------------------------
-  //                         МЕТОДЫ АВТОРИЗАЦИИ И ЗАГОЛОВКОВ
+  // МЕТОДЫ АВТОРИЗАЦИИ И ЗАГОЛОВКОВ
   // --------------------------------------------------------------------------
 
   Future<Map<String, String>> _getHeaders({bool includeAuth = true}) async {
@@ -45,15 +36,12 @@ class StoryService {
   }
 
   // --------------------------------------------------------------------------
-  //                             МЕТОДЫ ЛАЙКОВ И СТАТУСА
+  // МЕТОДЫ ЛАЙКОВ И СТАТУСА
   // --------------------------------------------------------------------------
 
-  Future<Map<String, dynamic>> _executeLikeRequest(
-    int storyId,
-    String? accessToken,
-  ) async {
+  Future<Map<String, dynamic>> _executeLikeRequest(int storyId) async {
     final response = await http.post(
-      Uri.parse('$storiesUrl/$storyId/like/'),
+      Uri.parse('$baseUrl/stories/$storyId/like'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
     );
 
@@ -68,88 +56,48 @@ class StoryService {
     }
   }
 
-  Future<int> likeStory(int storyId, int userId) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? accessToken = prefs.getString('access_token');
-
+  Future<int> likeStory(int storyId, int user_id) async {
     try {
-      final responseData = await _executeLikeRequest(storyId, accessToken);
-      return responseData['new_likes_count'] as int;
+      final responseData = await _executeLikeRequest(storyId);
+      return responseData['likes_count'] as int; // 🟢 ИСПРАВЛЕНО: likes_count
     } on Exception catch (e) {
       if (e.toString().contains('Unauthorized')) {
-        // 🟢 ИСПРАВЛЕНО: Используем _authService
         await _authService.refreshToken();
-        accessToken = prefs.getString('access_token');
-        if (accessToken == null) {
-          throw Exception('Session expired. Please log in again.');
-        }
-        try {
-          final responseData = await _executeLikeRequest(storyId, accessToken);
-          return responseData['new_likes_count'] as int;
-        } catch (e) {
-          throw Exception('Failed to like story even after token refresh: $e');
-        }
+        final responseData = await _executeLikeRequest(storyId);
+        return responseData['likes_count'] as int;
       } else {
         rethrow;
       }
     }
   }
 
-  Future<bool> isStoryLiked(int storyId, int userId) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? accessToken = prefs.getString('access_token');
-
-    Future<Map<String, dynamic>> executeStatusRequest(
-      String? currentAccessToken,
-    ) async {
+  Future<bool> isStoryLiked(int storyId, int user_id) async {
+    try {
       final response = await http.get(
-        Uri.parse('$storiesUrl/$storyId/like/'),
+        Uri.parse('$baseUrl/stories/$storyId'), // 🟢 Получаем историю
         headers: await _getHeaders(includeAuth: true),
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else if (response.statusCode == 401) {
-        throw Exception('Unauthorized');
+        final data = jsonDecode(response.body);
+        // 🟢 ПРЕДПОЛОЖЕНИЕ: В ответе есть поле is_liked
+        return data['is_liked'] ?? false;
       } else {
-        throw Exception(
-          'Failed to check like status. Status code: ${response.statusCode}',
-        );
-      }
-    }
-
-    try {
-      final responseData = await executeStatusRequest(accessToken);
-      return responseData['is_like'] ?? false;
-    } on Exception catch (e) {
-      if (e.toString().contains('Unauthorized')) {
-        // 🟢 ИСПРАВЛЕНО: Используем _authService
-        await _authService.refreshToken();
-        accessToken = prefs.getString('access_token');
-
-        if (accessToken == null) return false;
-
-        try {
-          final responseData = await executeStatusRequest(accessToken);
-          return responseData['is_like'] ?? false;
-        } catch (e) {
-          debugPrint('Failed to check status even after token refresh.');
-          return false;
-        }
-      } else {
-        debugPrint('Error fetching like status: $e');
         return false;
       }
+    } catch (e) {
+      debugPrint('Error checking like status: $e');
+      return false;
     }
   }
 
   // --------------------------------------------------------------------------
-  //                             МЕТОДЫ ХЕШТЕГОВ И СТОРИС
+  // МЕТОДЫ ХЕШТЕГОВ И СТОРИС
   // --------------------------------------------------------------------------
 
   Future<Hashtag> createHashtag(String name) async {
     final response = await http.post(
-      Uri.parse('$rootUrl/hashtags/'),
+      Uri.parse('$baseUrl/hashtags'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
       body: jsonEncode(<String, String>{'name': name}),
     );
@@ -164,7 +112,7 @@ class StoryService {
 
   Future<List<Hashtag>> getHashtags() async {
     final response = await http.get(
-      Uri.parse('$rootUrl/hashtags/'),
+      Uri.parse('$baseUrl/hashtags'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: false),
     );
 
@@ -182,12 +130,12 @@ class StoryService {
     required List<int> hashtagIds,
   }) async {
     final response = await http.post(
-      Uri.parse('$storiesUrl/'),
+      Uri.parse('$baseUrl/stories'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
       body: jsonEncode(<String, dynamic>{
         'title': title,
         'content': content,
-        'hashtag_ids': hashtagIds,
+        'hashtags': hashtagIds, // 🟢 ИСПРАВЛЕНО: hashtags вместо hashtag_ids
       }),
     );
 
@@ -199,11 +147,13 @@ class StoryService {
     }
   }
 
-  // 🟢 НОВЫЙ ВСПОМОГАТЕЛЬНЫЙ МЕТОД: для выполнения запроса историй
   Future<List<Story>> _executeGetStoriesRequest() async {
     final headers = await _getHeaders(includeAuth: true);
     final response = await http
-        .get(Uri.parse('$storiesUrl/'), headers: headers)
+        .get(
+          Uri.parse('$baseUrl/stories'),
+          headers: headers,
+        ) // 🟢 ИСПРАВЛЕННЫЙ URL
         .timeout(
           const Duration(seconds: 15),
           onTimeout: () {
@@ -214,33 +164,28 @@ class StoryService {
         );
 
     if (response.statusCode == 200) {
-      final List<dynamic> body = jsonDecode(utf8.decode(response.bodyBytes));
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final List<dynamic> body =
+          data['stories']; // 🟢 ИСПРАВЛЕНО: stories вместо прямого списка
       return body.map((dynamic item) => Story.fromJson(item)).toList();
     } else if (response.statusCode == 401) {
-      throw Exception('Unauthorized'); // Явно выбрасываем ошибку для обработки
+      throw Exception('Unauthorized');
     } else {
       throw Exception('Failed to load stories: ${response.statusCode}');
     }
   }
 
-  // 🟢 ИСПРАВЛЕННЫЙ МЕТОД: Включает логику обновления токена
   Future<List<Story>> getStories() async {
     try {
-      return await _executeGetStoriesRequest(); // 1. Первая попытка
+      return await _executeGetStoriesRequest();
     } on Exception catch (e) {
       if (e.toString().contains('Unauthorized')) {
         debugPrint('Token expired on getStories. Attempting refresh...');
         try {
-          await _authService.refreshToken(); // 2. Обновление токена
-          // 3. Повторный вызов после обновления
+          await _authService.refreshToken();
           return await _executeGetStoriesRequest();
         } on Exception {
-          // Если обновление токена не удалось
-          debugPrint('Token refresh failed. Redirecting to login.');
-
-          // Опционально: Очистка данных
           await _authService.logout();
-
           throw Exception('AUTH_EXPIRED_LOGIN_REQUIRED');
         }
       } else if (e is TimeoutException) {
@@ -253,17 +198,12 @@ class StoryService {
 
   Future<Story> getStory(int id) async {
     final response = await http.get(
-      Uri.parse('$storiesUrl?id=$id'),
+      Uri.parse('$baseUrl/stories/$id'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> body = jsonDecode(response.body);
-      if (body.isNotEmpty) {
-        return Story.fromJson(body.first);
-      } else {
-        throw Exception('Story not found');
-      }
+      return Story.fromJson(jsonDecode(response.body));
     } else {
       throw Exception('Failed to get story: ${response.statusCode}');
     }
@@ -276,12 +216,12 @@ class StoryService {
     required List<int> hashtagIds,
   }) async {
     final response = await http.put(
-      Uri.parse('$storiesUrl/$storyId/'),
+      Uri.parse('$baseUrl/stories/$storyId'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
       body: jsonEncode(<String, dynamic>{
         'title': title,
         'content': content,
-        'hashtag_ids': hashtagIds,
+        'hashtags': hashtagIds, // 🟢 ИСПРАВЛЕНО
       }),
     );
 
@@ -297,22 +237,22 @@ class StoryService {
 
   Future<void> deleteStory(int id) async {
     final response = await http.delete(
-      Uri.parse('$storiesUrl/$id/'),
+      Uri.parse('$baseUrl/stories/$id'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
     );
 
-    if (response.statusCode != 204 && response.statusCode != 200) {
+    if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Failed to delete story: ${response.statusCode}');
     }
   }
 
   // --------------------------------------------------------------------------
-  //                             МЕТОДЫ ДОПОЛНИТЕЛЬНОГО КОНТЕНТА
+  // МЕТОДЫ ДОПОЛНИТЕЛЬНОГО КОНТЕНТА
   // --------------------------------------------------------------------------
 
   Future<List<Comment>> getCommentsForStory(int storyId) async {
     final response = await http.get(
-      Uri.parse('$rootUrl/comments/$storyId/'),
+      Uri.parse('$baseUrl/stories/$storyId/comments'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
     );
 
@@ -328,12 +268,12 @@ class StoryService {
 
   Future<Comment> commentStory(
     int storyId,
-    int userId,
+    int user_id,
     String content,
     int? parentCommentId,
   ) async {
     final response = await http.post(
-      Uri.parse('$rootUrl/comments/create/'),
+      Uri.parse('$baseUrl/comments'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
       body: jsonEncode(<String, dynamic>{
         'story_id': storyId,
@@ -350,62 +290,29 @@ class StoryService {
   }
 
   Future<void> markStoryAsNotInterested(int storyId) async {
-    final url = Uri.parse('$storiesUrl/not-interested/');
+    final response = await http.post(
+      Uri.parse(
+        '$baseUrl/stories/$storyId/not-interested',
+      ), // 🟢 ИСПРАВЛЕННЫЙ URL
+      headers: await _getHeaders(includeAuth: true),
+    );
 
-    Future<void> executeNotInterestedRequest() async {
-      final response = await http.post(
-        url,
-        headers: await _getHeaders(includeAuth: true),
-        body: jsonEncode(<String, int>{'story': storyId}),
-      );
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        return;
-      }
-
-      if (response.statusCode == 401) {
-        throw Exception('Unauthorized');
-      }
-
+    if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception(
-        'Failed to mark story as not interested. Status code: ${response.statusCode}, body: ${response.body}',
+        'Failed to mark story as not interested: ${response.statusCode}',
       );
-    }
-
-    try {
-      await executeNotInterestedRequest();
-    } on Exception catch (e) {
-      if (e.toString().contains('Unauthorized')) {
-        // 🟢 ИСПРАВЛЕНО: Используем _authService
-        final prefs = await SharedPreferences.getInstance();
-
-        try {
-          await _authService.refreshToken();
-          final accessToken = prefs.getString('access_token');
-
-          if (accessToken == null) {
-            throw Exception('Session expired. Please log in again.');
-          }
-          await executeNotInterestedRequest();
-        } catch (e) {
-          throw Exception(
-            'Failed to mark story as not interested even after token refresh: $e',
-          );
-        }
-      } else {
-        rethrow;
-      }
     }
   }
 
   Future<List<Story>> searchStories(String searchTerm) async {
     final response = await http.get(
-      Uri.parse('$storiesUrl/?searchTerm=$searchTerm'),
+      Uri.parse('$baseUrl/stories?search=$searchTerm'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> body = jsonDecode(utf8.decode(response.bodyBytes));
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final List<dynamic> body = data['stories'];
       return body.map((dynamic item) => Story.fromJson(item)).toList();
     } else {
       throw Exception('Failed to search stories: ${response.statusCode}');
@@ -413,7 +320,7 @@ class StoryService {
   }
 
   // --------------------------------------------------------------------------
-  //                         МЕТОДЫ ЛОКАЛЬНОГО ХРАНЕНИЯ (КРОССПЛАТФОРМА)
+  // МЕТОДЫ ЛОКАЛЬНОГО ХРАНЕНИЯ
   // --------------------------------------------------------------------------
 
   Future<void> saveStoriesLocally(List<Story> stories) async {

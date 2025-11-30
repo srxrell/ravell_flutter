@@ -1,8 +1,10 @@
 allprojects {
     repositories {
-        // maven {
-        //     url = uri("local_repo") // Используем uri() для указания локального пути
-        // }
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://repo1.maven.org/maven2") }
+        maven { url = uri("https://storage.googleapis.com/download.flutter.io") }
+
         google()
         mavenCentral()
     }

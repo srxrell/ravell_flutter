@@ -1,8 +1,8 @@
-import 'hashtag.dart'; // Предполагаем, что Comment существует
+import 'package:readreels/models/hashtag.dart';
 
 class Story {
   final int id;
-  final int userId;
+  final int userId; // 🟢 ИСПРАВЛЕНО: userId вместо user_id
   final String title;
   final String content;
   final DateTime createdAt;
@@ -36,7 +36,7 @@ class Story {
 
     return Story(
       id: json['id'],
-      userId: json['user'] as int? ?? 0,
+      userId: json['user_id'] as int, // 🟢 ИСПРАВЛЕНО: user_id
       title: json['title'] ?? '',
       content: json['content'] ?? '',
       createdAt:
@@ -51,10 +51,10 @@ class Story {
     );
   }
 
-  // Методы copyWith и toJson (оставлены без изменений)
+  // 🟢 ИСПРАВЬ ТОЖЕ copyWith И toJson!
   Story copyWith({
     int? id,
-    int? userId,
+    int? userId, // 🟢 ИСПРАВЛЕНО
     String? title,
     String? content,
     DateTime? createdAt,
@@ -66,7 +66,7 @@ class Story {
   }) {
     return Story(
       id: id ?? this.id,
-      userId: userId ?? this.userId,
+      userId: userId ?? this.userId, // 🟢 ИСПРАВЛЕНО
       title: title ?? this.title,
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
@@ -81,7 +81,7 @@ class Story {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'user_id': userId,
+      'user_id': userId, // 🟢 ИСПРАВЛЕНО
       'title': title,
       'content': content,
       'created_at': createdAt.toIso8601String(),

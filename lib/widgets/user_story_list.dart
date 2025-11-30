@@ -27,10 +27,11 @@ class UserStoryList extends StatelessWidget {
       // Устанавливаем минимальный размер, чтобы ListView корректно отображался
       // внутри Column/SingleChildScrollView
       mainAxisSize: MainAxisSize.min,
-      children: stories.map((story) {
-        // Создаем виджет карточки для каждой истории
-        return _buildStoryCard(context, story);
-      }).toList(),
+      children:
+          stories.map((story) {
+            // Создаем виджет карточки для каждой истории
+            return _buildStoryCard(context, story);
+          }).toList(),
     );
   }
 
@@ -51,7 +52,9 @@ class UserStoryList extends StatelessWidget {
             context.push('/story/${story.id}?authorId=$authorId');
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Ошибка: Недостаточно данных для навигации.")),
+              const SnackBar(
+                content: Text("Ошибка: Недостаточно данных для навигации."),
+              ),
             );
           }
         },
@@ -63,7 +66,9 @@ class UserStoryList extends StatelessWidget {
               // Заголовок
               Text(
                 story.title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -86,10 +91,15 @@ class UserStoryList extends StatelessWidget {
                 children: [
                   Text(
                     '❤️ ${story.likesCount ?? 0} | 💬 ${story.commentsCount ?? 0}',
-                    style: const TextStyle(fontSize: 14, color: Colors.blueGrey),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.blueGrey,
+                    ),
                   ),
                   Text(
-                    story.createdAt != null ? 'Дата: ${story.createdAt!}' : 'Неизвестно',
+                    story.createdAt != null
+                        ? 'Дата: ${story.createdAt!}'
+                        : 'Неизвестно',
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
