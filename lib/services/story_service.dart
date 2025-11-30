@@ -97,7 +97,7 @@ class StoryService {
 
   Future<Hashtag> createHashtag(String name) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/hashtags'), // 🟢 ИСПРАВЛЕННЫЙ URL
+      Uri.parse('$baseUrl/hashtags/'), // 🟢 ИСПРАВЛЕННЫЙ URL
       headers: await _getHeaders(includeAuth: true),
       body: jsonEncode(<String, String>{'name': name}),
     );
@@ -110,17 +110,35 @@ class StoryService {
     }
   }
 
+  // Обновленная версия getHashtags с безопасным парсингом
   Future<List<Hashtag>> getHashtags() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/hashtags'), // 🟢 ИСПРАВЛЕННЫЙ URL
-      headers: await _getHeaders(includeAuth: false),
-    );
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/hashtags/'),
+        headers: await _getHeaders(includeAuth: false),
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> body = jsonDecode(utf8.decode(response.bodyBytes));
-      return body.map((dynamic item) => Hashtag.fromJson(item)).toList();
-    } else {
-      throw Exception('Failed to load hashtags: ${response.statusCode}');
+      print('Hashtags response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = _safeParseJson(response.body);
+        final body = _safeParseList(data, 'hashtags');
+
+        return body.map((dynamic item) {
+          try {
+            return Hashtag.fromJson(item);
+          } catch (e) {
+            print('Error parsing hashtag: $e');
+            // Возвращаем заглушку вместо ошибки
+            return Hashtag(id: 0, name: 'Error');
+          }
+        }).toList();
+      } else {
+        throw Exception('Failed to load hashtags: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getHashtags: $e');
+      return []; // Возвращаем пустой список вместо ошибки
     }
   }
 
@@ -150,10 +168,7 @@ class StoryService {
   Future<List<Story>> _executeGetStoriesRequest() async {
     final headers = await _getHeaders(includeAuth: true);
     final response = await http
-        .get(
-          Uri.parse('$baseUrl/stories'),
-          headers: headers,
-        ) // 🟢 ИСПРАВЛЕННЫЙ URL
+        .get(Uri.parse('$baseUrl/stories'), headers: headers)
         .timeout(
           const Duration(seconds: 15),
           onTimeout: () {
@@ -163,11 +178,23 @@ class StoryService {
           },
         );
 
+    print('Stories response status: ${response.statusCode}');
+    print('Stories response body: ${response.body}');
+
     if (response.statusCode == 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
-      final List<dynamic> body =
-          data['stories']; // 🟢 ИСПРАВЛЕНО: stories вместо прямого списка
-      return body.map((dynamic item) => Story.fromJson(item)).toList();
+      final Map<String, dynamic> data = jsonDecode(
+        utf8.decode(response.bodyBytes),
+      );
+
+      // 🟢 БЕЗОПАСНОЕ ИЗВЛЕЧЕНИЕ СПИСКА
+      final List<dynamic>? body = data['stories'];
+
+      if (body != null && body is List) {
+        return body.map((dynamic item) => Story.fromJson(item)).toList();
+      } else {
+        print('Warning: stories field is not a list or is null');
+        return [];
+      }
     } else if (response.statusCode == 401) {
       throw Exception('Unauthorized');
     } else {
@@ -251,18 +278,45 @@ class StoryService {
   // --------------------------------------------------------------------------
 
   Future<List<Comment>> getCommentsForStory(int storyId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/stories/$storyId/comments'), // 🟢 ИСПРАВЛЕННЫЙ URL
-      headers: await _getHeaders(includeAuth: true),
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> body = jsonDecode(utf8.decode(response.bodyBytes));
-      return body.map((dynamic item) => Comment.fromJson(item)).toList();
-    } else {
-      throw Exception(
-        'Failed to get comments for story: ${response.statusCode}',
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/stories/$storyId/comments'),
+        headers: await _getHeaders(includeAuth: true),
       );
+
+      print('Comments response status: ${response.statusCode}');
+      print('Comments response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final dynamic decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
+
+        // 🟢 ОБРАБОТКА РАЗНЫХ ФОРМАТОВ ОТВЕТА
+        List<dynamic> body;
+
+        if (decodedBody is List) {
+          // Если ответ - сразу список
+          body = decodedBody;
+        } else if (decodedBody is Map<String, dynamic>) {
+          // Если ответ - объект с полем comments
+          body = decodedBody['comments'] ?? [];
+        } else {
+          body = [];
+        }
+
+        if (body is List) {
+          return body.map((dynamic item) => Comment.fromJson(item)).toList();
+        } else {
+          print('Warning: comments field is not a list');
+          return [];
+        }
+      } else {
+        throw Exception(
+          'Failed to get comments for story: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      print('Error in getCommentsForStory: $e');
+      rethrow;
     }
   }
 
@@ -305,23 +359,70 @@ class StoryService {
   }
 
   Future<List<Story>> searchStories(String searchTerm) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/stories?search=$searchTerm'), // 🟢 ИСПРАВЛЕННЫЙ URL
-      headers: await _getHeaders(includeAuth: true),
-    );
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/stories?search=$searchTerm'),
+        headers: await _getHeaders(includeAuth: true),
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
-      final List<dynamic> body = data['stories'];
-      return body.map((dynamic item) => Story.fromJson(item)).toList();
-    } else {
-      throw Exception('Failed to search stories: ${response.statusCode}');
+      print('Search stories response status: ${response.statusCode}');
+      print('Search stories response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(
+          utf8.decode(response.bodyBytes),
+        );
+
+        // 🟢 БЕЗОПАСНОЕ ИЗВЛЕЧЕНИЕ СПИСКА
+        final List<dynamic>? body = data['stories'];
+
+        if (body != null && body is List) {
+          return body.map((dynamic item) => Story.fromJson(item)).toList();
+        } else {
+          print('Warning: search stories field is not a list or is null');
+          return [];
+        }
+      } else {
+        throw Exception('Failed to search stories: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in searchStories: $e');
+      rethrow;
     }
   }
 
   // --------------------------------------------------------------------------
   // МЕТОДЫ ЛОКАЛЬНОГО ХРАНЕНИЯ
   // --------------------------------------------------------------------------
+  // 🟢 БЕЗОПАСНЫЕ МЕТОДЫ ДЛЯ ОБРАБОТКИ JSON
+  List<dynamic> _safeParseList(dynamic data, String fieldName) {
+    try {
+      if (data is Map<String, dynamic>) {
+        final field = data[fieldName];
+        if (field != null && field is List) {
+          return field;
+        }
+      } else if (data is List) {
+        return data;
+      }
+      print('Warning: $fieldName field is not a list or is null');
+      return [];
+    } catch (e) {
+      print('Error parsing $fieldName: $e');
+      return [];
+    }
+  }
+
+  // 🟢 БЕЗОПАСНЫЙ ПАРСИНГ ОТВЕТА
+  Map<String, dynamic> _safeParseJson(String responseBody) {
+    try {
+      final decoded = jsonDecode(utf8.decode(responseBody.codeUnits));
+      return decoded is Map<String, dynamic> ? decoded : {};
+    } catch (e) {
+      print('Error parsing JSON: $e');
+      return {};
+    }
+  }
 
   Future<void> saveStoriesLocally(List<Story> stories) async {
     await _storageService.saveStories(stories);

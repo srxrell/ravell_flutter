@@ -3,6 +3,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:readreels/screens/add_story.dart';
 import 'package:readreels/screens/subscribers_list.dart';
 import 'package:readreels/screens/user_story_feed_screen.dart';
+import 'package:readreels/services/auth_service.dart';
 import 'package:readreels/services/story_service.dart';
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/neowidgets.dart';
@@ -11,9 +12,6 @@ import 'package:readreels/services/subscription_service.dart';
 import 'edit_profile.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
-
-// Предполагается, что в 'package:readreels/theme.dart' определена neoBackground
-// Предполагается, что в 'package:readreels/theme.dart' определена primaryColor (для иконок в диалоге)
 
 class UserProfileScreen extends StatefulWidget {
   final int profileuser_id;
@@ -26,11 +24,13 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final SubscriptionService _subscriptionService = SubscriptionService();
-  final StoryService _storyService = StoryService(); // ✅ StoryService
+  final StoryService _storyService = StoryService();
+  final AuthService _authService = AuthService();
 
   int? currentuser_id;
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -41,18 +41,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   // --- МЕТОДЫ УПРАВЛЕНИЯ ИСТОРИЯМИ (РЕДАКТИРОВАНИЕ/УДАЛЕНИЕ) ---
 
   Future<void> _deleteStory(int storyId) async {
-    // Закрываем диалог подтверждения
+    if (!mounted) return;
+
     Navigator.of(context).pop();
 
     setState(() {
-      _isLoading = true; // Показываем индикатор загрузки
+      _isLoading = true;
     });
 
     try {
       await _storyService.deleteStory(storyId);
       _showSnackbar('История успешно удалена.');
-
-      // ВАЖНО: Перезагружаем данные профиля, чтобы обновить список историй
       await _loadProfileData();
     } catch (e) {
       _showSnackbar('Ошибка при удалении истории: ${e.toString()}');
@@ -67,24 +66,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   void _showStoryOptionsDialog(Story story) {
     showModalBottomSheet(
-      // 🔑 Настройки для нео-стиля: прозрачный фон и кастомный барьер
       barrierColor: const Color.fromARGB(153, 0, 0, 0),
       elevation: 0,
       context: context,
       isScrollControlled: true,
-      // 🔑 Цвет фона модального окна должен быть прозрачным,
-      // чтобы контейнер внутри управлял стилем
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        // 🔑 Оборачиваем содержимое в Container с кастомным декорированием
         return Container(
-          // margin добавляет отступы от краев экрана, чтобы видеть барьер
           margin: const EdgeInsets.all(10),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            // Используйте ваш цвет фона, например, Colors.white или neoWhite
             color: Colors.white,
-            // Создаем "квадратную" неоморфическую рамку
             border: const Border(
               top: BorderSide(color: neoBlack, width: 4),
               left: BorderSide(color: neoBlack, width: 4),
@@ -94,7 +86,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
           child: SafeArea(
-            // ⬅️ Оставляем SafeArea внутри контейнера, чтобы защитить ListTiles
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
@@ -102,19 +93,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   leading: const Icon(Icons.edit, color: Colors.black),
                   title: const Text('Редактировать статью'),
                   onTap: () {
-                    Navigator.of(context).pop(); // Закрываем bottom sheet
-
-                    // ✅ ИНТЕГРАЦИЯ: Навигация на EditStoryScreen
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder:
-                            (context) => EditStoryScreen(
-                              story: story,
-                              // Передаем коллбэк для обновления профиля после редактирования
-                              onStoryUpdated: _loadProfileData,
-                            ),
-                      ),
-                    );
+                    Navigator.of(context).pop();
+                    if (mounted) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (context) => EditStoryScreen(
+                                story: story,
+                                onStoryUpdated: _loadProfileData,
+                              ),
+                        ),
+                      );
+                    }
                   },
                 ),
                 ListTile(
@@ -124,10 +114,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     style: TextStyle(color: Colors.red),
                   ),
                   onTap: () {
-                    Navigator.of(
-                      context,
-                    ).pop(); // ⬅️ Важно закрыть bottom sheet перед диалогом
-                    // Показываем диалог подтверждения перед удалением
+                    Navigator.of(context).pop();
                     _showDeleteConfirmationDialog(story.id);
                   },
                 ),
@@ -140,8 +127,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   void _showDeleteConfirmationDialog(int storyId) {
-    // Закрываем предыдущий bottom sheet
-    Navigator.of(context).pop();
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -151,9 +137,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             content: const Text('Вы уверены, что хотите удалить эту статью?'),
             actions: <Widget>[
               TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); // Закрываем диалог
-                },
+                onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Отмена'),
               ),
               TextButton(
@@ -170,19 +154,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   // --- ФУНКЦИИ ПРОФИЛЯ ---
 
-  void _navigateToEditProfile() async {
-    if (_profileData == null) return;
+  Future<void> _navigateToEditProfile() async {
+    if (_profileData == null || !mounted) return;
 
-    // 1. Передаем текущие данные и функцию обновления
+    final userData = _profileData!['user_data'];
+    if (userData == null || userData is! Map<String, dynamic>) return;
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder:
             (context) => EditProfileScreen(
-              initialUserData:
-                  _profileData!['user_data'] as Map<String, dynamic>,
-              // Обновляем состояние профиля напрямую
+              initialUserData: userData,
               onProfileUpdated: (newUserData) {
-                if (mounted) {
+                if (mounted && _profileData != null) {
                   setState(() {
                     _profileData!['user_data'] = newUserData;
                   });
@@ -192,25 +176,27 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
     );
 
-    // ✅ Перезагружаем все данные профиля после возвращения.
     await _loadProfileData();
   }
 
   void _navigateToSubscriptionList(String initialTab) {
-    if (_profileData == null) return;
+    if (_profileData == null || !mounted) return;
 
-    // Получаем ID пользователя, чей профиль мы смотрим
-    final user_id = _profileData!['user_data']['id'] as int;
-    final username = _profileData!['user_data']['username'] as String;
+    final userData = _profileData!['user_data'];
+    if (userData == null || userData is! Map<String, dynamic>) return;
+
+    final userId = userData['id'];
+    final username = userData['username'];
+
+    if (userId is! int || username is! String) return;
 
     Navigator.of(context).push(
       MaterialPageRoute(
         builder:
             (context) => SubscriptionsSubscriberListScreen(
-              profileuser_id: user_id,
+              profileuser_id: userId,
               profileUsername: username,
               initialTab: initialTab,
-              // Передаем колбэк для обновления статистики
               onUpdate: _loadProfileData,
             ),
       ),
@@ -218,35 +204,49 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _loadProfileData() async {
-    final sp = await SharedPreferences.getInstance();
-    currentuser_id = sp.getInt('user_id');
+    if (!mounted) return;
 
-    print(
-      'DEBUG: [UserProfileScreen] Current User ID (key: user_id): $currentuser_id',
-    );
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    final data = await _subscriptionService.fetchUserProfile(
-      widget.profileuser_id,
-    );
-
-    if (data != null && mounted) {
+    try {
       setState(() {
-        _profileData = data;
-        _isLoading = false;
+        _isLoading = true;
+        _errorMessage = null;
       });
-    } else if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+
+      final sp = await SharedPreferences.getInstance();
+      currentuser_id = sp.getInt('user_id');
+
+      print('DEBUG: [UserProfileScreen] Current User ID: $currentuser_id');
+
+      final data = await _subscriptionService.fetchUserProfile(
+        widget.profileuser_id,
+      );
+
+      if (mounted) {
+        if (data != null && data is Map<String, dynamic>) {
+          setState(() {
+            _profileData = data;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _profileData = null;
+            _isLoading = false;
+            _errorMessage = 'Не удалось загрузить данные профиля';
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Ошибка загрузки: ${e.toString()}';
+        });
+      }
     }
   }
 
   Future<void> _handleFollowToggle() async {
-    if (_profileData == null) return;
+    if (_profileData == null || !mounted) return;
 
     setState(() {
       _isLoading = true;
@@ -257,13 +257,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         widget.profileuser_id,
       );
       _showSnackbar(result);
-
       await _loadProfileData();
     } catch (e) {
       _showSnackbar(e.toString());
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -277,7 +278,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   // --- ВИДЖЕТЫ ---
 
-  Widget _buildStatColumn(String label, int count) {
+  Widget _buildStatColumn(String label, dynamic count) {
+    final int countValue = _safeParseInt(count) ?? 0;
+
     // Для "Статей" не делаем кликабельным
     if (label == "Статей") {
       return NeoContainer(
@@ -286,7 +289,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              count.toString(),
+              countValue.toString(),
               style: Theme.of(
                 context,
               ).textTheme.headlineLarge!.copyWith(fontSize: 20),
@@ -313,7 +316,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              count.toString(),
+              countValue.toString(),
               style: Theme.of(
                 context,
               ).textTheme.headlineLarge!.copyWith(fontSize: 20),
@@ -330,34 +333,49 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  int? _safeParseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
   // Список историй с обработкой долгого нажатия
   Widget _buildExpandableStoryList(List<Story> stories, bool isMyProfile) {
+    if (stories.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20.0),
+        child: Center(
+          child: Text('Пока нет историй', style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+
     return Column(
       children:
           stories.map((story) {
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
-              // ✅ GESTUREDETECTOR для обработки onTap (открыть) и onLongPress (опции)
               child: GestureDetector(
                 onTap: () {
-                  // Здесь ваша навигация на экран истории
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder:
-                          (context) => UserStoryFeedScreen(
-                            stories: stories,
-                            initialIndex: 0,
-                          ),
-                    ),
-                  );
+                  if (mounted) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (context) => UserStoryFeedScreen(
+                              stories: stories,
+                              initialIndex: stories.indexOf(story),
+                            ),
+                      ),
+                    );
+                  }
                 },
-                // ✅ Логика для долгого нажатия: показываем опции, только если это свой профиль
                 onLongPress:
                     isMyProfile ? () => _showStoryOptionsDialog(story) : null,
-
                 child: ListTile(
                   title: Text(
-                    story.title,
+                    story.title.isNotEmpty ? story.title : 'Без названия',
                     style: Theme.of(
                       context,
                     ).textTheme.headlineLarge!.copyWith(fontSize: 20),
@@ -377,6 +395,63 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  // Безопасное извлечение данных профиля
+  Map<String, dynamic> _getSafeUserData() {
+    if (_profileData == null) return {};
+
+    final userData = _profileData!['user_data'];
+    if (userData == null || userData is! Map<String, dynamic>) return {};
+
+    return userData;
+  }
+
+  Map<String, dynamic> _getSafeStats() {
+    if (_profileData == null) return {};
+
+    final stats = _profileData!['stats'];
+    if (stats == null || stats is! Map<String, dynamic>) return {};
+
+    return stats;
+  }
+
+  List<Story> _getSafeStories() {
+    if (_profileData == null) return [];
+
+    final storiesData = _profileData!['stories'];
+    if (storiesData == null || storiesData is! List) return [];
+
+    try {
+      return storiesData.map((json) {
+        try {
+          return Story.fromJson(json);
+        } catch (e) {
+          print('Error parsing story: $e');
+          return Story(
+            id: 0,
+            title: 'Ошибка загрузки',
+            content: 'Не удалось загрузить историю',
+            userId: 0,
+            createdAt: DateTime.now(),
+            likesCount: 0,
+            commentsCount: 0,
+            userLiked: false,
+            hashtags: [],
+          );
+        }
+      }).toList();
+    } catch (e) {
+      print('Error converting stories: $e');
+      return [];
+    }
+  }
+
+  bool _getSafeIsFollowing() {
+    if (_profileData == null) return false;
+
+    final isFollowing = _profileData!['is_following'];
+    return isFollowing == true;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -386,16 +461,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       );
     }
 
-    if (_profileData == null) {
+    if (_errorMessage != null || _profileData == null) {
       return Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text("Не удалось загрузить профиль. Повторить?"),
+              Text(_errorMessage ?? "Не удалось загрузить профиль"),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _loadProfileData,
-                child: const Text("Обновить"),
+                child: const Text("Повторить"),
               ),
             ],
           ),
@@ -404,23 +480,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       );
     }
 
-    final userData = _profileData!['user_data'];
-    final stats = _profileData!['stats'];
-    final storiesData = _profileData!['stories'] as List;
+    final userData = _getSafeUserData();
+    final stats = _getSafeStats();
+    final userStories = _getSafeStories();
+    final isFollowing = _getSafeIsFollowing();
 
-    final profileId = userData['id'] as int?;
-
-    // ✅ Определение, является ли это профиль текущего пользователя
+    final profileId = userData['id'];
     final isMyProfile =
-        (currentuser_id != null &&
-            profileId != null &&
-            currentuser_id == profileId);
-    final isFollowing = _profileData!['is_following'] as bool? ?? false;
+        currentuser_id != null &&
+        profileId != null &&
+        profileId is int &&
+        currentuser_id == profileId;
 
-    final userStories =
-        storiesData.map((json) => Story.fromJson(json)).toList();
-
-    // Вычисляем полное имя, никнейм и URL аватара
+    // Безопасное извлечение данных пользователя
     final firstName = userData['first_name'] as String? ?? '';
     final lastName = userData['last_name'] as String? ?? '';
     final username = userData['username'] as String? ?? 'User';
@@ -508,12 +580,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatColumn("Статей", stats['stories_count'] ?? 0),
-                    _buildStatColumn(
-                      "Подписчиков",
-                      stats['followers_count'] ?? 0,
-                    ),
-                    _buildStatColumn("Подписок", stats['following_count'] ?? 0),
+                    _buildStatColumn("Статей", stats['stories_count']),
+                    _buildStatColumn("Подписчиков", stats['followers_count']),
+                    _buildStatColumn("Подписок", stats['following_count']),
                   ],
                 ),
               ],
@@ -564,10 +633,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
               ),
               onTap: () {
-                // ...
+                _authService.logout();
+                if (mounted) {
+                  Navigator.pop(context);
+                }
               },
             ),
-            // ...
           ],
         ),
       ),
