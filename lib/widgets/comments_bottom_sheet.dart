@@ -29,7 +29,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         MaterialPageRoute(
           builder:
               (context) => UserProfileScreen(
-                profileuser_id: userId,
+                profileUserId: userId,
               ), // 🟢 ИСПРАВЛЕНО: profileUserId
         ),
       );

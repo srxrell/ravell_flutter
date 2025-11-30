@@ -36,7 +36,7 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
             path: '/profile/:user_id', // Маршрут с обязательным параметром ID
             builder: (context, state) {
               final user_id = int.parse(state.pathParameters['user_id']!);
-              return UserProfileScreen(profileuser_id: user_id);
+              return UserProfileScreen(profileUserId: user_id);
             },
           ),
           GoRoute(

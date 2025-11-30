@@ -50,7 +50,7 @@ class _SubscriptionsSubscriberListScreenState
     // ВАЖНО: Мы загружаем ID текущего пользователя здесь,
     // чтобы не делать это в каждом ListTile
     return FutureBuilder<int?>(
-      future: _subscriptionService.getuser_id(),
+      future: _subscriptionService.getUserId(),
       builder: (context, currentuser_idSnapshot) {
         final currentuser_id = currentuser_idSnapshot.data;
 

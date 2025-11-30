@@ -1,3 +1,4 @@
+// services/subscription_service.dart
 import 'dart:convert';
 import 'dart:io' if (dart.library.html) 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -8,20 +9,21 @@ import 'dart:async';
 import 'package:readreels/services/file_uploader_stub.dart'
     if (dart.library.io) 'package:readreels/services/file_uploader_io.dart'
     if (dart.library.html) 'package:readreels/services/file_uploader_web.dart';
+import 'auth_service.dart';
 
 class SubscriptionService {
-  // 🟢 ИСПРАВЛЕННЫЙ URL
   final String baseUrl = 'https://ravell-backend-1.onrender.com';
   final _fileUploader = getFileUploader();
+  final AuthService _authService = AuthService();
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('access_token');
   }
 
-  Future<int?> getuser_id() async {
+  Future<int?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('user_id'); // 🟢 ИСПРАВЛЕНО: user_id
+    return prefs.getInt('user_id');
   }
 
   /// Обновляет профиль текущего пользователя
@@ -33,11 +35,10 @@ class SubscriptionService {
       throw Exception('Пользователь не авторизован. Токен отсутствует.');
     }
 
-    final url = Uri.parse('$baseUrl/profile'); // 🟢 ИСПРАВЛЕННЫЙ URL
+    final url = Uri.parse('$baseUrl/profile');
 
     try {
       final response = await http.put(
-        // 🟢 ИСПРАВЛЕНО: PUT вместо PATCH
         url,
         headers: {
           'Content-Type': 'application/json',
@@ -72,10 +73,10 @@ class SubscriptionService {
       throw Exception('Пользователь не авторизован. Токен отсутствует.');
     }
 
-    final url = Uri.parse('$baseUrl/profile'); // 🟢 ИСПРАВЛЕННЫЙ URL
+    final url = Uri.parse('$baseUrl/profile');
 
     try {
-      final request = http.MultipartRequest('PUT', url); // 🟢 ИСПРАВЛЕНО: PUT
+      final request = http.MultipartRequest('PUT', url);
       request.headers['Authorization'] = 'Bearer $token';
 
       // Добавляем текстовые поля
@@ -109,11 +110,9 @@ class SubscriptionService {
     }
   }
 
-  /// Получает профиль пользователя по ID
-  Future<Map<String, dynamic>?> fetchUserProfile(int user_id) async {
-    final url = Uri.parse(
-      '$baseUrl/users/$user_id/profile',
-    ); // 🟢 ИСПРАВЛЕННЫЙ URL
+  /// Получает профиль пользователя по ID с адаптацией к формату Go API
+  Future<Map<String, dynamic>?> fetchUserProfile(int userId) async {
+    final url = Uri.parse('$baseUrl/users/$userId/profile');
     final token = await _getToken();
 
     try {
@@ -122,9 +121,30 @@ class SubscriptionService {
         headers: token != null ? {'Authorization': 'Bearer $token'} : {},
       );
 
+      print('🔵 SubscriptionService - Status: ${response.statusCode}');
+      print('🔵 SubscriptionService - Body: ${response.body}');
+
       if (response.statusCode == 200) {
-        return jsonDecode(utf8.decode(response.bodyBytes))
-            as Map<String, dynamic>;
+        final Map<String, dynamic> data = json.decode(
+          utf8.decode(response.bodyBytes),
+        );
+
+        // 🟢 АДАПТАЦИЯ К ФОРМАТУ GO API
+        final user = data['user'];
+        final stats = data['stats'];
+
+        if (user != null && stats != null) {
+          // Преобразуем в формат, который ожидает Flutter
+          return {
+            'user_data': user, // 🟢 ИЗМЕНЕНИЕ: user -> user_data
+            'stats': stats,
+            'stories': data['stories'] ?? [],
+            'is_following': data['is_following'] ?? false,
+          };
+        } else {
+          print('❌ Invalid API response format');
+          return null;
+        }
       } else if (response.statusCode == 404) {
         debugPrint("Профиль пользователя не найден (404)");
         return null;
@@ -141,10 +161,8 @@ class SubscriptionService {
   }
 
   /// Получает подписчиков пользователя
-  Future<List<Map<String, dynamic>>> fetchFollowers(int user_id) async {
-    final url = Uri.parse(
-      '$baseUrl/users/$user_id/followers',
-    ); // 🟢 ИСПРАВЛЕННЫЙ URL
+  Future<List<Map<String, dynamic>>> fetchFollowers(int userId) async {
+    final url = Uri.parse('$baseUrl/users/$userId/followers');
     final token = await _getToken();
 
     try {
@@ -155,8 +173,7 @@ class SubscriptionService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final List<dynamic> jsonList =
-            data['followers']; // 🟢 ИСПРАВЛЕНО: followers
+        final List<dynamic> jsonList = data['followers'] ?? [];
         return jsonList.cast<Map<String, dynamic>>();
       } else {
         debugPrint("Не удалось загрузить подписчиков: ${response.statusCode}");
@@ -168,10 +185,8 @@ class SubscriptionService {
   }
 
   /// Получает подписки пользователя
-  Future<List<Map<String, dynamic>>> fetchFollowing(int user_id) async {
-    final url = Uri.parse(
-      '$baseUrl/users/$user_id/following',
-    ); // 🟢 ИСПРАВЛЕННЫЙ URL
+  Future<List<Map<String, dynamic>>> fetchFollowing(int userId) async {
+    final url = Uri.parse('$baseUrl/users/$userId/following');
     final token = await _getToken();
 
     try {
@@ -182,8 +197,7 @@ class SubscriptionService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final List<dynamic> jsonList =
-            data['following']; // 🟢 ИСПРАВЛЕНО: following
+        final List<dynamic> jsonList = data['following'] ?? [];
         return jsonList.cast<Map<String, dynamic>>();
       } else {
         debugPrint("Не удалось загрузить подписки: ${response.statusCode}");
@@ -195,24 +209,25 @@ class SubscriptionService {
   }
 
   /// Подписка/отписка от пользователя
-  Future<String> toggleFollow(int user_idToFollow) async {
+  Future<String> toggleFollow(int userIdToFollow) async {
     final token = await _getToken();
     if (token == null) {
       throw Exception('Пользователь не авторизован. Токен отсутствует.');
     }
 
-    // 🟢 ИСПРАВЛЕНО: Сначала проверяем текущий статус подписки
     try {
-      final currentuser_id = await getuser_id();
-      final following = await fetchFollowing(currentuser_id!);
-      final isFollowing = following.any(
-        (user) => user['id'] == user_idToFollow,
-      );
+      final currentUserId = await getUserId();
+      if (currentUserId == null) {
+        throw Exception('Не удалось получить ID текущего пользователя');
+      }
+
+      final following = await fetchFollowing(currentUserId);
+      final isFollowing = following.any((user) => user['id'] == userIdToFollow);
 
       final url = Uri.parse(
         isFollowing
-            ? '$baseUrl/users/$user_idToFollow/unfollow' // 🟢 Отписка
-            : '$baseUrl/users/$user_idToFollow/follow', // 🟢 Подписка
+            ? '$baseUrl/users/$userIdToFollow/unfollow'
+            : '$baseUrl/users/$userIdToFollow/follow',
       );
 
       final response = await http.post(
@@ -238,9 +253,9 @@ class SubscriptionService {
     }
   }
 
-  /// 🟢 НОВЫЙ МЕТОД: Получает свой профиль
+  /// Получает свой профиль
   Future<Map<String, dynamic>> getMyProfile() async {
-    final url = Uri.parse('$baseUrl/profile'); // 🟢 ИСПРАВЛЕННЫЙ URL
+    final url = Uri.parse('$baseUrl/profile');
     final token = await _getToken();
 
     if (token == null) {

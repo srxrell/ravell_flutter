@@ -1,3 +1,4 @@
+// screens/user_profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:readreels/screens/add_story.dart';
@@ -14,9 +15,9 @@ import 'package:readreels/models/story.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
 
 class UserProfileScreen extends StatefulWidget {
-  final int profileuser_id;
+  final int profileUserId;
 
-  const UserProfileScreen({super.key, required this.profileuser_id});
+  const UserProfileScreen({super.key, required this.profileUserId});
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -27,7 +28,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final StoryService _storyService = StoryService();
   final AuthService _authService = AuthService();
 
-  int? currentuser_id;
+  int? currentUserId;
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
   String? _errorMessage;
@@ -38,7 +39,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _loadProfileData();
   }
 
-  // --- МЕТОДЫ УПРАВЛЕНИЯ ИСТОРИЯМИ (РЕДАКТИРОВАНИЕ/УДАЛЕНИЕ) ---
+  // --- МЕТОДЫ УПРАВЛЕНИЯ ИСТОРИЯМИ ---
 
   Future<void> _deleteStory(int storyId) async {
     if (!mounted) return;
@@ -157,8 +158,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _navigateToEditProfile() async {
     if (_profileData == null || !mounted) return;
 
-    final userData = _profileData!['user_data'];
-    if (userData == null || userData is! Map<String, dynamic>) return;
+    final userData = _getSafeUserData();
+    if (userData.isEmpty) return;
 
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -168,7 +169,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               onProfileUpdated: (newUserData) {
                 if (mounted && _profileData != null) {
                   setState(() {
-                    _profileData!['user_data'] = newUserData;
+                    // Обновляем данные в профиле
+                    _profileData = {..._profileData!, 'user_data': newUserData};
                   });
                 }
               },
@@ -182,8 +184,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   void _navigateToSubscriptionList(String initialTab) {
     if (_profileData == null || !mounted) return;
 
-    final userData = _profileData!['user_data'];
-    if (userData == null || userData is! Map<String, dynamic>) return;
+    final userData = _getSafeUserData();
+    if (userData.isEmpty) return;
 
     final userId = userData['id'];
     final username = userData['username'];
@@ -213,13 +215,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       });
 
       final sp = await SharedPreferences.getInstance();
-      currentuser_id = sp.getInt('user_id');
+      currentUserId = sp.getInt('user_id');
 
-      print('DEBUG: [UserProfileScreen] Current User ID: $currentuser_id');
+      print('🟡 DEBUG: Current User ID: $currentUserId');
+      print('🟡 DEBUG: Profile User ID: ${widget.profileUserId}');
 
       final data = await _subscriptionService.fetchUserProfile(
-        widget.profileuser_id,
+        widget.profileUserId,
       );
+
+      print('🟢 DEBUG: API Response TYPE: ${data.runtimeType}');
+      print('🟢 DEBUG: API Response KEYS: ${data?.keys}');
+      print('🟢 DEBUG: Has user_data: ${data?.containsKey('user_data')}');
+      print('🟢 DEBUG: Has user: ${data?.containsKey('user')}');
+      print('🟢 DEBUG: Has stats: ${data?.containsKey('stats')}');
 
       if (mounted) {
         if (data != null && data is Map<String, dynamic>) {
@@ -236,6 +245,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         }
       }
     } catch (e) {
+      print('❌ DEBUG: Error loading profile: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -254,7 +264,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     try {
       final result = await _subscriptionService.toggleFollow(
-        widget.profileuser_id,
+        widget.profileUserId,
       );
       _showSnackbar(result);
       await _loadProfileData();
@@ -281,7 +291,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildStatColumn(String label, dynamic count) {
     final int countValue = _safeParseInt(count) ?? 0;
 
-    // Для "Статей" не делаем кликабельным
     if (label == "Статей") {
       return NeoContainer(
         child: Column(
@@ -305,7 +314,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       );
     }
 
-    // Для "Подписчиков" и "Подписок" делаем кликабельным
     String tabName = label == "Подписчиков" ? 'followers' : 'following';
 
     return GestureDetector(
@@ -395,11 +403,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  // Безопасное извлечение данных профиля
+  // 🟢 ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ФОРМАТОМ GO API
   Map<String, dynamic> _getSafeUserData() {
     if (_profileData == null) return {};
 
-    final userData = _profileData!['user_data'];
+    // 🟢 ПРОБУЕМ ОБА ВАРИАНТА - и user_data и user
+    final userData = _profileData!['user_data'] ?? _profileData!['user'];
     if (userData == null || userData is! Map<String, dynamic>) return {};
 
     return userData;
@@ -417,8 +426,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   List<Story> _getSafeStories() {
     if (_profileData == null) return [];
 
-    final storiesData = _profileData!['stories'];
-    if (storiesData == null || storiesData is! List) return [];
+    // 🟢 ПРОБУЕМ ОБА ВАРИАНТА
+    final storiesData = _profileData!['stories'] ?? [];
+    if (storiesData is! List) return [];
 
     try {
       return storiesData.map((json) {
@@ -450,6 +460,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     final isFollowing = _profileData!['is_following'];
     return isFollowing == true;
+  }
+
+  bool _getIsMyProfile() {
+    final userData = _getSafeUserData();
+    final profileId = userData['id'];
+
+    return currentUserId != null &&
+        profileId != null &&
+        profileId is int &&
+        currentUserId == profileId;
   }
 
   @override
@@ -484,13 +504,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final stats = _getSafeStats();
     final userStories = _getSafeStories();
     final isFollowing = _getSafeIsFollowing();
-
-    final profileId = userData['id'];
-    final isMyProfile =
-        currentuser_id != null &&
-        profileId != null &&
-        profileId is int &&
-        currentuser_id == profileId;
+    final isMyProfile = _getIsMyProfile();
 
     // Безопасное извлечение данных пользователя
     final firstName = userData['first_name'] as String? ?? '';
@@ -600,7 +614,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   text: 'Редактировать профиль',
                 ),
               )
-            else if (currentuser_id != null)
+            else if (currentUserId != null)
               SizedBox(
                 width: double.infinity,
                 child: NeoButton(
