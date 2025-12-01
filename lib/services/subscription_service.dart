@@ -9,12 +9,10 @@ import 'dart:async';
 import 'package:readreels/services/file_uploader_stub.dart'
     if (dart.library.io) 'package:readreels/services/file_uploader_io.dart'
     if (dart.library.html) 'package:readreels/services/file_uploader_web.dart';
-import 'auth_service.dart';
 
 class SubscriptionService {
   final String baseUrl = 'https://ravell-backend-1.onrender.com';
   final _fileUploader = getFileUploader();
-  final AuthService _authService = AuthService();
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -26,7 +24,7 @@ class SubscriptionService {
     return prefs.getInt('user_id');
   }
 
-  /// Обновляет профиль текущего пользователя
+  /// Обновляет профиль текущего пользователя (без изображения)
   Future<Map<String, dynamic>> updateProfile(
     Map<String, dynamic> profileData,
   ) async {
@@ -62,8 +60,10 @@ class SubscriptionService {
   }
 
   /// Обновляет профиль с изображением
-  Future<Map<String, dynamic>> updateProfileWithImage(
-    Map<String, String> fields, {
+  Future<Map<String, dynamic>> updateProfileWithImage({
+    String? firstName,
+    String? lastName,
+    String? bio,
     String? avatarFilePath,
     List<int>? avatarFileBytes,
     String? avatarFileName,
@@ -73,22 +73,31 @@ class SubscriptionService {
       throw Exception('Пользователь не авторизован. Токен отсутствует.');
     }
 
-    final url = Uri.parse('$baseUrl/profile');
+    // ✅ ИСПРАВЛЕННЫЙ URL
+    final url = Uri.parse('$baseUrl/profile/with-image');
 
     try {
       final request = http.MultipartRequest('PUT', url);
       request.headers['Authorization'] = 'Bearer $token';
 
-      // Добавляем текстовые поля
-      request.fields.addAll(fields);
+      // ✅ ДОБАВЛЯЕМ ТЕКСТОВЫЕ ПОЛЯ КОРРЕКТНО
+      if (firstName != null && firstName.isNotEmpty) {
+        request.fields['first_name'] = firstName;
+      }
+      if (lastName != null && lastName.isNotEmpty) {
+        request.fields['last_name'] = lastName;
+      }
+      if (bio != null) {
+        request.fields['bio'] = bio;
+      }
 
-      // Загрузка аватара
+      // ✅ ЗАГРУЗКА АВАТАРА
       if (avatarFilePath != null || avatarFileBytes != null) {
         final multipartFile = await _fileUploader.createAvatarMultipartFile(
-          'avatar',
+          'avatar', // ✅ ИМЯ ПОЛЯ ДОЛЖНО СОВПАДАТЬ С БЕКОМ
           filePath: avatarFilePath,
           fileBytes: avatarFileBytes,
-          fileName: avatarFileName,
+          fileName: avatarFileName ?? 'avatar.jpg',
         );
         request.files.add(multipartFile);
       }
@@ -110,53 +119,29 @@ class SubscriptionService {
     }
   }
 
-  /// Получает профиль пользователя по ID с адаптацией к формату Go API
-  Future<Map<String, dynamic>?> fetchUserProfile(int userId) async {
-    final url = Uri.parse('$baseUrl/users/$userId/profile');
+  /// Получает свой профиль
+  Future<Map<String, dynamic>> getMyProfile() async {
+    final url = Uri.parse('$baseUrl/profile');
     final token = await _getToken();
+
+    if (token == null) {
+      throw Exception('Пользователь не авторизован. Токен отсутствует.');
+    }
 
     try {
       final response = await http.get(
         url,
-        headers: token != null ? {'Authorization': 'Bearer $token'} : {},
+        headers: {'Authorization': 'Bearer $token'},
       );
 
-      print('🔵 SubscriptionService - Status: ${response.statusCode}');
-      print('🔵 SubscriptionService - Body: ${response.body}');
-
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(
-          utf8.decode(response.bodyBytes),
-        );
-
-        // 🟢 АДАПТАЦИЯ К ФОРМАТУ GO API
-        final user = data['user'];
-        final stats = data['stats'];
-
-        if (user != null && stats != null) {
-          // Преобразуем в формат, который ожидает Flutter
-          return {
-            'user_data': user, // 🟢 ИЗМЕНЕНИЕ: user -> user_data
-            'stats': stats,
-            'stories': data['stories'] ?? [],
-            'is_following': data['is_following'] ?? false,
-          };
-        } else {
-          print('❌ Invalid API response format');
-          return null;
-        }
-      } else if (response.statusCode == 404) {
-        debugPrint("Профиль пользователя не найден (404)");
-        return null;
+        return jsonDecode(utf8.decode(response.bodyBytes))
+            as Map<String, dynamic>;
       } else {
-        debugPrint(
-          "Не удалось загрузить профиль пользователя: ${response.statusCode}",
-        );
-        return null;
+        throw Exception('Ошибка при получении профиля: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint("Ошибка при получении профиля: $e");
-      return null;
+      throw Exception('Сетевая ошибка при получении профиля: $e');
     }
   }
 
@@ -253,29 +238,68 @@ class SubscriptionService {
     }
   }
 
-  /// Получает свой профиль
-  Future<Map<String, dynamic>> getMyProfile() async {
-    final url = Uri.parse('$baseUrl/profile');
+  Future<Map<String, dynamic>?> fetchUserProfile(int userId) async {
+    final url = Uri.parse('$baseUrl/users/$userId/profile');
     final token = await _getToken();
-
-    if (token == null) {
-      throw Exception('Пользователь не авторизован. Токен отсутствует.');
-    }
+    final currentUserId = await getUserId();
 
     try {
       final response = await http.get(
         url,
-        headers: {'Authorization': 'Bearer $token'},
+        headers: token != null ? {'Authorization': 'Bearer $token'} : {},
       );
 
+      print('🔵 SubscriptionService - Status: ${response.statusCode}');
+      print('🔵 SubscriptionService - Body: ${response.body}');
+
       if (response.statusCode == 200) {
-        return jsonDecode(utf8.decode(response.bodyBytes))
-            as Map<String, dynamic>;
+        final Map<String, dynamic> data = json.decode(
+          utf8.decode(response.bodyBytes),
+        );
+
+        // ✅ ПРОВЕРКА, ЭТО ЛИ ЭТО ПРОФИЛЬ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+        final bool isMyProfile =
+            currentUserId != null && currentUserId == userId;
+
+        // ✅ АДАПТАЦИЯ К НОВОМУ ФОРМАТУ GO API
+        final user = data['user'];
+        final profile = data['profile'];
+        final stats = data['stats'];
+
+        if (user != null && profile != null && stats != null) {
+          // ✅ ОБЪЕДИНЯЕМ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ И ПРОФИЛЯ
+          final userData = {
+            ...user,
+            'first_name': user['first_name'] ?? '',
+            'last_name': user['last_name'] ?? '',
+            'avatar': profile['avatar'] ?? '',
+            'bio': profile['bio'] ?? '',
+            'is_verified': profile['is_verified'] ?? false,
+          };
+
+          return {
+            'user_data': userData,
+            'stats': stats,
+            'stories': data['stories'] ?? [],
+            'is_following': data['is_following'] ?? false,
+            'is_my_profile': isMyProfile, // ✅ ДОБАВЛЯЕМ ФЛАГ
+          };
+        } else {
+          print('❌ Invalid API response format');
+          return null;
+        }
+      } else if (response.statusCode == 404) {
+        debugPrint("Профиль пользователя не найден (404)");
+        return null;
       } else {
-        throw Exception('Ошибка при получении профиля: ${response.statusCode}');
+        debugPrint(
+          "Не удалось загрузить профиль пользователя: ${response.statusCode}",
+        );
+        return null;
       }
     } catch (e) {
-      throw Exception('Сетевая ошибка при получении профиля: $e');
+      debugPrint("Ошибка при получении профиля: $e");
+      return null;
     }
   }
 }

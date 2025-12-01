@@ -1,3 +1,4 @@
+// services/story_service.dart
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
@@ -236,8 +237,14 @@ class StoryService {
 
   Future<List<Story>> _executeGetStoriesRequest() async {
     final headers = await _getHeaders(includeAuth: true);
+
+    // ✅ ИСПРАВЛЯЕМ URL - убираем лишний слеш если есть
+    final url = '$baseUrl/stories'.replaceAll('//', '/');
+
+    print('Fetching stories from: $url');
+
     final response = await http
-        .get(Uri.parse('$baseUrl/stories'), headers: headers)
+        .get(Uri.parse(url), headers: headers)
         .timeout(
           const Duration(seconds: 15),
           onTimeout: () {
@@ -248,6 +255,7 @@ class StoryService {
         );
 
     print('Stories response status: ${response.statusCode}');
+    print('Stories response headers: ${response.headers}');
 
     if (response.statusCode == 200) {
       final data = _safeJsonDecode(response);
@@ -259,10 +267,67 @@ class StoryService {
         print('Warning: stories field is not a list or is null');
         return [];
       }
+    } else if (response.statusCode == 301 || response.statusCode == 302) {
+      // Обработка редиректа
+      final redirectUrl = response.headers['location'];
+      if (redirectUrl != null) {
+        print('Following redirect to: $redirectUrl');
+        final redirectResponse = await http.get(
+          Uri.parse(redirectUrl),
+          headers: headers,
+        );
+
+        if (redirectResponse.statusCode == 200) {
+          final data = _safeJsonDecode(redirectResponse);
+          final List<dynamic>? body = data['stories'];
+
+          if (body != null && body is List) {
+            return body.map((dynamic item) => Story.fromJson(item)).toList();
+          }
+        }
+      }
+      throw Exception('Redirect failed');
     } else if (response.statusCode == 401) {
       throw Exception('Unauthorized');
     } else {
+      print('Response body: ${response.body}');
       throw Exception('Failed to load stories: ${response.statusCode}');
+    }
+  }
+
+  // 🟢 ОБНОВЛЕННЫЙ МЕТОД ДЛЯ ПРОВЕРКИ СОЕДИНЕНИЯ
+  Future<bool> checkServerConnection() async {
+    try {
+      final url = '$baseUrl/health'.replaceAll('//', '/');
+      print('Checking connection to: $url');
+
+      final response = await http
+          .get(Uri.parse(url), headers: await _getHeaders(includeAuth: false))
+          .timeout(const Duration(seconds: 5));
+
+      print('Health check status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = _safeJsonDecode(response);
+        return data['status'] == 'ok';
+      }
+      return false;
+    } catch (e) {
+      print('Server connection check failed: $e');
+
+      // ✅ Пробуем сделать простой GET запрос на основной эндпоинт как fallback
+      try {
+        final url = '$baseUrl/'.replaceAll('//', '/');
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 3));
+        print('Fallback check status: ${response.statusCode}');
+        return response.statusCode <
+            500; // Любой ответ кроме 5xx считаем успехом
+      } catch (e2) {
+        print('Fallback connection check also failed: $e2');
+        return false;
+      }
     }
   }
 
@@ -551,23 +616,6 @@ class StoryService {
     } catch (e) {
       print('Error in getFeedStories: $e');
       rethrow;
-    }
-  }
-
-  // 🟢 МЕТОД ДЛЯ ПРОВЕРКИ СОЕДИНЕНИЯ С СЕРВЕРОМ
-  Future<bool> checkServerConnection() async {
-    try {
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/health'),
-            headers: await _getHeaders(includeAuth: false),
-          )
-          .timeout(const Duration(seconds: 10));
-
-      return response.statusCode == 200;
-    } catch (e) {
-      print('Server connection check failed: $e');
-      return false;
     }
   }
 

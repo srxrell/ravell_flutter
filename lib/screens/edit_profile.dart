@@ -1,10 +1,21 @@
 import 'dart:io' if (dart.library.html) 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:readreels/services/subscription_service.dart';
-import 'package:readreels/theme.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:readreels/screens/add_story.dart';
+import 'package:readreels/screens/subscribers_list.dart';
+import 'package:readreels/screens/user_story_feed_screen.dart';
+import 'package:readreels/services/auth_service.dart';
+import 'package:readreels/services/story_service.dart';
+import 'package:readreels/theme.dart';
+import 'package:readreels/widgets/neowidgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:readreels/services/subscription_service.dart';
+import 'edit_profile.dart';
+import 'package:readreels/models/story.dart';
+import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:readreels/widgets/neowidgets.dart'; // Используем kIsWeb отсюда
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> initialUserData;
@@ -31,7 +42,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _lastNameController;
 
   bool _isSaving = false;
-  XFile? _avatarXFile; // Используем XFile для кросс-платформенности
+  XFile? _avatarXFile;
   String? _initialAvatarUrl;
 
   @override
@@ -97,36 +108,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       'last_name': _lastNameController.text,
     };
 
-    // Параметры для загрузки файла
     String? filePath;
     List<int>? fileBytes;
     String? fileName;
 
     if (_avatarXFile != null) {
-      // ✅ ИСПРАВЛЕНО: Используем kIsWeb для надежного определения Web-платформы
       if (kIsWeb) {
-        // --- Логика для Web: получаем байты и имя ---
         fileBytes = await _avatarXFile!.readAsBytes();
         fileName = _avatarXFile!.name;
-        // Если вы на Web, path будет недоступен, поэтому filePath = null
       } else {
-        // --- Логика для Mobile/Desktop: получаем путь ---
         filePath = _avatarXFile!.path;
       }
     } else if (widget.initialUserData['avatar'] != null &&
         _initialAvatarUrl == null) {
-      // Сигнал для бэкенда удалить файл
       dataToUpdate['avatar'] = '';
     }
 
     try {
       final response = await _subscriptionService.updateProfileWithImage(
-        dataToUpdate,
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        bio: '',
         avatarFilePath: filePath,
-        avatarFileBytes:
-            fileBytes, // Теперь эти поля гарантированно заполнены для Web
-        avatarFileName:
-            fileName, // Теперь эти поля гарантированно заполнены для Web
+        avatarFileBytes: fileBytes,
+        avatarFileName: fileName,
       );
 
       if (response.containsKey('username') && response['username'] is List ||
@@ -175,7 +180,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ImageProvider? imageProvider;
 
     if (_avatarXFile != null) {
-      // Если выбран новый файл, используем FutureBuilder для безопасной загрузки байтов (для Web)
       return FutureBuilder<Uint8List>(
         future: _avatarXFile!.readAsBytes(),
         builder: (context, snapshot) {
@@ -184,7 +188,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             imageProvider = MemoryImage(snapshot.data!);
             return _buildAvatarWidget(imageProvider, false);
           }
-          // Показываем заглушку, пока ждем данные
           return _buildAvatarWidget(null, true);
         },
       );
@@ -337,8 +340,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               // Кнопка сохранения
               NeoButton(
                 onPressed: () {
-                  if (_isSaving != null) {
+                  print('🟢 КНОПКА НАЖАТА! isSaving = $_isSaving');
+                  if (!_isSaving) {
                     _saveProfile();
+                  } else {
+                    print('⏳ Уже сохраняется, ждем...');
                   }
                 },
                 type: NeoButtonType.login,
@@ -348,7 +354,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
       ),
-      // bottomNavigationBar: const PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
     );
   }
 }

@@ -1,4 +1,4 @@
-// screens/user_profile_screen.dart
+import 'dart:io' if (dart.library.html) 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:readreels/screens/add_story.dart';
@@ -13,6 +13,8 @@ import 'package:readreels/services/subscription_service.dart';
 import 'edit_profile.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final int profileUserId;
@@ -38,8 +40,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     super.initState();
     _loadProfileData();
   }
-
-  // --- МЕТОДЫ УПРАВЛЕНИЯ ИСТОРИЯМИ ---
 
   Future<void> _deleteStory(int storyId) async {
     if (!mounted) return;
@@ -153,8 +153,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  // --- ФУНКЦИИ ПРОФИЛЯ ---
-
   Future<void> _navigateToEditProfile() async {
     if (_profileData == null || !mounted) return;
 
@@ -169,7 +167,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               onProfileUpdated: (newUserData) {
                 if (mounted && _profileData != null) {
                   setState(() {
-                    // Обновляем данные в профиле
                     _profileData = {..._profileData!, 'user_data': newUserData};
                   });
                 }
@@ -229,6 +226,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       print('🟢 DEBUG: Has user_data: ${data?.containsKey('user_data')}');
       print('🟢 DEBUG: Has user: ${data?.containsKey('user')}');
       print('🟢 DEBUG: Has stats: ${data?.containsKey('stats')}');
+      print(
+        '🟢 DEBUG: Has is_my_profile: ${data?.containsKey('is_my_profile')}',
+      );
 
       if (mounted) {
         if (data != null && data is Map<String, dynamic>) {
@@ -285,8 +285,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
-
-  // --- ВИДЖЕТЫ ---
 
   Widget _buildStatColumn(String label, dynamic count) {
     final int countValue = _safeParseInt(count) ?? 0;
@@ -346,10 +344,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (value is int) return value;
     if (value is String) return int.tryParse(value);
     if (value is double) return value.toInt();
-    return 0;
+    if (value is num) return value.toInt();
+    if (value is bool) return value ? 1 : 0;
+
+    // Пытаемся преобразовать строку
+    try {
+      return int.tryParse(value.toString());
+    } catch (e) {
+      print('❌ DEBUG: Failed to parse int from $value: $e');
+      return 0;
+    }
   }
 
-  // Список историй с обработкой долгого нажатия
   Widget _buildExpandableStoryList(List<Story> stories, bool isMyProfile) {
     if (stories.isEmpty) {
       return const Padding(
@@ -403,15 +409,39 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  // 🟢 ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ФОРМАТОМ GO API
   Map<String, dynamic> _getSafeUserData() {
     if (_profileData == null) return {};
 
-    // 🟢 ПРОБУЕМ ОБА ВАРИАНТА - и user_data и user
-    final userData = _profileData!['user_data'] ?? _profileData!['user'];
-    if (userData == null || userData is! Map<String, dynamic>) return {};
+    print('🟠 DEBUG: Full profile data: $_profileData');
+    print(
+      '🟠 DEBUG: user_data type: ${_profileData!['user_data'].runtimeType}',
+    );
+    print('🟠 DEBUG: user_data value: ${_profileData!['user_data']}');
 
-    return userData;
+    // ✅ ПРЯМОЕ ПОЛУЧЕНИЕ user_data БЕЗ ПРОВЕРОК
+    try {
+      final userData = _profileData!['user_data'];
+
+      if (userData == null) {
+        print('❌ user_data is null');
+        return {};
+      }
+
+      // Приводим к Map любым способом
+      if (userData is Map<String, dynamic>) {
+        print('✅ user_data is already Map<String, dynamic>');
+        return userData;
+      } else if (userData is Map) {
+        print('✅ user_data is Map, converting to Map<String, dynamic>');
+        return Map<String, dynamic>.from(userData);
+      } else {
+        print('❌ user_data is not a Map, type: ${userData.runtimeType}');
+        return {};
+      }
+    } catch (e) {
+      print('❌ Error getting user_data: $e');
+      return {};
+    }
   }
 
   Map<String, dynamic> _getSafeStats() {
@@ -426,7 +456,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   List<Story> _getSafeStories() {
     if (_profileData == null) return [];
 
-    // 🟢 ПРОБУЕМ ОБА ВАРИАНТА
     final storiesData = _profileData!['stories'] ?? [];
     if (storiesData is! List) return [];
 
@@ -463,13 +492,31 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   bool _getIsMyProfile() {
+    // ✅ ПЕРВЫЙ ПРИОРИТЕТ: проверяем флаг из API
+    if (_profileData != null && _profileData!.containsKey('is_my_profile')) {
+      print(
+        '✅ DEBUG: Using API flag is_my_profile: ${_profileData!['is_my_profile']}',
+      );
+      return _profileData!['is_my_profile'] == true;
+    }
+
+    // ✅ ВТОРОЙ ПРИОРИТЕТ: сравниваем ID пользователей
     final userData = _getSafeUserData();
     final profileId = userData['id'];
 
-    return currentUserId != null &&
+    print('🔍 DEBUG: Profile ID from user data: $profileId');
+    print('🔍 DEBUG: Current user ID: $currentUserId');
+    print('🔍 DEBUG: User data type: ${profileId.runtimeType}');
+    print('🔍 DEBUG: Current user ID type: ${currentUserId.runtimeType}');
+
+    final bool isMyProfile =
+        currentUserId != null &&
         profileId != null &&
-        profileId is int &&
-        currentUserId == profileId;
+        currentUserId == int.tryParse(profileId.toString());
+
+    print('✅ DEBUG: Calculated is_my_profile: $isMyProfile');
+
+    return isMyProfile;
   }
 
   @override
@@ -506,18 +553,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final isFollowing = _getSafeIsFollowing();
     final isMyProfile = _getIsMyProfile();
 
-    // Безопасное извлечение данных пользователя
+    print('🟣 DEBUG: Is my profile: $isMyProfile');
+    print('🟣 DEBUG: Current user ID: $currentUserId');
+    print('🟣 DEBUG: Profile user ID: ${userData['id']}');
+
     final firstName = userData['first_name'] as String? ?? '';
     final lastName = userData['last_name'] as String? ?? '';
     final username = userData['username'] as String? ?? 'User';
     final avatarUrl = userData['avatar'] as String?;
     final fullName = '${firstName} ${lastName}'.trim();
 
-    // Определяем, какой аватар использовать
     final isAvatarSet = avatarUrl != null && avatarUrl.isNotEmpty;
     ImageProvider? avatarImageProvider;
     if (isAvatarSet) {
-      avatarImageProvider = NetworkImage(avatarUrl);
+      // ✅ ДОБАВЛЯЕМ БАЗОВЫЙ URL ДЛЯ АВАТАРОВ
+      final fullAvatarUrl =
+          avatarUrl.startsWith('http')
+              ? avatarUrl
+              : 'https://ravell-backend-1.onrender.com$avatarUrl';
+      avatarImageProvider = NetworkImage(fullAvatarUrl);
     }
 
     return Scaffold(
@@ -619,7 +673,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 width: double.infinity,
                 child: NeoButton(
                   onPressed: _handleFollowToggle,
-                  text: isFollowing ? 'Отписаться' : 'Подписаться',
+                  text: isFollowing ? 'Вы подписаны' : 'Подписаться',
                 ),
               )
             else
