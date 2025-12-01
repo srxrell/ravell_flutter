@@ -239,7 +239,7 @@ class StoryService {
     final headers = await _getHeaders(includeAuth: true);
 
     // ✅ ИСПРАВЛЯЕМ URL - убираем лишний слеш если есть
-    final url = '$baseUrl/stories'.replaceAll('//', '/');
+    final url = '$baseUrl/stories';
 
     print('Fetching stories from: $url');
 
