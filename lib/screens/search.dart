@@ -143,7 +143,6 @@ class _SearchStoryState extends State<SearchStory> {
       });
       return;
     }
-
     // Сохраняем запрос в историю только при явном поиске
     if (!isAutoSearch) {
       await _saveHistory(query);
@@ -155,15 +154,18 @@ class _SearchStoryState extends State<SearchStory> {
     });
 
     try {
-      final response = await http.get(
-        Uri.parse("$apiSearchUrl?searchTerm=$query"),
-      );
-
+      // 🛑 ИСПРАВЛЕНИЕ: Используем 'search' вместо 'searchTerm', как в URL-примере
+      final response = await http.get(Uri.parse("$apiSearchUrl?search=$query"));
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body);
+        // 🟢 ИСПРАВЛЕНИЕ КЛЮЧЕВОЙ ОШИБКИ:
+        // Обрабатываем Map {"count":..., "stories": [...]}
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final List<dynamic> jsonList =
+            jsonResponse['stories'] ??
+            []; // Извлекаем список по ключу 'stories'
+
         final stories = jsonList.map((json) => Story.fromJson(json)).toList();
 
-        // Проверяем, что пользователь не успел очистить поле ввода, пока мы ждали ответа
         if (textController.text.trim() == query) {
           setState(() {
             searchResults = stories;
