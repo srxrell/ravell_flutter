@@ -36,6 +36,107 @@ class StoryService {
     return headers;
   }
 
+  Future<List<Story>> getSeeds() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/stories/seeds'),
+        headers: await _getHeaders(includeAuth: false),
+      );
+
+      print('Seeds response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = _safeJsonDecode(response);
+        final List<dynamic> body = _safeParseList(data, 'stories');
+
+        return body.map((dynamic item) => Story.fromJson(item)).toList();
+      } else {
+        throw Exception('Failed to fetch seeds: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getSeeds: $e');
+      rethrow;
+    }
+  }
+
+  // Получить ветки (Branches)
+  Future<List<Story>> getBranches() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/stories/branches'),
+        headers: await _getHeaders(includeAuth: false),
+      );
+
+      print('Branches response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = _safeJsonDecode(response);
+        final List<dynamic> body = _safeParseList(data, 'stories');
+
+        return body.map((dynamic item) => Story.fromJson(item)).toList();
+      } else {
+        throw Exception('Failed to fetch branches: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getBranches: $e');
+      rethrow;
+    }
+  }
+
+  // Создать историю с ответом (reply)
+  Future<Story> createStoryWithReply({
+    required String title,
+    required String content,
+    required List<int> hashtagIds,
+    required int? replyTo, // ID родительской истории
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/stories/'),
+      headers: await _getHeaders(includeAuth: true),
+      body: jsonEncode(<String, dynamic>{
+        'title': title,
+        'content': content,
+        'hashtag_ids': hashtagIds,
+        'reply_to': replyTo,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      final data = _safeJsonDecode(response);
+      if (data is Map<String, dynamic>) {
+        return Story.fromJson(data);
+      }
+      throw const FormatException('Invalid response format for story creation');
+    } else {
+      final errorBody = _safeJsonDecode(response);
+      throw Exception(
+        'Failed to create story: ${errorBody['error'] ?? errorBody.toString()}',
+      );
+    }
+  }
+
+  Map<String, dynamic>? _findMostActiveUser(List<Story> replies) {
+    if (replies.isEmpty) return null;
+
+    final userCounts = <int, int>{};
+    for (final reply in replies) {
+      userCounts[reply.userId] = (userCounts[reply.userId] ?? 0) + 1;
+    }
+
+    final maxUserId =
+        userCounts.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+    final mostActiveStory = replies.firstWhere(
+      (story) => story.userId == maxUserId,
+    );
+
+    return {
+      'user_id': maxUserId,
+      'username': mostActiveStory.username, // Теперь используем геттер
+      'avatar_url': mostActiveStory.avatarUrl,
+      'reply_count': userCounts[maxUserId],
+    };
+  }
+
   // 🟢 БЕЗОПАСНЫЙ МЕТОД ДЛЯ ДЕКОДИРОВАНИЯ JSON
   dynamic _safeJsonDecode(http.Response response) {
     String bodyString = utf8.decode(response.bodyBytes);

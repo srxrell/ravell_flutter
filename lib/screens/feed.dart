@@ -1,446 +1,594 @@
+// screens/feed.dart - ИСПРАВЛЕННАЯ ВЕРСИЯ
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:readreels/models/story.dart';
+import 'package:readreels/widgets/comments_bottom_sheet.dart';
 import 'package:readreels/widgets/expandable_story_content.dart';
 import 'package:readreels/widgets/heart_animation.dart';
 import 'package:readreels/services/story_service.dart' as st;
-import 'package:readreels/widgets/bottom_nav_bar_liquid.dart';
-import 'package:readreels/widgets/comments_bottom_sheet.dart';
+import 'package:readreels/widgets/bottom_nav_bar_liquid.dart'; // ЗАМЕНИЛИ CommentsBottomSheet на RepliesBottomSheet
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:readreels/theme.dart';
 
+enum StoryType { seeds, branches, all }
+
 class Feed extends StatefulWidget {
   const Feed({super.key});
+
   @override
   State<Feed> createState() => _FeedState();
 }
 
-class _FeedState extends State<Feed> {
+class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   final st.StoryService _storyService = st.StoryService();
 
-  int? currentuser_id;
+  late TabController _tabController;
+  StoryType _currentStoryType = StoryType.seeds;
+
+  int? currentUserId;
   bool isHeartAnimating = false;
-  List<Story> stories = [];
+  List<Story> seeds = [];
+  List<Story> branches = [];
+  List<Story> allStories = [];
   Map<int, bool> likeStatuses = {};
   Offset tapPosition = Offset.zero;
   Map<int, int> likeCounts = {};
   bool _isLoading = true;
   bool _hasError = false;
   String _errorMessage = '';
-  bool _noStories = false;
+
+  // Для карусели
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_handleTabChange);
     _checkAuthStatusAndFetch();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (_tabController.indexIsChanging) return;
+
+    setState(() {
+      _currentStoryType = StoryType.values[_tabController.index];
+      _fetchCurrentTabStories();
+    });
   }
 
   Future<void> _checkAuthStatusAndFetch() async {
     final prefs = await SharedPreferences.getInstance();
-    currentuser_id = prefs.getInt('user_id');
+    currentUserId = prefs.getInt('user_id');
     final guestId = prefs.getInt('GUEST_ID');
 
-    if (currentuser_id == null && guestId == null) {
+    if (currentUserId == null && guestId == null) {
       if (mounted) {
         setState(() {
           _isLoading = false;
           _hasError = true;
           _errorMessage = 'Требуется авторизация';
         });
-        context.go('/auth');
+        Future.delayed(Duration.zero, () => context.go('/auth'));
       }
       return;
     }
 
-    await _fetchStories();
+    await _fetchCurrentTabStories();
   }
 
-  Future<bool> _checkInternetConnection() async {
-    try {
-      final hasConnection = await _storyService.checkServerConnection();
-      return hasConnection;
-    } catch (e) {
-      debugPrint('Ошибка проверки соединения: $e');
-      return false;
-    }
-  }
-
-  Future<void> _fetchStories() async {
+  Future<void> _fetchCurrentTabStories() async {
     if (!mounted) return;
 
     setState(() {
       _isLoading = true;
       _hasError = false;
-      _noStories = false;
       _errorMessage = '';
     });
 
-    // ✅ СНАЧАЛА ПРОБУЕМ ЗАГРУЗИТЬ ИЗ КЭША (даже если есть интернет)
     try {
-      final localStories = await _storyService.getLocalStories();
-      if (localStories.isNotEmpty) {
-        setState(() {
-          stories = localStories;
-          _noStories = false;
-          _isLoading = false;
-
-          // Загружаем likeCounts для кэшированных историй
-          for (var story in stories) {
-            if (story.id != null) {
-              likeCounts[story.id!] = story.likesCount;
-            }
-          }
-        });
+      switch (_currentStoryType) {
+        case StoryType.seeds:
+          seeds = await _storyService.getSeeds();
+          break;
+        case StoryType.branches:
+          branches = await _storyService.getBranches();
+          break;
+        case StoryType.all:
+          allStories = await _storyService.getStories();
+          break;
       }
-    } catch (e) {
-      debugPrint('Ошибка загрузки из кэша: $e');
-    }
 
-    // ✅ ПРОВЕРЯЕМ ИНТЕРНЕТ
-    bool hasInternet = false;
-    try {
-      hasInternet = await _checkInternetConnection();
-    } catch (e) {
-      debugPrint('Ошибка проверки интернета: $e');
-    }
-
-    if (!hasInternet) {
-      // Если нет интернета и в кэше нет историй
-      if (stories.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-          _errorMessage = 'Нет подключения к интернету 😔';
-        });
-      } else {
-        // Есть кэшированные истории, но нет интернета
-        setState(() {
-          _isLoading = false;
-          _hasError = false;
-        });
+      // Инициализируем likeCounts из данных историй
+      likeCounts.clear();
+      for (var story in _currentStories) {
+        likeCounts[story.id] = story.likesCount;
+        // Проверяем лайк пользователя
+        if (currentUserId != null) {
+          final isLiked = await _storyService.isStoryLiked(
+            story.id,
+            currentUserId!,
+          );
+          likeStatuses[story.id] = isLiked;
+        }
       }
-      return;
-    }
-
-    // ✅ ЕСТЬ ИНТЕРНЕТ - ЗАГРУЖАЕМ С СЕРВЕРА
-    try {
-      final fetchedStories = await _storyService.getStories();
 
       setState(() {
-        stories = fetchedStories;
-        _noStories = stories.isEmpty;
         _isLoading = false;
-        _hasError = false;
-
-        // Сбрасываем likeCounts для новых историй
-        likeCounts.clear();
-        for (var story in stories) {
-          if (story.id != null) {
-            likeCounts[story.id!] = story.likesCount;
-          }
-        }
+        _currentPage = 0;
       });
-
-      // ✅ СОХРАНЯЕМ В КЭШ (даже если список пустой)
-      try {
-        await _storyService.saveStoriesLocally(stories);
-      } catch (e) {
-        debugPrint('Ошибка сохранения в кэш: $e');
-      }
     } catch (e) {
       debugPrint('Ошибка загрузки историй: $e');
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = 'Ошибка загрузки историй';
+      });
+    }
+  }
 
-      // Если при загрузке с сервера произошла ошибка, но есть кэшированные истории
-      if (stories.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-          _errorMessage = 'Ошибка загрузки историй 😕';
-        });
-      } else {
-        // Есть кэшированные истории - показываем их с предупреждением
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-          _errorMessage = 'Показаны сохраненные истории (нет соединения)';
-        });
-      }
+  List<Story> get _currentStories {
+    switch (_currentStoryType) {
+      case StoryType.seeds:
+        return seeds;
+      case StoryType.branches:
+        return branches;
+      case StoryType.all:
+        return allStories;
     }
   }
 
   Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
-    if (story.id != null && currentuser_id != null) {
-      try {
-        final bool wasLiked = likeStatuses[story.id] ?? false;
-        final int oldLikeCount = likeCounts[story.id] ?? 0;
-
-        setState(() {
-          likeStatuses[story.id!] = !wasLiked;
-          likeCounts[story.id!] =
-              wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
-          if (isDoubleTap && !wasLiked) {
-            isHeartAnimating = true;
-          }
-        });
-
-        final newCount = await _storyService.likeStory(
-          story.id!,
-          currentuser_id!,
-        );
-        setState(() {
-          likeCounts[story.id!] = newCount;
-        });
-      } catch (e) {
-        debugPrint('Error liking story: $e');
-        // Откат изменений
-        final bool wasLiked = likeStatuses[story.id] ?? false;
-        final int oldLikeCount = likeCounts[story.id] ?? 0;
-        setState(() {
-          likeStatuses[story.id!] = !wasLiked;
-          likeCounts[story.id!] =
-              wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
-          isHeartAnimating = false;
-        });
+    if (currentUserId == null) {
+      if (mounted) {
+        context.go('/auth');
       }
+      return;
     }
-  }
-
-  Future<void> _handleNotInterested(Story story) async {
-    if (story.id == null) return;
 
     try {
-      await _storyService.markStoryAsNotInterested(story.id!);
+      final bool wasLiked = likeStatuses[story.id] ?? false;
+      final int oldLikeCount = likeCounts[story.id] ?? 0;
+
+      // Оптимистичное обновление UI
       setState(() {
-        stories.removeWhere((s) => s.id == story.id);
-        _noStories = stories.isEmpty;
+        likeStatuses[story.id] = !wasLiked;
+        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
+        if (isDoubleTap && !wasLiked) {
+          isHeartAnimating = true;
+        }
       });
-      if (context.mounted) {
+
+      // Вызов API
+      final newCount = await _storyService.likeStory(story.id, currentUserId!);
+
+      // Синхронизация с серверным ответом
+      setState(() {
+        likeCounts[story.id] = newCount;
+      });
+    } catch (e) {
+      debugPrint('Error liking story: $e');
+      // Откат при ошибке
+      final bool wasLiked = likeStatuses[story.id] ?? false;
+      final int oldLikeCount = likeCounts[story.id] ?? 0;
+      setState(() {
+        likeStatuses[story.id] = !wasLiked;
+        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
+        isHeartAnimating = false;
+      });
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('История "${story.title}" скрыта.'),
-            duration: const Duration(seconds: 2),
-          ),
+          SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
         );
       }
-    } catch (e) {
-      debugPrint('Error marking story as not interested: $e');
     }
   }
 
-  void _showStoryOptions(BuildContext context, Story story) {
-    showModalBottomSheet(
-      barrierColor: const Color.fromARGB(153, 0, 0, 0),
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return Container(
-          margin: const EdgeInsets.all(10),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: const Border(
-              top: BorderSide(color: neoBlack, width: 4),
-              left: BorderSide(color: neoBlack, width: 4),
-              right: BorderSide(color: neoBlack, width: 8),
-              bottom: BorderSide(color: neoBlack, width: 8),
-            ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                ListTile(
-                  leading: const Icon(
-                    Icons.sentiment_dissatisfied,
-                    color: Colors.black,
-                  ),
-                  title: const Text(
-                    'Не интересно',
-                    style: TextStyle(color: Colors.black),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _handleNotInterested(story);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.cancel, color: Colors.black),
-                  title: const Text(
-                    'Отмена',
-                    style: TextStyle(color: Colors.black),
-                  ),
-                  onTap: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  Widget _buildStoryCard(Story story, int index) {
+    final isLiked = likeStatuses[story.id] ?? false;
+    final currentLikeCount = likeCounts[story.id] ?? 0;
 
-  Widget _buildActionButton({
-    required Widget icon,
-    required int count,
-    required VoidCallback onPressed,
-  }) {
-    return Column(
-      children: [
-        GestureDetector(onTap: onPressed, child: icon),
-        const SizedBox(height: 4),
-        Text(
-          count.toString(),
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
+    return GestureDetector(
+      onDoubleTapDown: (details) {
+        _handleLike(story, isDoubleTap: true);
+        setState(() {
+          tapPosition = details.localPosition;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: neoBlack, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: neoBlack.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
-      ],
+        child: Stack(
+          children: [
+            HeartAnimation(
+              position: tapPosition,
+              isAnimating: isHeartAnimating,
+              duration: const Duration(milliseconds: 300),
+              onEnd:
+                  () => setState(() {
+                    isHeartAnimating = false;
+                  }),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Заголовок и информация об авторе
+                  Row(
+                    children: [
+                      _buildAuthorInfo(story),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Имя пользователя и заголовок
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    story.username,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.black87,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (story.isVerified)
+                                  const Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: Icon(
+                                      Icons.verified,
+                                      color: Colors.blue,
+                                      size: 16,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              story.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              story.replyInfo,
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Контент истории
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: ExpandableStoryContent(content: story.content),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Хештеги (если есть)
+                  if (story.hashtags.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children:
+                            story.hashtags.map((hashtag) {
+                              return Chip(
+                                label: Text(
+                                  '#${hashtag.name}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                backgroundColor: Colors.blue[50],
+                                visualDensity: VisualDensity.compact,
+                              );
+                            }).toList(),
+                      ),
+                    ),
+
+                  // Действия
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Лайки и ответы
+                      Row(
+                        children: [
+                          // Лайк
+                          GestureDetector(
+                            onTap: () => _handleLike(story),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isLiked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color:
+                                      isLiked ? Colors.red : Colors.grey[600],
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  currentLikeCount.toString(),
+                                  style: TextStyle(
+                                    color:
+                                        isLiked ? Colors.red : Colors.grey[600],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(width: 20),
+
+                          // Ответы
+                          GestureDetector(
+                            onTap: () async {
+                              if (currentUserId == null) {
+                                if (mounted) {
+                                  context.go('/auth');
+                                }
+                                return;
+                              }
+
+                              await showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder:
+                                    (context) =>
+                                        RepliesBottomSheet(parentStory: story),
+                              );
+                              // Обновляем данные после закрытия bottom sheet
+                              await _fetchCurrentTabStories();
+                            },
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.reply,
+                                  color: Colors.grey,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  story.replyCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Кнопка ответить (если это не ответ)
+                      if (!story.isReply)
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            if (currentUserId == null) {
+                              if (mounted) {
+                                context.go('/auth');
+                              }
+                              return;
+                            }
+
+                            context.go(
+                              '/create-story',
+                              extra: {
+                                'replyTo': story.id,
+                                'parentTitle': story.title,
+                              },
+                            );
+                          },
+                          icon: const Icon(Icons.reply, size: 16),
+                          label: const Text('Ответить'),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: neoBlack),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Бейдж типа истории
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color:
+                      story.isSeed
+                          ? Colors.green[100]
+                          : story.isBranch
+                          ? Colors.blue[100]
+                          : Colors.orange[100],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black12),
+                ),
+                child: Text(
+                  story.isSeed
+                      ? '🌱 Семя'
+                      : story.isBranch
+                      ? '🌿 Ветка'
+                      : '↪️ Ответ',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildAuthorInfo(Story story) {
-    final avatarUrl = story.authorAvatar;
-    final isAvatarSet = avatarUrl != null && avatarUrl.isNotEmpty;
-
-    if (story.userId == null) return const SizedBox.shrink();
-
     return GestureDetector(
       onTap: () => context.go('/profile/${story.userId}'),
-      child: Column(
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              const CircleAvatar(radius: 25, backgroundColor: Colors.blueGrey),
-              if (isAvatarSet)
-                ClipOval(
-                  child: CachedNetworkImage(
-                    imageUrl: avatarUrl!,
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    placeholder:
-                        (context, url) => const CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: neoBlack, width: 2),
+          color: Colors.grey[200],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Аватар
+            if (story.avatarUrl != null && story.avatarUrl!.isNotEmpty)
+              ClipOval(
+                child: CachedNetworkImage(
+                  imageUrl: story.avatarUrl!,
+                  width: 46,
+                  height: 46,
+                  fit: BoxFit.cover,
+                  placeholder:
+                      (context, url) => Container(
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(neoBlack),
+                          ),
                         ),
-                    errorWidget:
-                        (context, url, error) => const Icon(
+                      ),
+                  errorWidget:
+                      (context, url, error) => Container(
+                        color: Colors.grey[300],
+                        child: const Icon(
                           Icons.person,
-                          size: 25,
+                          size: 24,
                           color: Colors.white,
                         ),
+                      ),
+                ),
+              )
+            else
+              Container(
+                color: Colors.grey[300],
+                child: const Icon(Icons.person, size: 24, color: Colors.white),
+              ),
+
+            // Индикатор верификации
+            if (story.isVerified)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
                   ),
-                )
-              else
-                const Icon(Icons.person, size: 25, color: Colors.white),
-            ],
-          ),
-          const SizedBox(height: 20),
-        ],
+                  child: const Icon(
+                    Icons.verified,
+                    color: Colors.blue,
+                    size: 14,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildEmptyState() {
+    String message = '';
+    IconData icon = Icons.library_books_outlined;
+
+    switch (_currentStoryType) {
+      case StoryType.seeds:
+        message = 'Пока нет семян\nБудьте первым, кто создаст!';
+        icon = Icons.spa_outlined;
+        break;
+      case StoryType.branches:
+        message = 'Пока нет веток\nОтветьте на историю, чтобы создать ветку!';
+        icon = Icons.account_tree_outlined;
+        break;
+      case StoryType.all:
+        message = 'Историй пока нет\nСоздайте первую!';
+        icon = Icons.library_books_outlined;
+        break;
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_noStories)
-              Column(
-                children: [
-                  Icon(
-                    Icons.library_books_outlined,
-                    size: 80,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'В ленте пока пусто 📚',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Будьте первым, кто опубликует историю!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                ],
-              )
-            else if (_hasError)
-              Column(
-                children: [
-                  Icon(
-                    _errorMessage.contains('интернет') ||
-                            _errorMessage.contains('соединения')
-                        ? Icons.wifi_off
-                        : Icons.error_outline,
-                    size: 80,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    _errorMessage,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  if (_errorMessage.contains('интернет') ||
-                      _errorMessage.contains('соединения'))
-                    const Text(
-                      'Проверьте подключение и повторите попытку',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                ],
-              ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: _fetchStories,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: const Text(
-                'Повторить загрузку',
-                style: TextStyle(fontSize: 16),
+            Icon(icon, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 20),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
               ),
             ),
             const SizedBox(height: 20),
-            if (stories.isNotEmpty)
+            if (_hasError)
               ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _hasError = false;
-                  });
-                },
+                onPressed: _fetchCurrentTabStories,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey[200],
-                  foregroundColor: Colors.black87,
+                  backgroundColor: neoBlack,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 32,
                     vertical: 16,
@@ -450,13 +598,148 @@ class _FeedState extends State<Feed> {
                   ),
                 ),
                 child: const Text(
-                  'Показать кэшированные истории',
-                  style: TextStyle(fontSize: 16),
+                  'Повторить загрузку',
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(neoBlack),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            _currentStoryType == StoryType.seeds
+                ? 'Загружаем семена...'
+                : _currentStoryType == StoryType.branches
+                ? 'Загружаем ветки...'
+                : 'Загружаем истории...',
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_currentStories.isEmpty && !_isLoading) {
+      return _buildEmptyState();
+    }
+
+    return Column(
+      children: [
+        // Индикатор страницы
+        if (_currentStories.length > 1)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                _currentStories.length,
+                (index) => Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentPage == index ? neoBlack : Colors.grey[300],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Карусель историй
+        Expanded(
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _currentStories.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentPage = index;
+              });
+            },
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (context, index) {
+              return _buildStoryCard(_currentStories[index], index);
+            },
+          ),
+        ),
+
+        // Кнопки навигации
+        if (_currentStories.length > 1)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Кнопка "Назад"
+                ElevatedButton.icon(
+                  onPressed:
+                      _currentPage > 0
+                          ? () {
+                            _pageController.previousPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                          : null,
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Назад'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        _currentPage > 0 ? neoBlack : Colors.grey[300],
+                    foregroundColor:
+                        _currentPage > 0 ? Colors.white : Colors.grey,
+                  ),
+                ),
+
+                // Индикатор страницы
+                Text(
+                  '${_currentPage + 1} / ${_currentStories.length}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+
+                // Кнопка "Вперед"
+                ElevatedButton.icon(
+                  onPressed:
+                      _currentPage < _currentStories.length - 1
+                          ? () {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                          : null,
+                  icon: const Icon(Icons.arrow_forward),
+                  label: const Text('Вперед'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        _currentPage < _currentStories.length - 1
+                            ? neoBlack
+                            : Colors.grey[300],
+                    foregroundColor:
+                        _currentPage < _currentStories.length - 1
+                            ? Colors.white
+                            : Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -477,169 +760,35 @@ class _FeedState extends State<Feed> {
           ),
           const SizedBox(width: 10),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Container(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: Colors.black,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: neoBlack,
+              indicatorWeight: 3,
+              indicatorPadding: const EdgeInsets.symmetric(horizontal: 16),
+              tabs: const [
+                Tab(text: '🌱 Семена'),
+                Tab(text: '🌿 Ветки'),
+                Tab(text: '📚 Все'),
+              ],
+            ),
+          ),
+        ),
       ),
       extendBody: true,
       bottomNavigationBar: const PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
-      body:
-          _isLoading
-              ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 20),
-                    Text(
-                      'Загружаем истории...',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
-              )
-              : (_hasError && stories.isEmpty) || _noStories
-              ? _buildEmptyState()
-              : PageView.builder(
-                itemCount: stories.length,
-                scrollDirection: Axis.vertical,
-                itemBuilder: (context, index) {
-                  final story = stories[index];
-                  final isLiked = likeStatuses[story.id] == true;
-                  final currentLikeCount = likeCounts[story.id] ?? 0;
-
-                  return GestureDetector(
-                    onDoubleTapDown: (details) {
-                      _handleLike(story, isDoubleTap: true);
-                      setState(() {
-                        tapPosition = details.localPosition;
-                      });
-                    },
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: HeartAnimation(
-                            position: tapPosition,
-                            isAnimating: isHeartAnimating,
-                            duration: const Duration(milliseconds: 300),
-                            onEnd:
-                                () => setState(() {
-                                  isHeartAnimating = false;
-                                }),
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                top: 20,
-                                left: 20,
-                                right: 80,
-                                bottom: 120,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    story.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 30,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Expanded(
-                                    child: SingleChildScrollView(
-                                      child: ExpandableStoryContent(
-                                        content: story.content,
-                                      ),
-                                    ),
-                                  ),
-                                  // ✅ Показываем предупреждение, если есть ошибка но истории загружены из кэша
-                                  if (_hasError && stories.isNotEmpty)
-                                    Container(
-                                      margin: const EdgeInsets.only(top: 10),
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.amber[50],
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.amber),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.wifi_off,
-                                            size: 16,
-                                            color: Colors.amber,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              _errorMessage,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.black54,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 10,
-                          bottom: 150,
-                          child: SizedBox(
-                            width: 70,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                _buildAuthorInfo(story),
-                                const SizedBox(height: 10),
-                                _buildActionButton(
-                                  icon: Image.asset(
-                                    "icons/png/upvote.png",
-                                    width: 50,
-                                    height: 50,
-                                  ),
-                                  count: currentLikeCount,
-                                  onPressed: () => _handleLike(story),
-                                ),
-                                const SizedBox(height: 10),
-                                _buildActionButton(
-                                  icon: Image.asset(
-                                    "icons/png/comment.png",
-                                    width: 50,
-                                    height: 50,
-                                  ),
-                                  count: story.commentsCount,
-                                  onPressed: () async {
-                                    await showModalBottomSheet(
-                                      context: context,
-                                      builder:
-                                          (context) =>
-                                              CommentsBottomSheet(story: story),
-                                    );
-                                    await _fetchStories();
-                                  },
-                                ),
-                                const SizedBox(height: 10),
-                                GestureDetector(
-                                  onTap:
-                                      () => _showStoryOptions(context, story),
-                                  child: SvgPicture.asset(
-                                    "icons/settings.svg",
-                                    width: 50,
-                                    height: 50,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.go('/create-story'),
+        backgroundColor: neoBlack,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add, size: 28),
+      ),
+      body: _isLoading ? _buildLoadingState() : _buildContent(),
     );
   }
 }

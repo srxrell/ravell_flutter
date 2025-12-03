@@ -1,261 +1,158 @@
+// widgets/replies_bottom_sheet.dart
 import 'package:flutter/material.dart';
-import 'package:readreels/screens/profile_screen.dart';
-import 'package:readreels/theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/services/comment_service.dart';
-import '../models/comment.dart';
+import 'package:readreels/widgets/expandable_story_content.dart';
 
-class CommentsBottomSheet extends StatefulWidget {
-  final Story story;
-  const CommentsBottomSheet({super.key, required this.story});
+class RepliesBottomSheet extends StatefulWidget {
+  final Story parentStory;
+
+  const RepliesBottomSheet({super.key, required this.parentStory});
 
   @override
-  State<CommentsBottomSheet> createState() => _CommentsBottomSheetState();
+  State<RepliesBottomSheet> createState() => _RepliesBottomSheetState();
 }
 
-class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
-  List<Comment> comments = [];
-  final TextEditingController _commentController = TextEditingController();
-
-  int? _currentUserId; // 🟢 ИСПРАВЛЕНО: _currentUserId
-  Comment? _editingComment;
-
-  void _goToUserProfile(int userId) {
-    // 🟢 ИСПРАВЛЕНО: userId
-    if (mounted) {
-      Navigator.of(context).pop();
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder:
-              (context) => UserProfileScreen(
-                profileUserId: userId,
-              ), // 🟢 ИСПРАВЛЕНО: profileUserId
-        ),
-      );
-    }
-  }
+class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
+  final StoryReplyService _replyService = StoryReplyService();
+  final TextEditingController _replyController = TextEditingController();
+  List<Story> _replies = [];
+  bool _isLoading = true;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    _loadCurrentUserId(); // 🟢 ИСПРАВЛЕНО
-    _fetchComments();
+    _loadReplies();
   }
 
-  @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
-  }
-
-  // --- USER AUTH LOGIC ---
-  Future<void> _loadCurrentUserId() async {
-    // 🟢 ИСПРАВЛЕНО
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _currentUserId = prefs.getInt(
-          'user_id',
-        ); // 🟢 ИСПРАВЛЕНО: _currentUserId
-      });
-    }
-  }
-
-  // --- FETCHING LOGIC ---
-  Future<void> _fetchComments() async {
+  Future<void> _loadReplies() async {
     try {
-      final fetchedComments = await CommentService().getCommentsForStory(
-        widget.story.id,
+      final replies = await _replyService.getRepliesForStory(
+        widget.parentStory.id,
       );
-      if (mounted) {
-        setState(() {
-          comments = fetchedComments.reversed.toList();
-        });
-      }
+      setState(() {
+        _replies = replies;
+        _isLoading = false;
+      });
     } catch (e) {
-      debugPrint('Error fetching comments: $e');
+      setState(() => _isLoading = false);
     }
   }
 
-  // --- ADD COMMENT LOGIC ---
-  Future<void> _addComment() async {
-    final String commentContent = _commentController.text;
+  Future<void> _submitReply() async {
+    if (_replyController.text.trim().isEmpty) return;
 
-    if (commentContent.isEmpty) return;
-    if (!mounted) return;
+    final content = _replyController.text.trim();
+    final words =
+        content.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
 
-    final int? currentUserId = _currentUserId; // 🟢 ИСПРАВЛЕНО
-
-    if (currentUserId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Для добавления комментария необходимо войти в систему.',
-            ),
-          ),
-        );
-      }
+    if (words.length != 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Нужно ровно 100 слов. Сейчас: ${words.length}'),
+        ),
+      );
       return;
     }
 
-    // Optimistic UI Update
-    final Comment tempComment = Comment(
-      id: -1,
-      content: commentContent,
-      username: 'You (sending...)', // 🟢 ИСПРАВЛЕНО: username
-      storyId: widget.story.id,
-      userId: currentUserId, // 🟢 ИСПРАВЛЕНО: userId
-      createdAt: DateTime.now(),
-      isEdited: false,
-      avatarUrl: null, // 🟢 ИСПРАВЛЕНО: avatarUrl
-    );
-
-    if (mounted) {
-      setState(() {
-        comments.insert(0, tempComment);
-        _commentController.clear();
-      });
-    }
+    setState(() => _isSubmitting = true);
 
     try {
-      await CommentService().addCommentToStory(
-        widget.story.id,
-        currentUserId,
-        commentContent,
+      // Используем заголовок по умолчанию или берем из родительской истории
+      final title = "Ответ на: ${widget.parentStory.title}";
+
+      await _replyService.addReplyToStory(
+        parentStoryId: widget.parentStory.id,
+        title: title,
+        content: content,
+        hashtagIds: [],
       );
-      await _fetchComments();
+
+      _replyController.clear();
+      await _loadReplies();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Ответ добавлен!')));
     } catch (e) {
-      debugPrint('Exception: Failed to add comment to story $e');
-      if (mounted) {
-        setState(() {
-          comments.remove(tempComment);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Ошибка: Комментарий не был добавлен. Повторите попытку.',
-            ),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+    } finally {
+      setState(() => _isSubmitting = false);
     }
   }
 
-  // --- DELETE COMMENT LOGIC ---
-  Future<void> _deleteComment(int commentId) async {
-    Navigator.of(context).pop();
-    try {
-      if (mounted) {
-        setState(() {
-          comments.removeWhere((c) => c.id == commentId);
-        });
-      }
-
-      await CommentService().deleteComment(commentId);
-    } catch (e) {
-      debugPrint('Error deleting comment: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось удалить комментарий.')),
-        );
-        _fetchComments();
-      }
-    }
-  }
-
-  // --- EDITING START/SETUP LOGIC ---
-  void _startEdit(Comment comment) {
-    if (mounted) {
-      setState(() {
-        _editingComment = comment;
-        _commentController.text = comment.content;
-      });
-      Navigator.of(context).pop();
-    }
-  }
-
-  // --- UPDATE COMMENT LOGIC ---
-  Future<void> _updateComment() async {
-    if (_editingComment == null || _commentController.text.isEmpty) return;
-    final String newContent = _commentController.text;
-    final int commentId = _editingComment!.id;
-
-    if (mounted) {
-      setState(() {
-        final index = comments.indexWhere((c) => c.id == commentId);
-        if (index != -1) {
-          comments[index] = Comment(
-            id: comments[index].id,
-            content: newContent,
-            username: comments[index].username, // 🟢 ИСПРАВЛЕНО
-            storyId: comments[index].storyId,
-            userId: comments[index].userId, // 🟢 ИСПРАВЛЕНО
-            createdAt: comments[index].createdAt,
-            isEdited: true,
-            avatarUrl: comments[index].avatarUrl, // 🟢 ИСПРАВЛЕНО
-          );
-          _commentController.clear();
-          _editingComment = null;
-        }
-      });
-    }
-
-    try {
-      await CommentService().updateComment(commentId, newContent);
-      await _fetchComments();
-    } catch (e) {
-      debugPrint('Error updating comment: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось обновить комментарий.')),
-        );
-        _fetchComments();
-      }
-    }
-  }
-
-  // --- COMMENT OPTIONS MODAL ---
-  void _showCommentOptions(Comment comment) {
-    if (comment.userId != _currentUserId || comment.id == -1)
-      return; // 🟢 ИСПРАВЛЕНО: userId
-
-    showModalBottomSheet(
-      barrierColor: const Color.fromARGB(153, 0, 0, 0),
-      elevation: 0,
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) {
         return Container(
-          padding: const EdgeInsets.all(10),
-          margin: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.white,
-            border: const Border(
-              top: BorderSide(color: neoBlack, width: 4),
-              left: BorderSide(color: neoBlack, width: 4),
-              right: BorderSide(color: neoBlack, width: 8),
-              bottom: BorderSide(color: neoBlack, width: 8),
-            ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                leading: const Icon(Icons.edit),
-                title: const Text('Редактировать'),
-                onTap: () => _startEdit(comment),
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text(
-                  'Удалить',
-                  style: TextStyle(color: Colors.red),
+            children: [
+              // Заголовок
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Ответы на историю',
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                onTap: () => _deleteComment(comment.id),
+              ),
+
+              // Поле для ответа
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _replyController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: 'Напишите ответ (ровно 100 слов)...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _isSubmitting ? null : _submitReply,
+                      child:
+                          _isSubmitting
+                              ? const CircularProgressIndicator()
+                              : const Text('Ответить'),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(),
+
+              // Список ответов
+              Expanded(
+                child:
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _replies.isEmpty
+                        ? const Center(child: Text('Ответов пока нет'))
+                        : ListView.builder(
+                          controller: scrollController,
+                          itemCount: _replies.length,
+                          itemBuilder: (context, index) {
+                            final reply = _replies[index];
+                            return _buildReplyItem(reply);
+                          },
+                        ),
               ),
             ],
           ),
@@ -264,170 +161,52 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
     );
   }
 
-  // --- BUILD METHOD ---
-  @override
-  Widget build(BuildContext context) {
-    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + keyboardHeight),
-      decoration: const BoxDecoration(
-        color: bottomBackground,
-        border: Border(
-          top: BorderSide(width: 3, color: Color(0xFFE19265)),
-          left: BorderSide(width: 3, color: Color(0xFFE19265)),
-          right: BorderSide(width: 3, color: Color(0xFFE19265)),
-        ),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            child:
-                comments.isEmpty
-                    ? const Center(child: Text("No comments yet"))
-                    : ListView.builder(
-                      itemCount: comments.length,
-                      itemBuilder: (context, index) {
-                        final comment = comments[index];
-                        final isOwner =
-                            comment.userId == _currentUserId; // 🟢 ИСПРАВЛЕНО
-
-                        final bool isAvatarSet =
-                            comment.avatarUrl != null &&
-                            comment.avatarUrl!.isNotEmpty; // 🟢 ИСПРАВЛЕНО
-                        ImageProvider? avatarImageProvider;
-                        if (isAvatarSet) {
-                          avatarImageProvider = NetworkImage(
-                            comment.avatarUrl!,
-                          ); // 🟢 ИСПРАВЛЕНО
-                        }
-
-                        return GestureDetector(
-                          onLongPress:
-                              isOwner
-                                  ? () => _showCommentOptions(comment)
-                                  : null,
-                          child: ListTile(
-                            leading: GestureDetector(
-                              onTap:
-                                  () => _goToUserProfile(
-                                    comment.userId,
-                                  ), // 🟢 ИСПРАВЛЕНО
-                              child: CircleAvatar(
-                                radius: 20,
-                                backgroundColor:
-                                    isAvatarSet
-                                        ? Colors.transparent
-                                        : Colors.blueGrey,
-                                backgroundImage: avatarImageProvider,
-                                child:
-                                    isAvatarSet
-                                        ? null
-                                        : const Icon(
-                                          Icons.person,
-                                          size: 20,
-                                          color: Colors.white,
-                                        ),
-                              ),
-                            ),
-                            subtitle: Text(
-                              comment.content,
-                              style: const TextStyle(fontSize: 20),
-                            ),
-                            title: Row(
-                              children: [
-                                GestureDetector(
-                                  onTap:
-                                      () => _goToUserProfile(
-                                        comment.userId,
-                                      ), // 🟢 ИСПРАВЛЕНО
-                                  child: Text(
-                                    comment.username ??
-                                        'Unknown User', // 🟢 ИСПРАВЛЕНО
-                                    style: const TextStyle(fontSize: 15),
-                                  ),
-                                ),
-                                if (comment.isEdited)
-                                  const Padding(
-                                    padding: EdgeInsets.only(left: 8.0),
-                                    child: Text(
-                                      ' • Изменено',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _commentController,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFCF875E),
-                    border: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(15)),
-                      borderSide: BorderSide(
-                        width: 3,
-                        color: Color(0xFF532910),
-                      ),
-                    ),
-                    enabledBorder: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(15)),
-                      borderSide: BorderSide(
-                        width: 3,
-                        color: Color(0xFF532910),
-                      ),
-                    ),
-                    hintStyle: const TextStyle(color: Colors.black),
-                    hintText:
-                        _editingComment == null
-                            ? 'Add a comment...'
-                            : 'Edit comment...',
-                    suffixIcon:
-                        _editingComment != null
-                            ? IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                setState(() {
-                                  _editingComment = null;
-                                  _commentController.clear();
-                                });
-                              },
-                            )
-                            : null,
-                  ),
-                ),
+  Widget _buildReplyItem(Story reply) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Автор - теперь используем геттер username
+            ListTile(
+              leading: CircleAvatar(
+                backgroundImage:
+                    reply.avatarUrl != null
+                        ? NetworkImage(reply.avatarUrl!)
+                        : null,
+                child:
+                    reply.avatarUrl == null ? const Icon(Icons.person) : null,
               ),
-              const SizedBox(width: 10),
-              IconButton(
-                icon: Icon(
-                  _editingComment == null ? Icons.send : Icons.check,
-                  color: const Color(0xFF532910),
+              title: Text(reply.username), // Используем геттер
+              subtitle: Text(reply.replyInfo),
+              trailing:
+                  reply.isVerified
+                      ? const Icon(Icons.verified, color: Colors.blue)
+                      : null,
+            ),
+
+            // Контент ответа
+            ExpandableStoryContent(content: reply.content),
+
+            // Действия
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  '${reply.likesCount} лайков',
+                  style: const TextStyle(color: Colors.grey),
                 ),
-                onPressed: () async {
-                  if (_editingComment == null) {
-                    await _addComment();
-                  } else {
-                    await _updateComment();
-                  }
-                },
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 16),
+                Text(
+                  '${reply.wordCount} слов',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

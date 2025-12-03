@@ -262,18 +262,18 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       // Кнопка Лайка
-                      _buildActionButton(
-                        icon: Image.asset(
-                          isLiked
-                              ? "icons/png/upvote_filled.png"
-                              : "icons/png/upvote.png",
-                          width: 50,
-                          height: 50,
-                        ),
-                        count: currentLikeCount,
-                        onPressed: () => _handleLike(story),
-                        isLiked: isLiked,
-                      ),
+                      // _buildActionButton(
+                      //   icon: Image.asset(
+                      //     isLiked
+                      //         ? "icons/png/upvote_filled.png"
+                      //         : "icons/png/upvote.png",
+                      //     width: 50,
+                      //     height: 50,
+                      //   ),
+                      //   count: currentLikeCount,
+                      //   onPressed: () => _handleLike(story),
+                      //   isLiked: isLiked,
+                      // ),
                       const SizedBox(height: 15),
                       // Кнопка Комментария
                       _buildActionButton(
@@ -287,7 +287,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                           await showModalBottomSheet(
                             context: context,
                             builder: (context) {
-                              return CommentsBottomSheet(story: story);
+                              return RepliesBottomSheet(parentStory: story);
                             },
                           );
                           // Логика обновления счетчика комментариев
