@@ -1,4 +1,3 @@
-// services/story_service.dart
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
@@ -16,7 +15,7 @@ class StoryService {
   final AuthService _authService = AuthService();
 
   // 🛑 FIX: Используем 10.0.2.2 для Android эмулятора, если это не реальное устройство
-  final String baseUrl = 'https://ravell-backend-1.onrender.com';
+  final String baseUrl = 'http://192.168.1.104:8000';
 
   // --------------------------------------------------------------------------
   // УЛУЧШЕННЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С JSON И КОДИРОВКОЙ
@@ -447,6 +446,40 @@ class StoryService {
       } else {
         rethrow;
       }
+    }
+  }
+
+  /// ✅ НОВЫЙ МЕТОД: Получает все истории, которые являются ответами на указанную storyId.
+  /// Предполагаемый URL: /stories/{storyId}/replies
+  Future<List<Story>> getRepliesForStory(int storyId) async {
+    try {
+      final response = await http.get(
+        // Предполагаемый эндпоинт для ответов
+        Uri.parse('$baseUrl/stories/$storyId/replies'),
+        headers: await _getHeaders(includeAuth: true),
+      );
+
+      print(
+        'Replies response status for Story $storyId: ${response.statusCode}',
+      );
+
+      if (response.statusCode == 200) {
+        final data = _safeJsonDecode(response);
+        // 🟢 Безопасно извлекаем список по ключу 'replies' или 'stories'
+        // В данном случае, я предполагаю ключ 'stories', как и в других методах,
+        // но вы можете изменить его на 'replies', если ваш бэкенд использует его.
+        final List<dynamic> body = _safeParseList(data, 'stories');
+
+        return body.map((dynamic item) => Story.fromJson(item)).toList();
+      } else {
+        final errorBody = _safeJsonDecode(response);
+        throw Exception(
+          'Failed to fetch replies for story $storyId: ${response.statusCode}. Error: ${errorBody['error'] ?? response.body}',
+        );
+      }
+    } catch (e) {
+      print('Error in getRepliesForStory: $e');
+      rethrow;
     }
   }
 

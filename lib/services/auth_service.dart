@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String baseUrl = 'https://ravell-backend-1.onrender.com';
+  static const String baseUrl = 'http://192.168.1.104:8000';
 
   // --- 1. Вспомогательные методы ---
 

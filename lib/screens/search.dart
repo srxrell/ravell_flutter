@@ -41,7 +41,7 @@ class SearchStory extends StatefulWidget {
 
 class _SearchStoryState extends State<SearchStory> {
   final TextEditingController textController = TextEditingController();
-  final String apiSearchUrl = "https://ravell-backend-1.onrender.com/stories/";
+  final String apiSearchUrl = "http://192.168.1.104:8000/stories/";
 
   // --- Состояние и Debouncer ---
   final Debouncer _debouncer = Debouncer(milliseconds: 500);

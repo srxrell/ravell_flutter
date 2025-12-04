@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/story.dart';
 
 class StoryReplyService {
-  final String baseUrl = 'https://ravell-backend-1.onrender.com';
+  final String baseUrl = 'http://192.168.1.104:8000';
 
   // --- 1. GET Replies for Story (Вместо комментариев) ---
   Future<List<Story>> getRepliesForStory(int parentStoryId) async {
@@ -27,7 +27,7 @@ class StoryReplyService {
       try {
         final data = jsonDecode(response.body);
         if (data is Map<String, dynamic>) {
-          final List<dynamic> body = data['stories'] ?? [];
+          final List<dynamic> body = data['replies'] ?? [];
           return body.map((dynamic item) => Story.fromJson(item)).toList();
         }
         return [];
@@ -102,7 +102,7 @@ class StoryReplyService {
       try {
         final data = jsonDecode(response.body);
         if (data is Map<String, dynamic>) {
-          final List<dynamic> body = data['stories'] ?? data['thread'] ?? [];
+          final List<dynamic> body = data['replies'] ?? data['thread'] ?? [];
           return body.map((dynamic item) => Story.fromJson(item)).toList();
         }
         return [];

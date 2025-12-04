@@ -1,15 +1,12 @@
-// screens/feed.dart - ИСПРАВЛЕННАЯ ВЕРСИЯ
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:readreels/models/story.dart';
-import 'package:readreels/widgets/comments_bottom_sheet.dart';
-import 'package:readreels/widgets/expandable_story_content.dart';
+import 'package:readreels/screens/story_detail.dart';
 import 'package:readreels/widgets/heart_animation.dart';
 import 'package:readreels/services/story_service.dart' as st;
-import 'package:readreels/widgets/bottom_nav_bar_liquid.dart'; // ЗАМЕНИЛИ CommentsBottomSheet на RepliesBottomSheet
+import 'package:readreels/widgets/bottom_nav_bar_liquid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:readreels/theme.dart';
@@ -48,7 +45,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabChange);
     _checkAuthStatusAndFetch();
   }
@@ -201,276 +198,317 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     final isLiked = likeStatuses[story.id] ?? false;
     final currentLikeCount = likeCounts[story.id] ?? 0;
 
-    return GestureDetector(
-      onDoubleTapDown: (details) {
-        _handleLike(story, isDoubleTap: true);
-        setState(() {
-          tapPosition = details.localPosition;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: neoBlack, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: neoBlack.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            HeartAnimation(
-              position: tapPosition,
-              isAnimating: isHeartAnimating,
-              duration: const Duration(milliseconds: 300),
-              onEnd:
-                  () => setState(() {
-                    isHeartAnimating = false;
-                  }),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Заголовок и информация об авторе
-                  Row(
-                    children: [
-                      _buildAuthorInfo(story),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Имя пользователя и заголовок
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    story.username,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.black87,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (story.isVerified)
-                                  const Padding(
-                                    padding: EdgeInsets.only(left: 4),
-                                    child: Icon(
-                                      Icons.verified,
-                                      color: Colors.blue,
-                                      size: 16,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              story.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              story.replyInfo,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+    // **FIX: Обернули в LayoutBuilder, чтобы передать ограниченную высоту в Container**
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // constraints.maxHeight - (2 * 16 margin) - 20 (SizedBox height)
+        // Вычитаем вертикальный margin (16 сверху + 16 снизу) и 20px отступа снизу
+        final double containerHeight = constraints.maxHeight - 52;
 
-                  const SizedBox(height: 16),
+        return GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => StoryDetailPage(story: story),
+              ),
+            );
+          },
+          onDoubleTapDown: (details) {
+            _handleLike(story, isDoubleTap: true);
+            setState(() {
+              tapPosition = details.localPosition;
+            });
+          },
+          child: Column(
+            children: [
+              Container(
+                // **ПРИМЕНЯЕМ ОГРАНИЧЕННУЮ ВЫСОТУ для Column с Expanded внутри**
+                height:
+                    containerHeight.isFinite && containerHeight > 0
+                        ? containerHeight
+                        : null,
 
-                  // Контент истории
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: ExpandableStoryContent(content: story.content),
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: neoBlack, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: neoBlack.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
                     ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Хештеги (если есть)
-                  if (story.hashtags.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children:
-                            story.hashtags.map((hashtag) {
-                              return Chip(
-                                label: Text(
-                                  '#${hashtag.name}',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                backgroundColor: Colors.blue[50],
-                                visualDensity: VisualDensity.compact,
-                              );
-                            }).toList(),
-                      ),
-                    ),
-
-                  // Действия
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Лайки и ответы
-                      Row(
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    HeartAnimation(
+                      position: tapPosition,
+                      isAnimating: isHeartAnimating,
+                      duration: const Duration(milliseconds: 300),
+                      onEnd:
+                          () => setState(() {
+                            isHeartAnimating = false;
+                          }),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Лайк
-                          GestureDetector(
-                            onTap: () => _handleLike(story),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isLiked
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color:
-                                      isLiked ? Colors.red : Colors.grey[600],
-                                  size: 24,
+                          // Заголовок и информация об авторе
+                          Row(
+                            children: [
+                              _buildAuthorInfo(story),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Имя пользователя и заголовок
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            story.username,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                              color: Colors.black87,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (story.isVerified)
+                                          const Padding(
+                                            padding: EdgeInsets.only(left: 4),
+                                            child: Icon(
+                                              Icons.verified,
+                                              color: Colors.blue,
+                                              size: 16,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      story.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      story.replyInfo,
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  currentLikeCount.toString(),
-                                  style: TextStyle(
-                                    color:
-                                        isLiked ? Colors.red : Colors.grey[600],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Контент истории
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: ExpandableStoryContent(
+                                content: story.content,
+                              ),
                             ),
                           ),
 
-                          const SizedBox(width: 20),
+                          const SizedBox(height: 16),
 
-                          // Ответы
-                          GestureDetector(
-                            onTap: () async {
-                              if (currentUserId == null) {
-                                if (mounted) {
-                                  context.go('/auth');
-                                }
-                                return;
-                              }
+                          // Хештеги (если есть)
+                          if (story.hashtags.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children:
+                                    story.hashtags.map((hashtag) {
+                                      return Chip(
+                                        label: Text(
+                                          '#${hashtag.name}',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        backgroundColor: Colors.blue[50],
+                                        visualDensity: VisualDensity.compact,
+                                      );
+                                    }).toList(),
+                              ),
+                            ),
 
-                              await showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                builder:
-                                    (context) =>
-                                        RepliesBottomSheet(parentStory: story),
-                              );
-                              // Обновляем данные после закрытия bottom sheet
-                              await _fetchCurrentTabStories();
-                            },
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.reply,
-                                  color: Colors.grey,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  story.replyCount.toString(),
-                                  style: const TextStyle(
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.bold,
+                          // Действия
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Лайки и ответы
+                              Row(
+                                children: [
+                                  // Лайк
+                                  GestureDetector(
+                                    onTap: () => _handleLike(story),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isLiked
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
+                                          color:
+                                              isLiked
+                                                  ? Colors.red
+                                                  : Colors.grey[600],
+                                          size: 24,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          currentLikeCount.toString(),
+                                          style: TextStyle(
+                                            color:
+                                                isLiked
+                                                    ? Colors.red
+                                                    : Colors.grey[600],
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(width: 20),
+
+                                  // Ответы
+                                  GestureDetector(
+                                    onTap: () async {
+                                      if (currentUserId == null) {
+                                        if (mounted) {
+                                          context.go('/auth');
+                                        }
+                                        return;
+                                      }
+
+                                      // ЗАМЕНИЛИ RepliesBottomSheet на CommentsBottomSheet в этом месте
+                                      await showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder:
+                                            (context) => RepliesBottomSheet(
+                                              parentStory:
+                                                  story, // Предполагаем, что аргумент называется 'story'
+                                            ),
+                                      );
+                                      // Обновляем данные после закрытия bottom sheet
+                                      await _fetchCurrentTabStories();
+                                    },
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.reply,
+                                          color: Colors.grey,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          story.replyCount.toString(),
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              // Кнопка ответить (если это не ответ)
+                              if (!story.isReply)
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    if (currentUserId == null) {
+                                      if (mounted) {
+                                        context.go('/auth');
+                                      }
+                                      return;
+                                    }
+
+                                    context.go(
+                                      '/addStory',
+                                      extra: {
+                                        'replyTo': story.id,
+                                        'parentTitle': story.title,
+                                      },
+                                    );
+                                  },
+                                  icon: const Icon(Icons.reply, size: 16),
+                                  label: const Text('Ответить'),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(color: neoBlack),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
                                   ),
                                 ),
-                              ],
-                            ),
+                            ],
                           ),
                         ],
                       ),
+                    ),
 
-                      // Кнопка ответить (если это не ответ)
-                      if (!story.isReply)
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            if (currentUserId == null) {
-                              if (mounted) {
-                                context.go('/auth');
-                              }
-                              return;
-                            }
-
-                            context.go(
-                              '/create-story',
-                              extra: {
-                                'replyTo': story.id,
-                                'parentTitle': story.title,
-                              },
-                            );
-                          },
-                          icon: const Icon(Icons.reply, size: 16),
-                          label: const Text('Ответить'),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: neoBlack),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
+                    // Бейдж типа истории
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              story.isSeed
+                                  ? Colors.green[100]
+                                  : story.isBranch
+                                  ? Colors.blue[100]
+                                  : Colors.orange[100],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.black12),
+                        ),
+                        child: Text(
+                          story.isSeed
+                              ? '🌱 Семя'
+                              : story.isBranch
+                              ? '🌿 Ветка'
+                              : '↪️ Ответ',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Бейдж типа истории
-            Positioned(
-              top: 10,
-              right: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color:
-                      story.isSeed
-                          ? Colors.green[100]
-                          : story.isBranch
-                          ? Colors.blue[100]
-                          : Colors.orange[100],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.black12),
-                ),
-                child: Text(
-                  story.isSeed
-                      ? '🌱 Семя'
-                      : story.isBranch
-                      ? '🌿 Ветка'
-                      : '↪️ Ответ',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(
+                height: 20,
+              ), // Место снизу, как запрашивал пользователь
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -530,7 +568,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                 right: 0,
                 child: Container(
                   padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
@@ -771,23 +809,19 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
               indicatorColor: neoBlack,
               indicatorWeight: 3,
               indicatorPadding: const EdgeInsets.symmetric(horizontal: 16),
-              tabs: const [
-                Tab(text: '🌱 Семена'),
-                Tab(text: '🌿 Ветки'),
-                Tab(text: '📚 Все'),
-              ],
+              tabs: const [Tab(text: '🌱 Семена'), Tab(text: '🌿 Ветки')],
             ),
           ),
         ),
       ),
       extendBody: true,
       bottomNavigationBar: const PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go('/create-story'),
-        backgroundColor: neoBlack,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add, size: 28),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () => context.go('/addStory'),
+      //   backgroundColor: neoBlack,
+      //   foregroundColor: Colors.white,
+      //   child: const Icon(Icons.add, size: 28),
+      // ),
       body: _isLoading ? _buildLoadingState() : _buildContent(),
     );
   }

@@ -164,7 +164,7 @@ class Story {
   String? get avatarUrl {
     // 1. Проверяем authorAvatar (старый формат)
     if (authorAvatar != null && authorAvatar!.isNotEmpty) {
-      return 'https://ravell-backend-1.onrender.com$authorAvatar';
+      return 'http://192.168.1.104:8000$authorAvatar';
     }
 
     // 2. Проверяем user -> profile -> avatar (новый формат)
@@ -173,7 +173,7 @@ class Story {
         user!['profile'] is Map<String, dynamic>) {
       final avatar = user!['profile']['avatar'] as String?;
       if (avatar != null && avatar.isNotEmpty) {
-        return 'https://ravell-backend-1.onrender.com$avatar';
+        return 'http://192.168.1.104:8000$avatar';
       }
     }
 
