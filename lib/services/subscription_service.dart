@@ -11,7 +11,7 @@ import 'package:readreels/services/file_uploader_stub.dart'
     if (dart.library.html) 'package:readreels/services/file_uploader_web.dart';
 
 class SubscriptionService {
-  final String baseUrl = 'http://192.168.1.104:8000';
+  final String baseUrl = 'https://ravell-backend-1.onrender.com';
   final _fileUploader = getFileUploader();
 
   Future<String?> _getToken() async {

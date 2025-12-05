@@ -570,7 +570,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final fullAvatarUrl =
           avatarUrl.startsWith('http')
               ? avatarUrl
-              : 'http://192.168.1.104:8000$avatarUrl';
+              : 'https://ravell-backend-1.onrender.com$avatarUrl';
       avatarImageProvider = NetworkImage(fullAvatarUrl);
     }
 

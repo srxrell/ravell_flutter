@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/story.dart';
 
 class StoryReplyService {
-  final String baseUrl = 'http://192.168.1.104:8000';
+  final String baseUrl = 'https://ravell-backend-1.onrender.com';
 
   // --- 1. GET Replies for Story (Вместо комментариев) ---
   Future<List<Story>> getRepliesForStory(int parentStoryId) async {
