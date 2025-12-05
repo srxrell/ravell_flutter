@@ -404,7 +404,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                         isScrollControlled: true,
                                         backgroundColor: Colors.transparent,
                                         builder:
-                                            (context) => RepliesBottomSheet(
+                                            (context) => CommentsBottomSheet(
                                               parentStory:
                                                   story, // Предполагаем, что аргумент называется 'story'
                                             ),
