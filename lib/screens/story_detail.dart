@@ -139,13 +139,13 @@ class StoryCard extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: story.hashtagIds.map((id) {
-                  return Chip(
-                    label: Text('#hashtag$id'),
-                    backgroundColor: Colors.blue[50],
-                    visualDensity: VisualDensity.compact,
-                  );
-                }).toList(),
+                children: story.hashtags.map((hashtag) {
+      return Chip(
+        label: Text('#${hashtag.name}'), // Используем name из объекта Hashtag
+        backgroundColor: Colors.blue[50],
+        visualDensity: VisualDensity.compact,
+      );
+    }).toList(),
               ),
           ],
         ),
