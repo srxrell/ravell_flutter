@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/screens/add_story_screen.dart';
 import 'package:readreels/services/comment_service.dart';
+import 'package:readreels/widgets/expandable_story_content.dart';
 import 'package:readreels/services/story_service.dart' as st;
 
 // ⚠️ ЗАГЛУШКИ ДЛЯ ОТСУТСТВУЮЩИХ КЛАССОВ И ПЕРЕМЕННЫХ
@@ -58,20 +59,6 @@ class StoryCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class ExpandableStoryContent extends StatelessWidget {
-  final String content;
-  const ExpandableStoryContent({super.key, required this.content});
-  @override
-  Widget build(BuildContext context) => Text(content);
-}
-
-class RepliesBottomSheet extends StatelessWidget {
-  final Story parentStory;
-  const RepliesBottomSheet({super.key, required this.parentStory});
-  @override
-  Widget build(BuildContext context) => Container();
 }
 
 // Конец заглушек

@@ -9,39 +9,73 @@ class StoryReplyService {
   final String baseUrl = 'https://ravell-backend-1.onrender.com';
 
   // --- 1. GET Replies for Story (Вместо комментариев) ---
-  Future<List<Story>> getRepliesForStory(int parentStoryId) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? accessToken = prefs.getString('access_token');
+  // --- 1. GET Replies for Story ---
+Future<List<Story>> getRepliesForStory(int parentStoryId) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? accessToken = prefs.getString('access_token');
 
+  print('🔄 Fetching replies for story ID: $parentStoryId');
+  print('🌐 URL: $baseUrl/stories/?reply_to=$parentStoryId');
+
+  try {
     final response = await http.get(
-      Uri.parse(
-        '$baseUrl/stories?reply_to=$parentStoryId',
-      ), // Фильтр по reply_to
+      Uri.parse('$baseUrl/stories/?reply_to=$parentStoryId'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         if (accessToken != null) 'Authorization': 'Bearer $accessToken',
       },
     );
 
+    print('📊 Response status: ${response.statusCode}');
+    
     if (response.statusCode == 200) {
-      try {
-        final data = jsonDecode(response.body);
-        if (data is Map<String, dynamic>) {
-          final List<dynamic> body = data['replies'] ?? [];
-          return body.map((dynamic item) => Story.fromJson(item)).toList();
-        }
-        return [];
-      } catch (e) {
-        debugPrint('Error parsing replies: $e');
+      final bodyString = utf8.decode(response.bodyBytes);
+      print('📄 Response received, parsing...');
+      
+      final data = jsonDecode(bodyString);
+      
+      // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Правильно фильтруем ответы
+      List<dynamic> allStories = [];
+      
+      if (data is Map<String, dynamic> && data.containsKey('stories')) {
+        allStories = data['stories'];
+        print('📊 Total stories from API: ${allStories.length}');
+      } else {
+        print('⚠️ Response does not contain "stories" key or is not a Map');
         return [];
       }
+      
+      // ✅ ФИЛЬТРУЕМ: берем только те истории, где reply_to == parentStoryId
+      final replies = allStories.where((story) {
+        final replyTo = story['reply_to'];
+        return replyTo != null && replyTo == parentStoryId;
+      }).toList();
+      
+      print('✅ Found ${replies.length} actual replies (filtered by reply_to == $parentStoryId)');
+      
+      // Парсим только отфильтрованные ответы
+      final List<Story> parsedReplies = [];
+      for (var item in replies) {
+        try {
+          final story = Story.fromJson(item);
+          parsedReplies.add(story);
+          print('   ➤ Reply: ${story.title} (ID: ${story.id}, reply_to: ${story.replyTo})');
+        } catch (e) {
+          print('❌ Error parsing story: $e');
+        }
+      }
+      
+      return parsedReplies;
+      
     } else {
-      debugPrint(
-        'Failed to get replies for story: ${response.statusCode} ${response.body}',
-      );
-      throw Exception('Failed to get replies for story');
+      print('❌ API Error: ${response.statusCode} - ${response.body}');
+      return [];
     }
+  } catch (e) {
+    print('❌ Network/parsing error: $e');
+    return [];
   }
+}
 
   // --- 2. POST Add Reply as Story (Вместо комментария) ---
   Future<Story> addReplyToStory({
