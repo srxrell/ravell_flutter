@@ -399,13 +399,13 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                         return;
                                       }
 
-                                      // ЗАМЕНИЛИ RepliesBottomSheet на CommentsBottomSheet в этом месте
+                                      // ЗАМЕНИЛИ RepliesBottomSheet на RepliesBottomSheet в этом месте
                                       await showModalBottomSheet(
                                         context: context,
                                         isScrollControlled: true,
                                         backgroundColor: Colors.transparent,
                                         builder:
-                                            (context) => CommentsBottomSheet(
+                                            (context) => RepliesBottomSheet(
                                               parentStory:
                                                   story, // Предполагаем, что аргумент называется 'story'
                                             ),
