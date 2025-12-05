@@ -43,9 +43,9 @@ class StoryCard extends StatelessWidget {
                 color: Colors.black87,
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // 🟢 ПОЛНЫЙ ТЕКСТ ИСТОРИИ (без обрезания)
             Container(
               width: double.infinity,
@@ -64,9 +64,9 @@ class StoryCard extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Информация об авторе и статистика
             Row(
               children: [
@@ -76,9 +76,9 @@ class StoryCard extends StatelessWidget {
                   backgroundColor: Colors.grey[300],
                   child: _buildAvatar(),
                 ),
-                
+
                 const SizedBox(width: 12),
-                
+
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,44 +92,42 @@ class StoryCard extends StatelessWidget {
                       ),
                       Text(
                         _formatDate(story.createdAt),
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
                     ],
                   ),
                 ),
-                
+
                 // Статистика
-                Row(
-                  children: [
-                    _buildStatIcon(Icons.favorite, story.likesCount),
-                    const SizedBox(width: 8),
-                    // 🟢 ИСПРАВЛЕНО: используем replyCount вместо repliesCount
-                    _buildStatIcon(Icons.reply, story.replyCount),
-                    const SizedBox(width: 8),
-                    if (story.replyTo != null)
-                      _buildStatIcon(Icons.subdirectory_arrow_right, null),
-                  ],
-                ),
+                // Row(
+                //   children: [
+                //     _buildStatIcon(Icons.favorite, story.likesCount),
+                //     const SizedBox(width: 8),
+                //     // 🟢 ИСПРАВЛЕНО: используем replyCount вместо repliesCount
+                //     _buildStatIcon(Icons.reply, story.replyCount),
+                //     const SizedBox(width: 8),
+                //     if (story.replyTo != null)
+                //       _buildStatIcon(Icons.subdirectory_arrow_right, null),
+                //   ],
+                // ),
               ],
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             // Хештеги
             if (story.hashtags.isNotEmpty)
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: story.hashtags.map((hashtag) {
-                  return Chip(
-                    label: Text('#${hashtag.name}'),
-                    backgroundColor: Colors.blue[50],
-                    visualDensity: VisualDensity.compact,
-                  );
-                }).toList(),
+                children:
+                    story.hashtags.map((hashtag) {
+                      return Chip(
+                        label: Text('#${hashtag.name}'),
+                        backgroundColor: Colors.blue[50],
+                        visualDensity: VisualDensity.compact,
+                      );
+                    }).toList(),
               ),
           ],
         ),
@@ -140,7 +138,7 @@ class StoryCard extends StatelessWidget {
   // 🟢 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ АВАТАРА
   Widget _buildAvatar() {
     final avatarUrl = story.avatarUrl;
-    
+
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       return ClipOval(
         child: Image.network(
@@ -154,31 +152,25 @@ class StoryCard extends StatelessWidget {
         ),
       );
     }
-    
+
     return _buildAvatarPlaceholder();
   }
 
   Widget _buildAvatarPlaceholder() {
     final username = story.username;
-    final placeholderText = username.isNotEmpty ? username[0].toUpperCase() : '?';
-    
+    final placeholderText =
+        username.isNotEmpty ? username[0].toUpperCase() : '?';
+
     return Text(
       placeholderText,
-      style: const TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
     );
   }
 
   Widget _buildStatIcon(IconData icon, int? count) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: Colors.grey[600],
-        ),
+        Icon(icon, size: 18, color: Colors.grey[600]),
         if (count != null && count > 0) ...[
           const SizedBox(width: 4),
           Text(
@@ -197,7 +189,7 @@ class StoryCard extends StatelessWidget {
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
-    
+
     if (difference.inDays > 365) {
       return '${(difference.inDays / 365).floor()}г назад';
     } else if (difference.inDays > 30) {
@@ -242,11 +234,11 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   void _calculateWordCounts() {
     // Считаем слова в основной истории
     _totalWords = widget.story.content.split(RegExp(r'\s+')).length;
-    
+
     // Предварительный расчет слов в ответах
     _totalRepliesWords = _replies.fold(
-      0, 
-      (sum, reply) => sum + reply.content.split(RegExp(r'\s+')).length
+      0,
+      (sum, reply) => sum + reply.content.split(RegExp(r'\s+')).length,
     );
   }
 
@@ -261,13 +253,13 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     try {
       print('🔄 Загружаем ответы для истории ID: ${widget.story.id}');
       _replies = await _replyService.getRepliesForStory(widget.story.id);
-      
+
       print('✅ Загружено ответов: ${_replies.length}');
-      
+
       // Обновляем подсчет слов после загрузки ответов
       _totalRepliesWords = _replies.fold(
-        0, 
-        (sum, reply) => sum + reply.content.split(RegExp(r'\s+')).length
+        0,
+        (sum, reply) => sum + reply.content.split(RegExp(r'\s+')).length,
       );
 
       setState(() {
@@ -315,33 +307,32 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Статистика чтения
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildStatItem(
-                          '${_totalWords} слов',
-                          Icons.text_fields,
-                        ),
-                        _buildStatItem(
-                          '${_replies.length} ответов',
-                          Icons.reply,
-                        ),
-                        _buildStatItem(
-                          '${_totalRepliesWords} слов в ответах',
-                          Icons.comment,
-                        ),
-                      ],
-                    ),
-                  ),
-                  
+                  // Container(
+                  //   padding: const EdgeInsets.all(12),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.blue[50],
+                  //     borderRadius: BorderRadius.circular(12),
+                  //   ),
+                  //   child: Row(
+                  //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  //     children: [
+                  //       _buildStatItem(
+                  //         '${_totalWords} слов',
+                  //         Icons.text_fields,
+                  //       ),
+                  //       _buildStatItem(
+                  //         '${_replies.length} ответов',
+                  //         Icons.reply,
+                  //       ),
+                  //       _buildStatItem(
+                  //         '${_totalRepliesWords} слов в ответах',
+                  //         Icons.comment,
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
                   const SizedBox(height: 16),
-                  
+
                   // Основная карточка истории
                   StoryCard(
                     story: widget.story,
@@ -354,40 +345,36 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
           ),
 
           // Заголовок ответов
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 16.0,
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.reply,
-                    color: Colors.blue,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _replies.isEmpty
-                        ? 'Нет ответов'
-                        : 'Ответы (${_replies.length})',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (_replies.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Chip(
-                      label: Text('${_totalRepliesWords} слов'),
-                      backgroundColor: Colors.green[50],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
+          // SliverToBoxAdapter(
+          //   child: Padding(
+          //     padding: const EdgeInsets.symmetric(
+          //       horizontal: 24.0,
+          //       vertical: 16.0,
+          //     ),
+          //     child: Row(
+          //       children: [
+          //         const Icon(Icons.reply, color: Colors.blue, size: 24),
+          //         const SizedBox(width: 8),
+          //         Text(
+          //           _replies.isEmpty
+          //               ? 'Нет ответов'
+          //               : 'Ответы (${_replies.length})',
+          //           style: const TextStyle(
+          //             fontSize: 20,
+          //             fontWeight: FontWeight.bold,
+          //           ),
+          //         ),
+          //         if (_replies.isNotEmpty) ...[
+          //           const SizedBox(width: 8),
+          //           Chip(
+          //             label: Text('${_totalRepliesWords} слов'),
+          //             backgroundColor: Colors.green[50],
+          //           ),
+          //         ],
+          //       ],
+          //     ),
+          //   ),
+          // ),
 
           // Список ответов или состояние загрузки
           if (_isLoading)
@@ -445,18 +432,12 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                     const SizedBox(height: 16),
                     const Text(
                       'Пока нет ответов',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
                     ),
                     const SizedBox(height: 8),
                     const Text(
                       'Будьте первым, кто ответит!',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -464,63 +445,60 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
             )
           else
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final reply = _replies[index];
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      left: 24,
-                      right: 24,
-                      bottom: 16,
-                      top: index == 0 ? 0 : 0,
-                    ),
-                    child: Column(
-                      children: [
-                        // Номер ответа
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue[100],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                'Ответ #${index + 1}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                  color: Colors.blue,
-                                ),
-                              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final reply = _replies[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: 24,
+                    right: 24,
+                    bottom: 16,
+                    top: index == 0 ? 0 : 0,
+                  ),
+                  child: Column(
+                    children: [
+                      // Номер ответа
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
                             ),
-                            const Spacer(),
-                            Text(
-                              '${reply.content.split(RegExp(r'\s+')).length} слов',
-                              style: TextStyle(
-                                color: Colors.grey[600],
+                            decoration: BoxDecoration(
+                              color: Colors.blue[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Ответ #${index + 1}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
                                 fontSize: 12,
+                                color: Colors.blue,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        
-                        // Карточка ответа
-                        StoryCard(
-                          story: reply,
-                          isReplyCard: true,
-                          onStoryUpdated: _fetchReplies,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                childCount: _replies.length,
-              ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${reply.content.split(RegExp(r'\s+')).length} слов',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Карточка ответа
+                      StoryCard(
+                        story: reply,
+                        isReplyCard: true,
+                        onStoryUpdated: _fetchReplies,
+                      ),
+                    ],
+                  ),
+                );
+              }, childCount: _replies.length),
             ),
         ],
       ),
@@ -534,10 +512,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
         const SizedBox(height: 4),
         Text(
           text,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -546,26 +521,27 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   Widget _buildFloatingActionButton() {
     return FloatingActionButton.extended(
       onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => AddStoryScreen(
-              parentTitle: widget.story.title,
-              replyToId: widget.story.id,
-            ),
-          ),
-        ).then((_) {
-          // Обновляем список ответов после возвращения
-          _fetchReplies();
-        });
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder:
+                    (context) => AddStoryScreen(
+                      parentTitle: widget.story.title,
+                      replyToId: widget.story.id,
+                    ),
+              ),
+            )
+            .then((_) {
+              // Обновляем список ответов после возвращения
+              _fetchReplies();
+            });
       },
       icon: const Icon(Icons.reply),
       label: const Text('Ответить'),
       backgroundColor: Colors.blue,
       foregroundColor: Colors.white,
       elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     );
   }
 }
