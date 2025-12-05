@@ -5,7 +5,6 @@ import 'package:readreels/screens/add_story_screen.dart';
 import 'package:readreels/services/comment_service.dart';
 import 'package:readreels/services/story_service.dart' as st;
 
-// 🟢 ИСПРАВЛЕННЫЙ StoryCard с полным текстом
 class StoryCard extends StatelessWidget {
   final Story story;
   final bool isReplyCard;
@@ -57,7 +56,7 @@ class StoryCard extends StatelessWidget {
                 border: Border.all(color: Colors.grey[200]!),
               ),
               child: SelectableText(
-                story.content, // 🟢 ПОЛНЫЙ текст
+                story.content,
                 style: TextStyle(
                   fontSize: 16,
                   height: 1.5,
@@ -71,27 +70,11 @@ class StoryCard extends StatelessWidget {
             // Информация об авторе и статистика
             Row(
               children: [
+                // 🟢 ИСПРАВЛЕНО: безопасная проверка avatarUrl
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: Colors.grey[300],
-                  child: story.avatarUrl.isNotEmpty
-                      ? ClipOval(
-                          child: Image.network(
-                            'https://ravell-backend-1.onrender.com${story.avatarUrl}',
-                            width: 32,
-                            height: 32,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : Text(
-                          story.username.isNotEmpty 
-                              ? story.username[0].toUpperCase() 
-                              : '?',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                  child: _buildAvatar(),
                 ),
                 
                 const SizedBox(width: 12),
@@ -108,7 +91,7 @@ class StoryCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${_formatDate(story.createdAt)}',
+                        _formatDate(story.createdAt),
                         style: TextStyle(
                           color: Colors.grey[600],
                           fontSize: 12,
@@ -123,7 +106,8 @@ class StoryCard extends StatelessWidget {
                   children: [
                     _buildStatIcon(Icons.favorite, story.likesCount),
                     const SizedBox(width: 8),
-                    _buildStatIcon(Icons.reply, story.repliesCount),
+                    // 🟢 ИСПРАВЛЕНО: используем replyCount вместо repliesCount
+                    _buildStatIcon(Icons.reply, story.replyCount),
                     const SizedBox(width: 8),
                     if (story.replyTo != null)
                       _buildStatIcon(Icons.subdirectory_arrow_right, null),
@@ -140,15 +124,49 @@ class StoryCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 4,
                 children: story.hashtags.map((hashtag) {
-      return Chip(
-        label: Text('#${hashtag.name}'), // Используем name из объекта Hashtag
-        backgroundColor: Colors.blue[50],
-        visualDensity: VisualDensity.compact,
-      );
-    }).toList(),
+                  return Chip(
+                    label: Text('#${hashtag.name}'),
+                    backgroundColor: Colors.blue[50],
+                    visualDensity: VisualDensity.compact,
+                  );
+                }).toList(),
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  // 🟢 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ АВАТАРА
+  Widget _buildAvatar() {
+    final avatarUrl = story.avatarUrl;
+    
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          avatarUrl,
+          width: 32,
+          height: 32,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildAvatarPlaceholder();
+          },
+        ),
+      );
+    }
+    
+    return _buildAvatarPlaceholder();
+  }
+
+  Widget _buildAvatarPlaceholder() {
+    final username = story.username;
+    final placeholderText = username.isNotEmpty ? username[0].toUpperCase() : '?';
+    
+    return Text(
+      placeholderText,
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
       ),
     );
   }
@@ -161,7 +179,7 @@ class StoryCard extends StatelessWidget {
           size: 18,
           color: Colors.grey[600],
         ),
-        if (count != null) ...[
+        if (count != null && count > 0) ...[
           const SizedBox(width: 4),
           Text(
             '$count',

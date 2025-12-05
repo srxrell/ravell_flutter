@@ -41,6 +41,13 @@ class Story {
     this.lastReplyAt,
   });
 
+  int get repliesCount => replyCount; // Алиас для replyCount
+  
+  // 🟢 ГЕТТЕР ДЛЯ ID ХЕШТЕГОВ (если нужно)
+  List<int> get hashtagIds {
+    return hashtags.map((hashtag) => hashtag.id).toList();
+  }
+
   factory Story.fromJson(Map<String, dynamic> json) {
     final List<dynamic>? hashtagList = json['hashtags'] as List<dynamic>?;
     final parsedHashtags =
