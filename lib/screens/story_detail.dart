@@ -135,7 +135,7 @@ class StoryCard extends StatelessWidget {
             const SizedBox(height: 12),
             
             // Хештеги
-            if (story.hashtagIds.isNotEmpty)
+            if (story.hashtags.isNotEmpty)
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
