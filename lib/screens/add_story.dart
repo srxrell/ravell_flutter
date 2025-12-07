@@ -630,7 +630,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 24.0, left: 8.0, right: 8.0),
+            padding: const EdgeInsets.only(
+              bottom: 24.0,
+              left: 8.0,
+              right: 8.0,
+              top: 20,
+            ),
             child: Text(
               'Шаг 1: Select category for your story',
               style: theme.textTheme.headlineMedium,

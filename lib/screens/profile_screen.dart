@@ -371,6 +371,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           stories.map((story) {
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black, width: 2),
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+              ),
               child: GestureDetector(
                 onTap: () {
                   if (mounted) {
@@ -582,7 +587,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         surfaceTintColor: neoBackground,
         centerTitle: false,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        title: SvgPicture.asset("icons/logo.svg", width: 60, height: 60),
+        title: SvgPicture.asset("assets/icons/logo.svg", width: 60, height: 60),
         actions: [
           Builder(
             builder: (innerContext) {
@@ -591,7 +596,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   Scaffold.of(innerContext).openEndDrawer();
                 },
                 child: SvgPicture.asset(
-                  "icons/settings.svg",
+                  "assets/icons/settings.svg",
                   width: 60,
                   height: 60,
                 ),

@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 // --- 1. Constants & Colors ---
 const neoBlack = Color(0xFF000000);
 const neoWhite = Color(0xFFFFFFFF);
-const neoBackground = Color(0xFFF4F3EE); // Мягкий кремовый
+const neoBackground = Color(0xFFFFF9F4); // Мягкий кремовый
 const neoAccent = Color(0xFFFD7600); // Циан (резервный акцент)
 const btnColorWhite = Color(0xFFF4F3EE);
 // Цвета кнопок (по вашему ТЗ)

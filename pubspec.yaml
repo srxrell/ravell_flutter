@@ -21,6 +21,7 @@ dependencies:
   cached_network_image: 3.4.1
   path_provider: 2.1.5
   pinput: 6.0.1
+  flutter_carousel_slider: ^1.1.0
 
 dev_dependencies:
   flutter_test:
@@ -33,5 +34,6 @@ flutter:
     - assets/icons/logo.svg
     - assets/icons/like.svg
     - assets/icons/settings.svg
+    - assets/icons/search.svg
     - assets/icons/comment.svg
     - assets/icons/options.svg

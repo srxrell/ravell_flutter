@@ -1,4 +1,5 @@
 import 'package:readreels/screens/add_story.dart';
+import 'package:readreels/screens/dart_auth_check.dart';
 import 'package:readreels/screens/feed.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -25,7 +26,7 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
         routes: [
           GoRoute(
             path: "/",
-            builder: (context, state) => const AuthenticationScreen(),
+            builder: (context, state) => const AuthCheckerScreen(),
           ),
           GoRoute(path: '/home', builder: (context, state) => const Feed()),
           GoRoute(

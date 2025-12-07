@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/screens/add_story_screen.dart';
 import 'package:readreels/services/comment_service.dart';
 import 'package:readreels/services/story_service.dart' as st;
+import 'package:readreels/theme.dart';
+import 'package:readreels/widgets/neowidgets.dart';
 
 class StoryCard extends StatelessWidget {
   final Story story;
@@ -19,120 +23,133 @@ class StoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: isReplyCard ? 1 : 2,
-      margin: EdgeInsets.all(isReplyCard ? 8 : 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isReplyCard ? Colors.grey[300]! : Colors.blueGrey[100]!,
-          width: isReplyCard ? 1 : 2,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Заголовок истории
-            Text(
-              story.title,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: isReplyCard ? 18 : 22,
-                color: Colors.black87,
-              ),
-            ),
+    return Container(
+      decoration:
+          isReplyCard
+              ? BoxDecoration(
+                border: Border.all(color: Colors.black, width: 2.0),
+                borderRadius: BorderRadius.circular(16.0),
+              )
+              : null,
+      padding: isReplyCard ? const EdgeInsets.all(16.0) : EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Заголовок истории
+          Text(
+            story.title,
+            style: GoogleFonts.russoOne(fontSize: 32, color: Colors.black),
+          ),
 
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-            // 🟢 ПОЛНЫЙ ТЕКСТ ИСТОРИИ (без обрезания)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: SelectableText(
-                story.content,
-                style: TextStyle(
-                  fontSize: 16,
-                  height: 1.5,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Информация об авторе и статистика
-            Row(
-              children: [
-                // 🟢 ИСПРАВЛЕНО: безопасная проверка avatarUrl
-                CircleAvatar(
-                  radius: 16,
+          Row(
+            children: [
+              // 🟢 КЛИКАБЕЛЬНЫЙ АВАТАР
+              GestureDetector(
+                onTap: () => _navigateToUserProfile(context, story.userId),
+                child: CircleAvatar(
+                  radius: 20,
                   backgroundColor: Colors.grey[300],
                   child: _buildAvatar(),
                 ),
+              ),
 
-                const SizedBox(width: 12),
+              const SizedBox(width: 12),
 
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 🟢 КЛИКАБЕЛЬНЫЙ ЮЗЕРНЕЙМ
+                    GestureDetector(
+                      onTap:
+                          () => _navigateToUserProfile(context, story.userId),
+                      child: Text(
                         story.username,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          fontSize: 18,
                         ),
                       ),
-                      Text(
-                        _formatDate(story.createdAt),
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      ),
-                    ],
-                  ),
+                    ),
+                    Text(
+                      _formatDate(story.createdAt),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                    ),
+                  ],
                 ),
-
-                // Статистика
-                // Row(
-                //   children: [
-                //     _buildStatIcon(Icons.favorite, story.likesCount),
-                //     const SizedBox(width: 8),
-                //     // 🟢 ИСПРАВЛЕНО: используем replyCount вместо repliesCount
-                //     _buildStatIcon(Icons.reply, story.replyCount),
-                //     const SizedBox(width: 8),
-                //     if (story.replyTo != null)
-                //       _buildStatIcon(Icons.subdirectory_arrow_right, null),
-                //   ],
-                // ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // Хештеги
-            if (story.hashtags.isNotEmpty)
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children:
-                    story.hashtags.map((hashtag) {
-                      return Chip(
-                        label: Text('#${hashtag.name}'),
-                        backgroundColor: Colors.blue[50],
-                        visualDensity: VisualDensity.compact,
-                      );
-                    }).toList(),
               ),
-          ],
-        ),
+
+              // Статистика (можно раскомментировать если нужно)
+              // Row(
+              //   children: [
+              //     _buildStatIcon(Icons.favorite, story.likesCount),
+              //     const SizedBox(width: 8),
+              //     // 🟢 ИСПРАВЛЕНО: используем replyCount вместо repliesCount
+              //     _buildStatIcon(Icons.reply, story.replyCount),
+              //     const SizedBox(width: 8),
+              //     if (story.replyTo != null)
+              //       _buildStatIcon(Icons.subdirectory_arrow_right, null),
+              //   ],
+              // ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // 🟢 ПОЛНЫЙ ТЕКСТ ИСТОРИИ (без обрезания)
+          Container(
+            width: double.infinity,
+            child: SelectableText(
+              story.content,
+              style: TextStyle(
+                fontSize: 16,
+                height: 1.5,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Хештеги
+          if (story.hashtags.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children:
+                  story.hashtags.map((hashtag) {
+                    return Chip(
+                      label: Text('#${hashtag.name}'),
+                      backgroundColor: Colors.black,
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }).toList(),
+            ),
+        ],
       ),
     );
+  }
+
+  // 🟢 МЕТОД ДЛЯ ПЕРЕХОДА НА ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+  void _navigateToUserProfile(BuildContext context, int userId) {
+    if (userId == 0) return; // Защита от некорректного ID
+
+    // Вариант 1: Используем GoRouter если настроен
+    try {
+      context.push('/profile/$userId');
+    } catch (e) {
+      // Вариант 2: Если GoRouter не работает, используем Navigator
+      print('GoRouter error, using Navigator: $e');
+
+      // Создаем маршрут для профиля (нужно будет импортировать UserProfileScreen)
+      // Navigator.of(context).push(
+      //   MaterialPageRoute(
+      //     builder: (context) => UserProfileScreen(profileUserId: userId),
+      //   ),
+      // );
+    }
   }
 
   // 🟢 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ АВАТАРА
@@ -143,8 +160,8 @@ class StoryCard extends StatelessWidget {
       return ClipOval(
         child: Image.network(
           avatarUrl,
-          width: 32,
-          height: 32,
+          width: 48,
+          height: 48,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             return _buildAvatarPlaceholder();
@@ -278,18 +295,26 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ветка ответов'),
-        centerTitle: true,
+        toolbarHeight: 100,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        surfaceTintColor: neoBackground,
+        centerTitle: false,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        title: SvgPicture.asset("assets/icons/logo.svg", width: 60, height: 60),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchReplies,
-            tooltip: 'Обновить',
+          GestureDetector(
+            onTap: () => context.go("/search"),
+            child: SvgPicture.asset(
+              "assets/icons/search.svg",
+              width: 60,
+              height: 60,
+            ),
           ),
+          const SizedBox(width: 10),
         ],
       ),
       body: _buildBody(),
-      floatingActionButton: _buildFloatingActionButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
@@ -310,7 +335,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                   // Container(
                   //   padding: const EdgeInsets.all(12),
                   //   decoration: BoxDecoration(
-                  //     color: Colors.blue[50],
+                  //     color: Colors.black,
                   //     borderRadius: BorderRadius.circular(12),
                   //   ),
                   //   child: Row(
@@ -339,6 +364,24 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                     isReplyCard: false,
                     onStoryUpdated: _fetchReplies,
                   ),
+                  SizedBox(height: 10),
+                  _buildFloatingActionButton(),
+                  SizedBox(height: 10),
+                  Container(
+                    margin: EdgeInsets.all(10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Ответы: ${widget.story.repliesCount}",
+                          style: GoogleFonts.russoOne(
+                            fontSize: 25,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -353,7 +396,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
           //     ),
           //     child: Row(
           //       children: [
-          //         const Icon(Icons.reply, color: Colors.blue, size: 24),
+          //         const Icon(Icons.reply, color: Colors.black, size: 24),
           //         const SizedBox(width: 8),
           //         Text(
           //           _replies.isEmpty
@@ -368,7 +411,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
           //           const SizedBox(width: 8),
           //           Chip(
           //             label: Text('${_totalRepliesWords} слов'),
-          //             backgroundColor: Colors.green[50],
+          //             backgroundColor: Colors.green,
           //           ),
           //         ],
           //       ],
@@ -456,39 +499,6 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                   ),
                   child: Column(
                     children: [
-                      // Номер ответа
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[100],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              'Ответ #${index + 1}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${reply.content.split(RegExp(r'\s+')).length} слов',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
                       // Карточка ответа
                       StoryCard(
                         story: reply,
@@ -508,7 +518,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   Widget _buildStatItem(String text, IconData icon) {
     return Column(
       children: [
-        Icon(icon, size: 20, color: Colors.blue),
+        Icon(icon, size: 20, color: Colors.black),
         const SizedBox(height: 4),
         Text(
           text,
@@ -519,29 +529,28 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   }
 
   Widget _buildFloatingActionButton() {
-    return FloatingActionButton.extended(
-      onPressed: () {
-        Navigator.of(context)
-            .push(
-              MaterialPageRoute(
-                builder:
-                    (context) => AddStoryScreen(
-                      parentTitle: widget.story.title,
-                      replyToId: widget.story.id,
-                    ),
-              ),
-            )
-            .then((_) {
-              // Обновляем список ответов после возвращения
-              _fetchReplies();
-            });
-      },
-      icon: const Icon(Icons.reply),
-      label: const Text('Ответить'),
-      backgroundColor: Colors.blue,
-      foregroundColor: Colors.white,
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      height: 80,
+      child: NeoIconButton(
+        onPressed: () {
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  builder:
+                      (context) => AddStoryScreen(
+                        parentTitle: widget.story.title,
+                        replyToId: widget.story.id,
+                      ),
+                ),
+              )
+              .then((_) {
+                // Обновляем список ответов после возвращения
+                _fetchReplies();
+              });
+        },
+        icon: const Icon(Icons.reply),
+        child: const Text(' Ответить'),
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 // import 'package:flutter_svg/flutter_svg.dart'; // Оставляем, если нужен SVG
 import 'package:readreels/models/story.dart';
 // Предполагаемые импорты
@@ -241,11 +242,11 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                   right: 10,
                   child: Row(
                     children: [
-                      // Замена IconButton на Image.asset + GestureDetector
+                      // Замена IconButton на SvgPicture.asset + GestureDetector
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
-                        child: Image.asset(
-                          "icons/png/close_story.png", // <--- ИЗМЕНЕНИЕ: Новый ассет
+                        child: SvgPicture.asset(
+                          "assets/iconsclose_story.svg", // <--- ИЗМЕНЕНИЕ: Новый ассет
                           width: 60, // Размер как у Icon
                           height: 60, // Поддерживаем черный цвет, как у Icon
                         ),
@@ -263,10 +264,10 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                     children: [
                       // Кнопка Лайка
                       // _buildActionButton(
-                      //   icon: Image.asset(
+                      //   icon: SvgPicture.asset(
                       //     isLiked
-                      //         ? "icons/png/upvote_filled.png"
-                      //         : "icons/png/upvote.png",
+                      //         ? "assets/iconsupvote_filled.svg"
+                      //         : "assets/iconsupvote.svg",
                       //     width: 50,
                       //     height: 50,
                       //   ),
@@ -277,8 +278,8 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                       const SizedBox(height: 15),
                       // Кнопка Комментария
                       _buildActionButton(
-                        icon: Image.asset(
-                          "icons/png/comment.png",
+                        icon: SvgPicture.asset(
+                          "assets/iconscomment.svg",
                           width: 50,
                           height: 50,
                         ),

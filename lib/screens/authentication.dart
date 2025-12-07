@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:readreels/widgets/neowidgets.dart'; // Убедитесь, что путь верный
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
+import 'dart:async';
 import 'dart:math' as math;
 
 class AuthenticationScreen extends StatefulWidget {
@@ -20,6 +21,8 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   final AuthService _authService = AuthService();
 
   bool _isLoading = false;
+  bool _showSlowConnectionMessage = false;
+  Timer? _slowConnectionTimer;
 
   void _showSnackBar(String message, {bool isError = false}) {
     if (context.mounted) {
@@ -32,11 +35,36 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     }
   }
 
+  void _startSlowConnectionTimer() {
+    // Очищаем предыдущий таймер, если он есть
+    _slowConnectionTimer?.cancel();
+
+    // Устанавливаем таймер на 20 секунд
+    _slowConnectionTimer = Timer(const Duration(seconds: 20), () {
+      if (_isLoading && mounted) {
+        setState(() {
+          _showSlowConnectionMessage = true;
+        });
+      }
+    });
+  }
+
+  void _stopSlowConnectionTimer() {
+    _slowConnectionTimer?.cancel();
+    _slowConnectionTimer = null;
+    if (_showSlowConnectionMessage && mounted) {
+      setState(() {
+        _showSlowConnectionMessage = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     usernameController.dispose();
     passwordController.dispose();
     emailController.dispose();
+    _slowConnectionTimer?.cancel();
     super.dispose();
   }
 
@@ -113,6 +141,32 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                           border: InputBorder.none,
                         ),
                       ),
+
+                      // --- Сообщение о медленном соединении ---
+                      if (_showSlowConnectionMessage)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10, left: 4),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.amber[700],
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  "Подождите, не выходите. Приложение работает, но интернет может быть медленным...",
+                                  style: TextStyle(
+                                    color: Colors.amber[800],
+                                    fontSize: 14,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
 
                       const SizedBox(height: 10),
 
@@ -214,8 +268,12 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     if (mounted) {
       setState(() {
         _isLoading = true;
+        _showSlowConnectionMessage = false;
       });
     }
+
+    // Запускаем таймер для отображения сообщения о медленном соединении
+    _startSlowConnectionTimer();
 
     try {
       if (isLogin) {
@@ -257,20 +315,20 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     } catch (e) {
       final errorString = e.toString();
 
-      // Обработка ошибки неверифицированного аккаунта при входе
-
       // Общая обработка ошибок
       _showSnackBar(
         'Ошибка аутентификации: ${errorString.replaceFirst('Exception: ', '')}',
         isError: true,
       );
     } finally {
+      _stopSlowConnectionTimer(); // Останавливаем таймер
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> logInAsGuest() async {
     if (mounted) setState(() => _isLoading = true);
+    _startSlowConnectionTimer(); // Запускаем таймер и для гостевого входа
     try {
       var code = math.Random().nextInt(999999);
       final sp = await SharedPreferences.getInstance();
@@ -279,6 +337,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     } catch (e) {
       _showSnackBar('Ошибка гостевого входа: ${e.toString()}', isError: true);
     } finally {
+      _stopSlowConnectionTimer(); // Останавливаем таймер
       if (context.mounted) setState(() => _isLoading = false);
     }
   }
