@@ -179,7 +179,7 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
                 child:
                     reply.avatarUrl == null ? const Icon(Icons.person) : null,
               ),
-              title: Text(reply.username), // Используем геттер
+              title: Text(reply.resolvedUsername), // Используем геттер
               subtitle: Text(reply.replyInfo),
               trailing:
                   reply.isVerified

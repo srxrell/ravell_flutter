@@ -707,14 +707,53 @@ class StoryService {
         headers: await _getHeaders(includeAuth: true),
       );
 
-      print('User stories response status: ${response.statusCode}');
+      print('🟢 User stories response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = _safeJsonDecode(response);
-        // 🟢 Используем _safeParseList с ключом 'stories'
         final List<dynamic> body = _safeParseList(data, 'stories');
 
-        return body.map((dynamic item) => Story.fromJson(item)).toList();
+        // 🟢 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Загружаем информацию о пользователе отдельно
+        // и добавляем ее в каждую историю
+        final userResponse = await http.get(
+          Uri.parse('$baseUrl/users/$userId'),
+          headers: await _getHeaders(includeAuth: true),
+        );
+
+        Map<String, dynamic>? userData;
+        if (userResponse.statusCode == 200) {
+          final userJson = _safeJsonDecode(userResponse);
+          if (userJson is Map<String, dynamic>) {
+            userData = userJson;
+          }
+        }
+
+        return body.map((dynamic item) {
+          try {
+            // Создаем копию JSON с добавленными данными пользователя
+            final storyJson = Map<String, dynamic>.from(item);
+
+            if (userData != null) {
+              // Добавляем данные пользователя в историю
+              storyJson['user'] = userData;
+            }
+
+            return Story.fromJson(storyJson);
+          } catch (e) {
+            print('Error parsing user story: $e');
+            return Story(
+              id: item['id'] ?? 0,
+              title: item['title'] ?? 'Ошибка загрузки',
+              content: item['content'] ?? 'Не удалось загрузить историю',
+              userId: item['user_id'] ?? 0,
+              createdAt: DateTime.now(),
+              likesCount: item['likes_count'] ?? 0,
+              commentsCount: item['comments_count'] ?? 0,
+              userLiked: false,
+              hashtags: [],
+            );
+          }
+        }).toList();
       } else {
         final errorBody = _safeJsonDecode(response);
         throw Exception(

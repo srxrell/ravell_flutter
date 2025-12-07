@@ -28,6 +28,10 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
             path: "/",
             builder: (context, state) => const AuthCheckerScreen(),
           ),
+          GoRoute(
+            path: "/login",
+            builder: (context, state) => AuthenticationScreen(),
+          ),
           GoRoute(path: '/home', builder: (context, state) => const Feed()),
           GoRoute(
             path: '/search',

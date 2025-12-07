@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-// import 'package:flutter_svg/flutter_svg.dart'; // Оставляем, если нужен SVG
+import 'package:google_fonts/google_fonts.dart';
 import 'package:readreels/models/story.dart';
-// Предполагаемые импорты
 import 'package:readreels/services/story_service.dart' as st;
-import 'package:readreels/widgets/expandable_story_content.dart';
 import 'package:readreels/widgets/heart_animation.dart';
 import 'package:readreels/widgets/comments_bottom_sheet.dart';
+import 'package:readreels/widgets/expandable_story_content.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:readreels/screens/user_story_feed_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
+import 'package:go_router/go_router.dart';
+import 'package:readreels/widgets/neowidgets.dart';
 
 class UserStoryFeedScreen extends StatefulWidget {
   final List<Story> stories;
@@ -26,121 +28,458 @@ class UserStoryFeedScreen extends StatefulWidget {
 }
 
 class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
-  final PageController _pageController = PageController(initialPage: 0);
+  final st.StoryService _storyService = st.StoryService();
+  final PageController _pageController = PageController(
+    viewportFraction: 0.8, // Видимая часть карточек (80%)
+  );
+
+  int? currentUserId;
   bool isHeartAnimating = false;
-  String? user_id;
-  // Состояние лайков и счетчиков
-  Map<dynamic, bool> likeStatuses = {};
-  late Map<int, int> likeCounts;
+  Map<int, bool> likeStatuses = {};
   Offset tapPosition = Offset.zero;
+  Map<int, int> likeCounts = {};
+  int _currentPage = 0;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-
-    likeCounts = {};
-    for (var story in widget.stories) {
-      // Инициализируем likeCounts из данных истории
-      likeCounts[story.id] = story.likesCount ?? 0;
-    }
-
-    _getuser_id().then((_) {
-      _fetchLikeStatuses();
+    _pageController.addListener(() {
+      setState(() {});
     });
+
+    // Устанавливаем начальную страницу
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _pageController.jumpToPage(widget.initialIndex);
+      }
+    });
+
+    _checkAuthStatusAndFetch();
   }
 
-  // Получение ID текущего пользователя
-  Future<void> _getuser_id() async {
+  Future<void> _checkAuthStatusAndFetch() async {
     final prefs = await SharedPreferences.getInstance();
-    user_id = prefs.getInt('user_id')?.toString();
-  }
+    currentUserId = prefs.getInt('user_id');
 
-  // Получение статусов лайков для всех историй в этой ленте
-  Future<void> _fetchLikeStatuses() async {
-    if (user_id == null) return;
-    final int currentuser_id = int.tryParse(user_id!) ?? 0;
-
-    // Используем Map.fromIterable для быстрой инициализации likeStatuses
-    final initialStatuses = Map.fromIterable(
-      widget.stories,
-      key: (story) => story.id,
-      value: (_) => false,
-    );
-
+    // Инициализируем likeCounts из данных историй
+    likeCounts.clear();
     for (var story in widget.stories) {
-      try {
-        final isLiked = await st.StoryService().isStoryLiked(
+      likeCounts[story.id] = story.likesCount;
+      // Проверяем лайк пользователя
+      if (currentUserId != null) {
+        final isLiked = await _storyService.isStoryLiked(
           story.id,
-          currentuser_id,
+          currentUserId!,
         );
-        initialStatuses[story.id] = isLiked;
-      } catch (e) {
-        print('Error fetching like status for story ${story.id}: $e');
+        likeStatuses[story.id] = isLiked;
       }
     }
 
     if (mounted) {
-      setState(() {
-        likeStatuses = initialStatuses;
-      });
+      setState(() {});
     }
   }
 
-  // Обработка лайка/отмены лайка
-  Future<void> _handleLike(Story story) async {
-    // Добавим проверку авторизации
-    if (user_id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Для лайка требуется авторизация.')),
-      );
+  Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
+    if (currentUserId == null) {
+      if (mounted) {
+        context.go('/auth');
+      }
       return;
     }
 
-    if (story.id != null) {
-      try {
-        final newCount = await st.StoryService().likeStory(
-          story.id,
-          int.tryParse(user_id!) ?? 0,
-        );
+    try {
+      final bool wasLiked = likeStatuses[story.id] ?? false;
+      final int oldLikeCount = likeCounts[story.id] ?? 0;
 
-        // Мы могли бы просто переключить локальное состояние,
-        // но для точности лучше перепроверить статус на сервере, как вы и делали.
-        final isLiked = await st.StoryService().isStoryLiked(
-          story.id,
-          int.tryParse(user_id!) ?? 0,
-        );
+      // Оптимистичное обновление UI
+      setState(() {
+        likeStatuses[story.id] = !wasLiked;
+        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
+        if (isDoubleTap && !wasLiked) {
+          isHeartAnimating = true;
+        }
+      });
 
-        setState(() {
-          likeStatuses[story.id] = isLiked;
-          likeCounts[story.id] = newCount;
-        });
-      } catch (e) {
-        print('Error liking/unliking story ${story.id}: $e');
+      // Вызов API
+      final newCount = await _storyService.likeStory(story.id, currentUserId!);
+
+      // Синхронизация с серверным ответом
+      setState(() {
+        likeCounts[story.id] = newCount;
+      });
+    } catch (e) {
+      debugPrint('Error liking story: $e');
+      // Откат при ошибке
+      final bool wasLiked = likeStatuses[story.id] ?? false;
+      final int oldLikeCount = likeCounts[story.id] ?? 0;
+      setState(() {
+        likeStatuses[story.id] = !wasLiked;
+        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
+        isHeartAnimating = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
 
-  // ✅ ИСПРАВЛЕНИЕ: _buildActionButton теперь принимает Widget icon
-  Widget _buildActionButton({
-    required Widget icon, // Изменено с IconData на Widget
-    required int count,
-    required VoidCallback onPressed,
-    bool isLiked = false,
-  }) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: onPressed,
-          child: icon,
-        ), // Используем GestureDetector с Widget
-        Text(
-          count.toString(),
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
+  // Функция для склонения слова "ответ"
+  String _getReplyText(int count) {
+    if (count == 0) return '0 ответов';
+
+    // Исключения для чисел 11-14
+    if (count % 100 >= 11 && count % 100 <= 14) {
+      return '$count ответов';
+    }
+
+    switch (count % 10) {
+      case 1:
+        return '$count ответ';
+      case 2:
+      case 3:
+      case 4:
+        return '$count ответа';
+      default:
+        return '$count ответов';
+    }
+  }
+
+  Widget _buildStoryCard(Story story, int index) {
+    final isLiked = likeStatuses[story.id] ?? false;
+    final currentLikeCount = likeCounts[story.id] ?? 0;
+    final double currentPage = _pageController.page ?? _currentPage.toDouble();
+    final double diff = (index - currentPage).abs();
+    final double scale =
+        1 - (diff * 0.1).clamp(0.0, 0.2); // Масштаб для боковых карточек
+    final double opacity =
+        1 - (diff * 0.5).clamp(0.0, 0.7); // Прозрачность для боковых карточек
+    final bool isCurrent = index == _currentPage;
+
+    return AnimatedBuilder(
+      animation: _pageController,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: scale,
+          child: Opacity(
+            opacity: opacity,
+            child: Container(
+              margin: const EdgeInsets.only(top: 15),
+              width: MediaQuery.of(context).size.width,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: neoBlack, width: 2),
+              ),
+              child: Stack(
+                children: [
+                  HeartAnimation(
+                    position: tapPosition,
+                    isAnimating: isHeartAnimating,
+                    duration: const Duration(milliseconds: 300),
+                    onEnd:
+                        () => setState(() {
+                          isHeartAnimating = false;
+                        }),
+                    child: SizedBox(
+                      height:
+                          MediaQuery.of(context).size.height *
+                          0.7, // Фиксированная высота
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ЗАГОЛОВОК (жирный и большой) - ТОЧЬ В ТОЧЬ КАК В FEED
+                          Text(
+                            story.title,
+                            style: GoogleFonts.russoOne(
+                              fontSize: 26,
+                              color: Colors.black,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // РЯД: Аватар + Имя пользователя - ТОЧЬ В ТОЧЬ КАК В FEED
+                          Row(
+                            children: [
+                              // Аватар
+                              _buildAuthorAvatar(story),
+
+                              const SizedBox(width: 12),
+
+                              // Имя пользователя и информация
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            story.resolvedUsername,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 18,
+                                              color: Colors.black87,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (story.isVerified)
+                                          const Padding(
+                                            padding: EdgeInsets.only(left: 4),
+                                            child: Icon(
+                                              Icons.verified,
+                                              color: Color.fromARGB(
+                                                255,
+                                                0,
+                                                0,
+                                                0,
+                                              ),
+                                              size: 18,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // Контент истории - ТОЧЬ В ТОЧЬ КАК В FEED
+                          Expanded(
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: ExpandableStoryContent(
+                                content: story.content,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // Хештеги (если есть) - ТОЧЬ В ТОЧЬ КАК В FEED
+                          if (story.hashtags.isNotEmpty && isCurrent)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children:
+                                    story.hashtags.map((hashtag) {
+                                      return Chip(
+                                        label: Text(
+                                          '#${hashtag.name}',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        backgroundColor: Colors.blue[50],
+                                        visualDensity: VisualDensity.compact,
+                                      );
+                                    }).toList(),
+                              ),
+                            ),
+
+                          // Действия (кнопки лайка и ответа) - ТОЧЬ В ТОЧЬ КАК В FEED
+                          if (isCurrent)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // Кнопка ответить - ТОЧЬ В ТОЧЬ КАК В FEED
+                                  Container(
+                                    width: 400,
+                                    height: 80,
+                                    child: NeoIconButton(
+                                      onPressed: () {
+                                        if (currentUserId == null) {
+                                          if (mounted) {
+                                            context.go('/auth');
+                                          }
+                                          return;
+                                        }
+
+                                        context.go(
+                                          '/addStory',
+                                          extra: {
+                                            'replyTo': story.id,
+                                            'parentTitle': story.title,
+                                          },
+                                        );
+                                      },
+                                      icon: const Icon(Icons.reply, size: 18),
+                                      child: Text(
+                                        'Ответить | ${_getReplyText(story.commentsCount)}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  // Аватар автора - ТОЧЬ В ТОЧЬ КАК В FEED
+  Widget _buildAuthorAvatar(Story story) {
+    print('🟣 USER STORY FEED Avatar URL: ${story.avatarUrl}');
+    print('🟣 USER STORY FEED Username: ${story.username}');
+    print('🟣 USER STORY FEED Story ID: ${story.id}');
+    return GestureDetector(
+      onTap: () => context.go('/profile/${story.userId}'),
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: neoBlack, width: 2),
+          color: Colors.grey[200],
         ),
-      ],
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Аватар
+            if (story.avatarUrl != null && story.avatarUrl!.isNotEmpty)
+              ClipOval(
+                child: CachedNetworkImage(
+                  imageUrl: story.avatarUrl!,
+                  width: 46,
+                  height: 46,
+                  fit: BoxFit.cover,
+                  placeholder:
+                      (context, url) => Container(
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(neoBlack),
+                          ),
+                        ),
+                      ),
+                  errorWidget:
+                      (context, url, error) => Container(
+                        color: Colors.grey[300],
+                        child: const Icon(
+                          Icons.person,
+                          size: 24,
+                          color: Colors.white,
+                        ),
+                      ),
+                ),
+              )
+            else
+              Container(
+                color: Colors.grey[300],
+                child: const Icon(Icons.person, size: 24, color: Colors.white),
+              ),
+
+            // Индикатор верификации
+            if (story.isVerified)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.verified,
+                    color: Colors.blue,
+                    size: 14,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inSeconds < 60) {
+      return 'только что';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} мин назад';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} ч назад';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} д назад';
+    } else {
+      return '${date.day}.${date.month}.${date.year}';
+    }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.library_books_outlined,
+              size: 80,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Нет историй для отображения',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: neoBlack,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+              child: const Text(
+                'Вернуться в профиль',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -153,154 +492,87 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
   @override
   Widget build(BuildContext context) {
     if (widget.stories.isEmpty) {
-      return const Scaffold(
-        body: Center(child: Text("Нет историй для отображения.")),
+      return Scaffold(
+        appBar: AppBar(
+          toolbarHeight: 100,
+          automaticallyImplyLeading: false,
+          elevation: 0,
+          surfaceTintColor: neoBackground,
+          centerTitle: false,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          title: SvgPicture.asset(
+            "assets/icons/logo.svg",
+            width: 60,
+            height: 60,
+          ),
+          actions: [
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: SvgPicture.asset(
+                "assets/icons/close_submit_form.svg",
+                width: 60,
+                height: 60,
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+        ),
+        body: _buildEmptyState(),
+        bottomNavigationBar: const p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
       );
     }
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      bottomNavigationBar: const p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
-      body: PageView.builder(
-        controller: PageController(initialPage: widget.initialIndex),
-        itemCount: widget.stories.length,
-        scrollDirection: Axis.vertical,
-        itemBuilder: (context, index) {
-          final story = widget.stories[index];
-          final isLiked = likeStatuses[story.id] == true;
-          final currentLikeCount = likeCounts[story.id] ?? 0;
-
-          return GestureDetector(
-            onDoubleTapDown: (details) {
-              if (user_id == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Для лайка требуется авторизация.'),
-                  ),
-                );
-                return;
-              }
-              _handleLike(story);
-              setState(() {
-                isHeartAnimating = true;
-                tapPosition = details.localPosition;
-              });
-            },
-            child: Stack(
-              children: [
-                // 1. --- КОНТЕНТ ИСТОРИИ (С анимацией сердца) ---
-                Positioned.fill(
-                  child: HeartAnimation(
-                    position: tapPosition,
-                    isAnimating: isHeartAnimating,
-                    duration: const Duration(milliseconds: 300),
-                    onEnd: () {
-                      setState(() {
-                        isHeartAnimating = false;
-                      });
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        top: 100, // Отступ сверху
-                        left: 20,
-                        right: 80, // Отступ справа, чтобы не перекрывать кнопки
-                        bottom: 40,
-                      ),
-                      child: Column(
-                        mainAxisAlignment:
-                            MainAxisAlignment.end, // ✅ Контент внизу
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Заголовок
-                          Text(
-                            story.title,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 30,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          // Контент: Используем Expanded + ListView
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child:
-                              // ЗАМЕНА ЗДЕСЬ
-                              ExpandableStoryContent(content: story.content),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 2. --- ИНФОРМАЦИЯ ОБ АВТОРЕ И КНОПКА ЗАКРЫТЬ (СЛОЙ ВЫШЕ) ---
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 10,
-                  left: 10,
-                  right: 10,
-                  child: Row(
-                    children: [
-                      // Замена IconButton на SvgPicture.asset + GestureDetector
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).pop(),
-                        child: SvgPicture.asset(
-                          "assets/iconsclose_story.svg", // <--- ИЗМЕНЕНИЕ: Новый ассет
-                          width: 60, // Размер как у Icon
-                          height: 60, // Поддерживаем черный цвет, как у Icon
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 3. --- КНОПКИ (ЛАЙК/КОММЕНТ) (СЛОЙ ВЫШЕ) ---
-                Positioned(
-                  right: 10,
-                  bottom: 50, // Поднимаем выше, так как нет нижнего бара
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      // Кнопка Лайка
-                      // _buildActionButton(
-                      //   icon: SvgPicture.asset(
-                      //     isLiked
-                      //         ? "assets/iconsupvote_filled.svg"
-                      //         : "assets/iconsupvote.svg",
-                      //     width: 50,
-                      //     height: 50,
-                      //   ),
-                      //   count: currentLikeCount,
-                      //   onPressed: () => _handleLike(story),
-                      //   isLiked: isLiked,
-                      // ),
-                      const SizedBox(height: 15),
-                      // Кнопка Комментария
-                      _buildActionButton(
-                        icon: SvgPicture.asset(
-                          "assets/iconscomment.svg",
-                          width: 50,
-                          height: 50,
-                        ),
-                        count: story.commentsCount,
-                        onPressed: () async {
-                          await showModalBottomSheet(
-                            context: context,
-                            builder: (context) {
-                              return RepliesBottomSheet(parentStory: story);
-                            },
-                          );
-                          // Логика обновления счетчика комментариев
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+      appBar: AppBar(
+        toolbarHeight: 100,
+        automaticallyImplyLeading: false,
+        elevation: 0,
+        surfaceTintColor: neoBackground,
+        centerTitle: false,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        title: SvgPicture.asset("assets/icons/logo.svg", width: 60, height: 60),
+        actions: [
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: SvgPicture.asset(
+              "assets/icons/close_story.svg",
+              width: 60,
+              height: 60,
             ),
-          );
-        },
+          ),
+          const SizedBox(width: 10),
+        ],
+      ),
+      extendBody: true,
+      bottomNavigationBar: const p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+      body: SafeArea(
+        child: PageView.builder(
+          controller: _pageController,
+          itemCount: widget.stories.length,
+          onPageChanged: (index) {
+            setState(() {
+              _currentPage = index;
+            });
+          },
+          scrollDirection: Axis.horizontal,
+          itemBuilder: (context, index) {
+            return GestureDetector(
+              onDoubleTapDown: (details) {
+                if (currentUserId == null) {
+                  if (mounted) {
+                    context.go('/auth');
+                  }
+                  return;
+                }
+                _handleLike(widget.stories[index], isDoubleTap: true);
+                setState(() {
+                  tapPosition = details.localPosition;
+                });
+              },
+              child: _buildStoryCard(widget.stories[index], index),
+            );
+          },
+        ),
       ),
     );
   }

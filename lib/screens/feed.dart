@@ -244,258 +244,203 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
           scale: scale,
           child: Opacity(
             opacity: opacity,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => StoryDetailPage(story: story),
-                      ),
-                    );
-                  },
-                  onDoubleTapDown: (details) {
-                    _handleLike(story, isDoubleTap: true);
-                    setState(() {
-                      tapPosition = details.localPosition;
-                    });
-                  },
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 15),
-                          width: MediaQuery.of(context).size.width,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: neoBlack, width: 2),
-                          ),
-                          child: Stack(
-                            children: [
-                              HeartAnimation(
-                                position: tapPosition,
-                                isAnimating: isHeartAnimating,
-                                duration: const Duration(milliseconds: 300),
-                                onEnd:
-                                    () => setState(() {
-                                      isHeartAnimating = false;
-                                    }),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // ЗАГОЛОВОК (жирный и большой)
-                                    Text(
-                                      story.title,
-                                      style: GoogleFonts.russoOne(
-                                        fontSize: 26,
-                                        color: Colors.black,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+            child: GestureDetector(
+              // В методе _buildStoryCard в Feed
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (context) => StoryDetailPage(
+                          story: story,
+                          fromProfile:
+                              false, // 🟢 Не из профиля - онлайн данные
+                        ),
+                  ),
+                );
+              },
+              onDoubleTapDown: (details) {
+                _handleLike(story, isDoubleTap: true);
+                setState(() {
+                  tapPosition = details.localPosition;
+                });
+              },
+              child: Container(
+                margin: const EdgeInsets.only(top: 15, bottom: 20),
+                width: MediaQuery.of(context).size.width,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: neoBlack, width: 2),
+                ),
+                child: Stack(
+                  children: [
+                    HeartAnimation(
+                      position: tapPosition,
+                      isAnimating: isHeartAnimating,
+                      duration: const Duration(milliseconds: 300),
+                      onEnd:
+                          () => setState(() {
+                            isHeartAnimating = false;
+                          }),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // ЗАГОЛОВОК (жирный и большой)
+                            Text(
+                              story.title,
+                              style: GoogleFonts.russoOne(
+                                fontSize: 26,
+                                color: Colors.black,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
 
-                                    const SizedBox(height: 16),
+                            const SizedBox(height: 16),
 
-                                    // РЯД: Аватар + Имя пользователя
-                                    Row(
-                                      children: [
-                                        // Аватар
-                                        _buildAuthorAvatar(story),
+                            // РЯД: Аватар + Имя пользователя
+                            Row(
+                              children: [
+                                // Аватар
+                                _buildAuthorAvatar(story),
 
-                                        const SizedBox(width: 12),
+                                const SizedBox(width: 12),
 
-                                        // Имя пользователя и информация
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      story.username,
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        fontSize: 18,
-                                                        color: Colors.black87,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  if (story.isVerified)
-                                                    const Padding(
-                                                      padding: EdgeInsets.only(
-                                                        left: 4,
-                                                      ),
-                                                      child: Icon(
-                                                        Icons.verified,
-                                                        color: Color.fromARGB(
-                                                          255,
-                                                          0,
-                                                          0,
-                                                          0,
-                                                        ),
-                                                        size: 18,
-                                                      ),
-                                                    ),
-                                                ],
+                                // Имя пользователя и информация
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              story.resolvedUsername,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 18,
+                                                color: Colors.black87,
                                               ),
-
-                                              const SizedBox(height: 4),
-
-                                              // Информация о ветке/ответе
-                                              // Text(
-                                              //   story.replyInfo,
-                                              //   style: TextStyle(
-                                              //     color: Colors.grey[600],
-                                              //     fontSize: 14,
-                                              //   ),
-                                              // ),
-                                            ],
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    const SizedBox(height: 20),
-
-                                    // Контент истории
-                                    Expanded(
-                                      child: SingleChildScrollView(
-                                        physics: const BouncingScrollPhysics(),
-                                        child: ExpandableStoryContent(
-                                          content: story.content,
-                                        ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 20),
-
-                                    // Хештеги (если есть)
-                                    if (story.hashtags.isNotEmpty && isCurrent)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 12,
-                                        ),
-                                        child: Wrap(
-                                          spacing: 8,
-                                          runSpacing: 4,
-                                          children:
-                                              story.hashtags.map((hashtag) {
-                                                return Chip(
-                                                  label: Text(
-                                                    '#${hashtag.name}',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                  backgroundColor:
-                                                      Colors.blue[50],
-                                                  visualDensity:
-                                                      VisualDensity.compact,
-                                                );
-                                              }).toList(),
-                                        ),
-                                      ),
-
-                                    // Действия (кнопки лайка и ответа)
-                                    if (isCurrent)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            // Лайк
-                                            // GestureDetector(
-                                            //   onTap: () => _handleLike(story),
-                                            //   child: Row(
-                                            //     children: [
-                                            //       Icon(
-                                            //         isLiked
-                                            //             ? Icons.favorite
-                                            //             : Icons.favorite_border,
-                                            //         color:
-                                            //             isLiked
-                                            //                 ? Colors.red
-                                            //                 : Colors.grey[600],
-                                            //         size: 28,
-                                            //       ),
-                                            //       const SizedBox(width: 6),
-                                            //       Text(
-                                            //         currentLikeCount.toString(),
-                                            //         style: TextStyle(
-                                            //           color:
-                                            //               isLiked
-                                            //                   ? Colors.red
-                                            //                   : Colors
-                                            //                       .grey[600],
-                                            //           fontWeight:
-                                            //               FontWeight.bold,
-                                            //           fontSize: 16,
-                                            //         ),
-                                            //       ),
-                                            //     ],
-                                            //   ),
-                                            // ),
-
-                                            // Кнопка ответить
-                                            if (!story.isReply)
-                                              Container(
-                                                width: 400,
-                                                height: 80,
-                                                child: NeoIconButton(
-                                                  onPressed: () {
-                                                    if (currentUserId == null) {
-                                                      if (mounted) {
-                                                        context.go('/auth');
-                                                      }
-                                                      return;
-                                                    }
-
-                                                    context.go(
-                                                      '/addStory',
-                                                      extra: {
-                                                        'replyTo': story.id,
-                                                        'parentTitle':
-                                                            story.title,
-                                                      },
-                                                    );
-                                                  },
-                                                  icon: const Icon(
-                                                    Icons.reply,
-                                                    size: 18,
-                                                  ),
-                                                  child: Text(
-                                                    'Ответить | ${_getReplyText(story.replyCount)}',
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
+                                          if (story.isVerified)
+                                            const Padding(
+                                              padding: EdgeInsets.only(left: 4),
+                                              child: Icon(
+                                                Icons.verified,
+                                                color: Color.fromARGB(
+                                                  255,
+                                                  0,
+                                                  0,
+                                                  0,
                                                 ),
+                                                size: 18,
                                               ),
-                                          ],
+                                            ),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 4),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // Контент истории
+                            Expanded(
+                              child: SingleChildScrollView(
+                                physics: const BouncingScrollPhysics(),
+                                child: ExpandableStoryContent(
+                                  content: story.content,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // Хештеги (если есть)
+                            if (story.hashtags.isNotEmpty && isCurrent)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children:
+                                      story.hashtags.map((hashtag) {
+                                        return Chip(
+                                          label: Text(
+                                            '#${hashtag.name}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          backgroundColor: Colors.blue[50],
+                                          visualDensity: VisualDensity.compact,
+                                        );
+                                      }).toList(),
+                                ),
+                              ),
+
+                            // Действия (кнопки лайка и ответа)
+                            if (isCurrent)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // Кнопка ответить
+                                    if (!story.isReply)
+                                      Container(
+                                        width: 400,
+                                        height: 80,
+                                        child: NeoIconButton(
+                                          onPressed: () {
+                                            if (currentUserId == null) {
+                                              if (mounted) {
+                                                context.go('/auth');
+                                              }
+                                              return;
+                                            }
+
+                                            context.go(
+                                              '/addStory',
+                                              extra: {
+                                                'replyTo': story.id,
+                                                'parentTitle': story.title,
+                                              },
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.reply,
+                                            size: 18,
+                                          ),
+                                          child: Text(
+                                            'Ответить | ${_getReplyText(story.repliesCount)}',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                );
-              },
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
@@ -505,6 +450,9 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
 
   // Вынес аватар в отдельный виджет для чистоты кода
   Widget _buildAuthorAvatar(Story story) {
+    print('🔵 FEED Avatar URL: ${story.resolvedAvatarUrl}');
+    print('🔵 FEED Username: ${story.username}');
+    print('🔵 FEED Story ID: ${story.id}');
     return GestureDetector(
       onTap: () => context.go('/profile/${story.userId}'),
       child: Container(
@@ -519,10 +467,11 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
           alignment: Alignment.center,
           children: [
             // Аватар
-            if (story.avatarUrl != null && story.avatarUrl!.isNotEmpty)
+            if (story.resolvedAvatarUrl != null &&
+                story.resolvedAvatarUrl!.isNotEmpty)
               ClipOval(
                 child: CachedNetworkImage(
-                  imageUrl: story.avatarUrl!,
+                  imageUrl: story.resolvedAvatarUrl!,
                   width: 46,
                   height: 46,
                   fit: BoxFit.cover,
@@ -660,28 +609,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     );
   }
 
-  Widget _buildContent() {
-    if (_currentStories.isEmpty && !_isLoading) {
-      return _buildEmptyState();
-    }
-
-    return Expanded(
-      child: PageView.builder(
-        controller: _pageController,
-        itemCount: _currentStories.length,
-        onPageChanged: (index) {
-          setState(() {
-            _currentPage = index;
-          });
-        },
-        scrollDirection: Axis.horizontal,
-        itemBuilder: (context, index) {
-          return _buildStoryCard(_currentStories[index], index);
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -805,7 +732,24 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
       extendBody: true,
       bottomNavigationBar: const PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
       body: SafeArea(
-        child: _isLoading ? _buildLoadingState() : _buildContent(),
+        child:
+            _isLoading
+                ? _buildLoadingState()
+                : _currentStories.isEmpty
+                ? _buildEmptyState()
+                : PageView.builder(
+                  controller: _pageController,
+                  itemCount: _currentStories.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentPage = index;
+                    });
+                  },
+                  scrollDirection: Axis.horizontal,
+                  itemBuilder: (context, index) {
+                    return _buildStoryCard(_currentStories[index], index);
+                  },
+                ),
       ),
     );
   }

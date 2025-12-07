@@ -1,6 +1,7 @@
 import 'dart:io' if (dart.library.html) 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:readreels/screens/add_story.dart';
 import 'package:readreels/screens/subscribers_list.dart';
@@ -60,7 +61,38 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _lastNameController = TextEditingController(
       text: widget.initialUserData['last_name'] ?? '',
     );
-    _initialAvatarUrl = widget.initialUserData['avatar'];
+
+    // 🟢 ИСПРАВЛЕНИЕ: Правильно формируем полный URL аватара
+    final rawAvatar = widget.initialUserData['avatar'];
+    if (rawAvatar != null && rawAvatar is String) {
+      _initialAvatarUrl =
+          rawAvatar.startsWith('http')
+              ? rawAvatar
+              : 'https://ravell-backend-1.onrender.com$rawAvatar';
+    }
+
+    // Также проверяем путь в profile
+    final profile = widget.initialUserData['profile'];
+    if (_initialAvatarUrl == null &&
+        profile != null &&
+        profile is Map<String, dynamic>) {
+      final profileAvatar = profile['avatar'];
+      if (profileAvatar != null && profileAvatar is String) {
+        _initialAvatarUrl =
+            profileAvatar.startsWith('http')
+                ? profileAvatar
+                : 'https://ravell-backend-1.onrender.com$profileAvatar';
+      }
+    }
+
+    print('🟢 EDIT PROFILE DEBUG:');
+    print('  initialUserData: ${widget.initialUserData}');
+    print('  raw avatar: $rawAvatar');
+    print('  initialAvatarUrl: $_initialAvatarUrl');
+    print('  has profile: ${widget.initialUserData.containsKey('profile')}');
+    if (widget.initialUserData.containsKey('profile')) {
+      print('  profile: ${widget.initialUserData['profile']}');
+    }
   }
 
   @override
@@ -210,13 +242,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text("Аватар", style: Theme.of(context).textTheme.headlineLarge),
               Text(
-                "Set up your persona",
-                style: neoTextStyle(30, weight: FontWeight.bold),
-              ),
-              Text(
-                "Make an avatar to continue",
-                style: neoTextStyle(17, weight: FontWeight.bold),
+                "Выберите новый или оставьте текущий",
+                style: Theme.of(context).textTheme.bodyLarge,
               ),
             ],
           ),
@@ -231,7 +260,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 width: 200,
                 height: 200,
                 decoration: const BoxDecoration(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                  borderRadius: BorderRadius.all(Radius.circular(25)),
                   border: Border(
                     top: BorderSide(color: neoBlack, width: 4),
                     left: BorderSide(color: neoBlack, width: 4),
@@ -239,42 +268,100 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     bottom: BorderSide(color: neoBlack, width: 8),
                   ),
                 ),
-                child:
-                    isPlaceholder
-                        ? const Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.person, size: 60),
-                            Text("Upload avatar"),
-                          ],
-                        )
-                        : ClipRRect(
+                child: Stack(
+                  children: [
+                    if (!isPlaceholder)
+                      Positioned.fill(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(
+                            15,
+                          ), // Немного меньше, чтобы не перекрывать границу
                           child: Image(
                             image: imageProvider!,
                             fit: BoxFit.cover,
-                            width: 120,
-                            height: 120,
-                            errorBuilder:
-                                (context, error, stackTrace) => const Icon(
-                                  Icons.error_outline,
-                                  size: 60,
-                                  color: Colors.red,
+                            errorBuilder: (context, error, stackTrace) {
+                              print('❌ Ошибка загрузки аватара: $error');
+                              return const Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    size: 60,
+                                    color: Colors.red,
+                                  ),
+                                  Text("Ошибка загрузки"),
+                                ],
+                              );
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress
+                                                  .cumulativeBytesLoaded /
+                                              loadingProgress
+                                                  .expectedTotalBytes!
+                                          : null,
                                 ),
+                              );
+                            },
                           ),
                         ),
+                      ),
+                    if (isPlaceholder)
+                      Positioned.fill(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.person, size: 80),
+                            const SizedBox(height: 10),
+                            Text(
+                              _initialAvatarUrl != null
+                                  ? "Текущий аватар"
+                                  : "Добавить аватар",
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(color: Colors.transparent),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.camera_alt,
+                            color: Colors.white.withOpacity(0.7),
+                            size: 30,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 20),
             if (_avatarXFile != null || _initialAvatarUrl != null)
-              NeoIconButton(
-                type: NeoButtonType.white,
-                onPressed: _clearAvatar,
-                icon: const Icon(Icons.close, color: Colors.red),
-                child: const Text(
-                  'Очистить',
-                  style: TextStyle(color: Colors.red),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  NeoIconButton(
+                    type: NeoButtonType.white,
+                    onPressed: _clearAvatar,
+                    icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                    child: const Text(
+                      'Удалить',
+                      style: TextStyle(color: Colors.red, fontSize: 14),
+                    ),
+                  ),
+                ],
               ),
           ],
         ),
@@ -287,7 +374,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.only(
+          left: 16.0,
+          right: 16.0,
+          bottom: 16.0,
+          top: 25,
+        ),
         child: Form(
           key: _formKey,
           child: Column(

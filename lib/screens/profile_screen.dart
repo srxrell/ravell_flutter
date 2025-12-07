@@ -1,6 +1,8 @@
 import 'dart:io' if (dart.library.html) 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:readreels/screens/story_detail.dart'; // Добавьте этот импорт
+
 import 'package:readreels/screens/add_story.dart';
 import 'package:readreels/screens/subscribers_list.dart';
 import 'package:readreels/screens/user_story_feed_screen.dart';
@@ -369,29 +371,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return Column(
       children:
           stories.map((story) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.black, width: 2),
-                borderRadius: BorderRadius.all(Radius.circular(10)),
-              ),
-              child: GestureDetector(
-                onTap: () {
-                  if (mounted) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder:
-                            (context) => UserStoryFeedScreen(
-                              stories: stories,
-                              initialIndex: stories.indexOf(story),
-                            ),
-                      ),
-                    );
-                  }
-                },
-                onLongPress:
-                    isMyProfile ? () => _showStoryOptionsDialog(story) : null,
+            return GestureDetector(
+              onTap: () {
+                if (mounted) {
+                  // Получаем данные пользователя из профиля
+                  final userData = _getSafeUserData();
+                  final profileUsername = userData['username'] as String?;
+                  final profileAvatar = userData['avatar'] as String?;
+
+                  // Создаем копию истории с добавленными данными пользователя
+                  final enhancedStory = story.copyWith(
+                    username: profileUsername ?? story.username,
+                    avatarUrl: profileAvatar ?? story.avatarUrl,
+                  );
+
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder:
+                          (context) => StoryDetailPage(story: enhancedStory),
+                    ),
+                  );
+                }
+              },
+              onLongPress:
+                  isMyProfile ? () => _showStoryOptionsDialog(story) : null,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black, width: 2),
+                  borderRadius: const BorderRadius.all(Radius.circular(10)),
+                ),
                 child: ListTile(
                   title: Text(
                     story.title.isNotEmpty ? story.title : 'Без названия',
@@ -464,10 +474,41 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final storiesData = _profileData!['stories'] ?? [];
     if (storiesData is! List) return [];
 
+    final userData = _getSafeUserData(); // Получаем данные пользователя
+    final userAvatar = userData['avatar'] as String?;
+    final username = userData['username'] as String?;
+
     try {
       return storiesData.map((json) {
         try {
-          return Story.fromJson(json);
+          // ДОБАВЛЯЕМ недостающие поля из user_data
+          final storyJson = Map<String, dynamic>.from(json);
+
+          // 🟢 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Добавляем полный объект user
+          if (!storyJson.containsKey('user')) {
+            storyJson['user'] = {
+              'id': userData['id'],
+              'username': username,
+              'first_name': userData['first_name'],
+              'last_name': userData['last_name'],
+              'profile': {
+                'avatar': userAvatar,
+                'is_verified': userData['is_verified'] ?? false,
+              },
+            };
+          }
+
+          // Если в story нет username, добавляем из user_data
+          if (!storyJson.containsKey('username') && username != null) {
+            storyJson['username'] = username;
+          }
+
+          // Если в story нет avatar, добавляем из user_data
+          if (!storyJson.containsKey('avatar') && userAvatar != null) {
+            storyJson['avatar'] = userAvatar;
+          }
+
+          return Story.fromJson(storyJson);
         } catch (e) {
           print('Error parsing story: $e');
           return Story(
@@ -480,6 +521,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             commentsCount: 0,
             userLiked: false,
             hashtags: [],
+            authorAvatar: userAvatar,
           );
         }
       }).toList();

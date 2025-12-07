@@ -1,5 +1,3 @@
-// models/story.dart - ИСПРАВЛЕННАЯ ВЕРСИЯ
-
 import 'package:readreels/models/hashtag.dart';
 
 class Story {
@@ -21,6 +19,10 @@ class Story {
   final int replyCount; // Количество ответов
   final DateTime? lastReplyAt; // Время последнего ответа
 
+  // ✅ ДОБАВЬТЕ ЭТИ ПОЛЯ
+  final String? username; // Имя пользователя
+  final String? avatarUrl; // URL аватара
+
   Story({
     required this.id,
     required this.userId,
@@ -39,10 +41,14 @@ class Story {
     this.replyTo,
     this.replyCount = 0,
     this.lastReplyAt,
+
+    // ✅ ДОБАВЬТЕ ЭТИ ПАРАМЕТРЫ
+    this.username,
+    this.avatarUrl,
   });
 
   int get repliesCount => replyCount; // Алиас для replyCount
-  
+
   // 🟢 ГЕТТЕР ДЛЯ ID ХЕШТЕГОВ (если нужно)
   List<int> get hashtagIds {
     return hashtags.map((hashtag) => hashtag.id).toList();
@@ -60,14 +66,26 @@ class Story {
     // Обработка пользователя
     String? avatarUrl;
     Map<String, dynamic>? userData;
+    String? username;
 
     if (json['user'] != null && json['user'] is Map<String, dynamic>) {
       userData = json['user'] as Map<String, dynamic>;
+      username = userData['username'] as String?;
+
       if (userData['profile'] != null &&
           userData['profile'] is Map<String, dynamic>) {
         final profile = userData['profile'] as Map<String, dynamic>;
         avatarUrl = profile['avatar'] as String?;
       }
+    }
+
+    // ✅ ТАКЖЕ ПРОВЕРЯЕМ ПРЯМЫЕ ПОЛЯ В КОРНЕ JSON
+    if (avatarUrl == null && json['avatar'] != null) {
+      avatarUrl = json['avatar'] as String;
+    }
+
+    if (username == null && json['username'] != null) {
+      username = json['username'] as String;
     }
 
     // Обработка новых полей
@@ -85,7 +103,7 @@ class Story {
               : DateTime.now(),
       likesCount: json['likes_count'] ?? 0,
       commentsCount: json['comments_count'] ?? 0,
-      authorAvatar: avatarUrl ?? json['author_avatar'] as String?,
+      authorAvatar: json['author_avatar'] as String?,
       userLiked: json['user_liked'] ?? false,
       hashtags: parsedHashtags,
       user: userData,
@@ -95,10 +113,14 @@ class Story {
       replyTo: replyTo != null ? int.tryParse(replyTo.toString()) : null,
       replyCount: json['reply_count'] ?? 0,
       lastReplyAt: lastReplyAt != null ? DateTime.parse(lastReplyAt) : null,
+
+      // ✅ ИНИЦИАЛИЗИРУЕМ ДОБАВЛЕННЫЕ ПОЛЯ
+      username: username,
+      avatarUrl: avatarUrl,
     );
   }
 
-  // Добавить в методы copyWith и toJson
+  // Исправленный метод copyWith
   Story copyWith({
     int? id,
     int? userId,
@@ -115,6 +137,8 @@ class Story {
     int? replyTo,
     int? replyCount,
     DateTime? lastReplyAt,
+    String? username, // ✅ ДОБАВЬТЕ
+    String? avatarUrl, // ✅ ДОБАВЬТЕ
   }) {
     return Story(
       id: id ?? this.id,
@@ -132,6 +156,8 @@ class Story {
       replyTo: replyTo ?? this.replyTo,
       replyCount: replyCount ?? this.replyCount,
       lastReplyAt: lastReplyAt ?? this.lastReplyAt,
+      username: username ?? this.username, // ✅ ДОБАВЬТЕ
+      avatarUrl: avatarUrl ?? this.avatarUrl, // ✅ ДОБАВЬТЕ
     );
   }
 
@@ -152,6 +178,8 @@ class Story {
       'reply_to': replyTo,
       'reply_count': replyCount,
       'last_reply_at': lastReplyAt?.toIso8601String(),
+      'username': username, // ✅ ДОБАВЬТЕ
+      'avatar': avatarUrl, // ✅ ДОБАВЬТЕ
     };
   }
 
@@ -167,14 +195,21 @@ class Story {
     return 'Ответ на историю';
   }
 
-  // ✅ ДОБАВЛЕН МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРА ИЗ НОВОГО ФОРМАТА
-  String? get avatarUrl {
-    // 1. Проверяем authorAvatar (старый формат)
+  // ✅ ИСПРАВЛЕННЫЙ ГЕТТЕР ДЛЯ ПОЛУЧЕНИЯ АВАТАРА
+  String? get resolvedAvatarUrl {
+    // 1. Проверяем поле avatarUrl (прямое)
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) {
+      return avatarUrl!.startsWith('http')
+          ? avatarUrl
+          : 'https://ravell-backend-1.onrender.com$avatarUrl';
+    }
+
+    // 2. Проверяем authorAvatar (старый формат)
     if (authorAvatar != null && authorAvatar!.isNotEmpty) {
       return 'https://ravell-backend-1.onrender.com$authorAvatar';
     }
 
-    // 2. Проверяем user -> profile -> avatar (новый формат)
+    // 3. Проверяем user -> profile -> avatar (новый формат)
     if (user != null &&
         user!['profile'] != null &&
         user!['profile'] is Map<String, dynamic>) {
@@ -187,11 +222,18 @@ class Story {
     return null;
   }
 
-  // ✅ ДОБАВЛЕН МЕТОД ДЛЯ ПОЛУЧЕНИЯ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
-  String get username {
+  // ✅ ИСПРАВЛЕННЫЙ ГЕТТЕР ДЛЯ ПОЛУЧЕНИЯ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
+  String get resolvedUsername {
+    // 1. Проверяем поле username (прямое)
+    if (username != null && username!.isNotEmpty) {
+      return username!;
+    }
+
+    // 2. Проверяем user -> username
     if (user != null && user!['username'] != null) {
       return user!['username'] as String;
     }
+
     return 'Пользователь #$userId';
   }
 

@@ -324,10 +324,16 @@ class _SearchStoryState extends State<SearchStory> {
                 ],
               ),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              // В SearchStory в методе поиска
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => StoryDetailPage(story: story),
+                    builder:
+                        (context) => StoryDetailPage(
+                          story: story,
+                          fromProfile:
+                              false, // 🟢 Не из профиля - онлайн данные
+                        ),
                   ),
                 );
               },

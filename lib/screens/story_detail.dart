@@ -8,199 +8,349 @@ import 'package:readreels/services/comment_service.dart';
 import 'package:readreels/services/story_service.dart' as st;
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/neowidgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
+// 🟢 ИСПРАВЛЕННЫЙ StoryCard с логикой выбора источника данных
 class StoryCard extends StatelessWidget {
   final Story story;
   final bool isReplyCard;
   final void Function()? onStoryUpdated;
+  final bool useLocalData; // 🟢 НОВЫЙ ПАРАМЕТР
 
   const StoryCard({
     super.key,
     required this.story,
     required this.isReplyCard,
     this.onStoryUpdated,
+    this.useLocalData = false, // По умолчанию используем онлайн данные
   });
+
+  // 🟢 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРА
+  Future<String?> _getAvatarUrl() async {
+    if (useLocalData) {
+      // 🟢 ИСПОЛЬЗУЕМ ДАННЫЕ ИЗ SHAREDPREFERENCES
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final avatarUrl = prefs.getString('avatar_url');
+
+        if (avatarUrl != null && avatarUrl.isNotEmpty) {
+          return avatarUrl.startsWith('http')
+              ? avatarUrl
+              : 'https://ravell-backend-1.onrender.com$avatarUrl';
+        }
+      } catch (e) {
+        print('Error getting avatar from SharedPreferences: $e');
+      }
+    }
+
+    // 🟢 ИНАЧЕ ИСПОЛЬЗУЕМ ОНЛАЙН ДАННЫЕ ИЗ STORY
+    // 1. Пробуем новый формат: user -> profile -> avatar
+    if (story.user != null && story.user is Map<String, dynamic>) {
+      final userMap = story.user as Map<String, dynamic>;
+      if (userMap['profile'] != null &&
+          userMap['profile'] is Map<String, dynamic>) {
+        final profile = userMap['profile'] as Map<String, dynamic>;
+        final avatar = profile['avatar'] as String?;
+        if (avatar != null && avatar.isNotEmpty) {
+          return avatar.startsWith('http')
+              ? avatar
+              : 'https://ravell-backend-1.onrender.com$avatar';
+        }
+      }
+
+      if (userMap['avatar'] != null) {
+        final avatar = userMap['avatar'] as String?;
+        if (avatar != null && avatar.isNotEmpty) {
+          return avatar.startsWith('http')
+              ? avatar
+              : 'https://ravell-backend-1.onrender.com$avatar';
+        }
+      }
+    }
+
+    // 2. Пробуем поле avatarUrl
+    if (story.avatarUrl != null && story.avatarUrl!.isNotEmpty) {
+      return story.avatarUrl!.startsWith('http')
+          ? story.avatarUrl
+          : 'https://ravell-backend-1.onrender.com${story.avatarUrl}';
+    }
+
+    // 3. Пробуем authorAvatar
+    if (story.authorAvatar != null && story.authorAvatar!.isNotEmpty) {
+      return 'https://ravell-backend-1.onrender.com${story.authorAvatar}';
+    }
+
+    return null;
+  }
+
+  // 🟢 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
+  Future<String> _getUsername() async {
+    if (useLocalData) {
+      // 🟢 ИСПОЛЬЗУЕМ ДАННЫЕ ИЗ SHAREDPREFERENCES
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final username = prefs.getString('username');
+        if (username != null && username.isNotEmpty) {
+          return username;
+        }
+      } catch (e) {
+        print('Error getting username from SharedPreferences: $e');
+      }
+    }
+
+    // 🟢 ИНАЧЕ ИСПОЛЬЗУЕМ ОНЛАЙН ДАННЫЕ
+    // 1. Пробуем получить из user -> username
+    if (story.user != null && story.user is Map<String, dynamic>) {
+      final userMap = story.user as Map<String, dynamic>;
+      final username = userMap['username'] as String?;
+      if (username != null && username.isNotEmpty) {
+        return username;
+      }
+    }
+
+    // 2. Пробуем поле username
+    if (story.resolvedUsername.isNotEmpty) {
+      return story.resolvedUsername;
+    }
+
+    // 3. Fallback
+    return 'Пользователь #${story.userId}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration:
-          isReplyCard
-              ? BoxDecoration(
-                border: Border.all(color: Colors.black, width: 2.0),
-                borderRadius: BorderRadius.circular(16.0),
-              )
-              : null,
-      padding: isReplyCard ? const EdgeInsets.all(16.0) : EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Заголовок истории
-          Text(
-            story.title,
-            style: GoogleFonts.russoOne(fontSize: 32, color: Colors.black),
-          ),
+    return FutureBuilder(
+      future: Future.wait([_getAvatarUrl(), _getUsername()]),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: isReplyCard ? const EdgeInsets.all(16.0) : EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Заголовок истории
+                Text(
+                  story.title,
+                  style: GoogleFonts.russoOne(
+                    fontSize: 32,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildLoadingUserInfo(),
+                const SizedBox(height: 16),
+                _buildLoadingContent(),
+              ],
+            ),
+          );
+        }
 
-          const SizedBox(height: 16),
+        final avatarUrl = snapshot.data?[0] as String?;
+        final username = snapshot.data?[1] as String? ?? 'Пользователь';
 
-          Row(
+        return Container(
+          decoration:
+              isReplyCard
+                  ? BoxDecoration(
+                    border: Border.all(color: Colors.black, width: 2.0),
+                    borderRadius: BorderRadius.circular(16.0),
+                  )
+                  : null,
+          padding: isReplyCard ? const EdgeInsets.all(16.0) : EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 🟢 КЛИКАБЕЛЬНЫЙ АВАТАР
-              GestureDetector(
-                onTap: () => _navigateToUserProfile(context, story.userId),
-                child: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.grey[300],
-                  child: _buildAvatar(),
-                ),
+              // Заголовок истории
+              Text(
+                story.title,
+                style: GoogleFonts.russoOne(fontSize: 32, color: Colors.black),
               ),
 
-              const SizedBox(width: 12),
+              const SizedBox(height: 16),
 
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 🟢 КЛИКАБЕЛЬНЫЙ ЮЗЕРНЕЙМ
-                    GestureDetector(
-                      onTap:
-                          () => _navigateToUserProfile(context, story.userId),
-                      child: Text(
-                        story.username,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 18,
-                        ),
+              Row(
+                children: [
+                  // 🟢 КЛИКАБЕЛЬНЫЙ АВАТАР
+                  GestureDetector(
+                    onTap: () => _navigateToUserProfile(context, story.userId),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.black, width: 2),
+                        color: Colors.grey[200],
                       ),
+                      child: _buildAvatar(avatarUrl, username!),
                     ),
-                    Text(
-                      _formatDate(story.createdAt),
-                      style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 🟢 КЛИКАБЕЛЬНЫЙ ЮЗЕРНЕЙМ
+                        GestureDetector(
+                          onTap:
+                              () =>
+                                  _navigateToUserProfile(context, story.userId),
+                          child: Text(
+                            username,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _formatDate(story.createdAt),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // 🟢 ПОЛНЫЙ ТЕКСТ ИСТОРИИ
+              Container(
+                width: double.infinity,
+                child: SelectableText(
+                  story.content,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
 
-              // Статистика (можно раскомментировать если нужно)
-              // Row(
-              //   children: [
-              //     _buildStatIcon(Icons.favorite, story.likesCount),
-              //     const SizedBox(width: 8),
-              //     // 🟢 ИСПРАВЛЕНО: используем replyCount вместо repliesCount
-              //     _buildStatIcon(Icons.reply, story.replyCount),
-              //     const SizedBox(width: 8),
-              //     if (story.replyTo != null)
-              //       _buildStatIcon(Icons.subdirectory_arrow_right, null),
-              //   ],
-              // ),
+              const SizedBox(height: 12),
+
+              // Хештеги
+              if (story.hashtags.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children:
+                      story.hashtags.map((hashtag) {
+                        return Chip(
+                          label: Text('#${hashtag.name}'),
+                          backgroundColor: Colors.black,
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList(),
+                ),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          // 🟢 ПОЛНЫЙ ТЕКСТ ИСТОРИИ (без обрезания)
-          Container(
-            width: double.infinity,
-            child: SelectableText(
-              story.content,
-              style: TextStyle(
-                fontSize: 16,
-                height: 1.5,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Хештеги
-          if (story.hashtags.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children:
-                  story.hashtags.map((hashtag) {
-                    return Chip(
-                      label: Text('#${hashtag.name}'),
-                      backgroundColor: Colors.black,
-                      visualDensity: VisualDensity.compact,
-                    );
-                  }).toList(),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // 🟢 МЕТОД ДЛЯ ПЕРЕХОДА НА ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
-  void _navigateToUserProfile(BuildContext context, int userId) {
-    if (userId == 0) return; // Защита от некорректного ID
-
-    // Вариант 1: Используем GoRouter если настроен
-    try {
-      context.push('/profile/$userId');
-    } catch (e) {
-      // Вариант 2: Если GoRouter не работает, используем Navigator
-      print('GoRouter error, using Navigator: $e');
-
-      // Создаем маршрут для профиля (нужно будет импортировать UserProfileScreen)
-      // Navigator.of(context).push(
-      //   MaterialPageRoute(
-      //     builder: (context) => UserProfileScreen(profileUserId: userId),
-      //   ),
-      // );
-    }
-  }
-
-  // 🟢 ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ АВАТАРА
-  Widget _buildAvatar() {
-    final avatarUrl = story.avatarUrl;
-
+  // 🟢 МЕТОД ДЛЯ АВАТАРА
+  Widget _buildAvatar(String? avatarUrl, String username) {
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       return ClipOval(
-        child: Image.network(
-          avatarUrl,
-          width: 48,
-          height: 48,
+        child: CachedNetworkImage(
+          imageUrl: avatarUrl,
+          width: 36,
+          height: 36,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildAvatarPlaceholder();
-          },
+          placeholder:
+              (context, url) => Container(
+                color: Colors.grey[200],
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                  ),
+                ),
+              ),
+          errorWidget:
+              (context, url, error) => _buildAvatarPlaceholder(username),
         ),
       );
     }
 
-    return _buildAvatarPlaceholder();
+    return _buildAvatarPlaceholder(username);
   }
 
-  Widget _buildAvatarPlaceholder() {
-    final username = story.username;
+  Widget _buildAvatarPlaceholder(String username) {
     final placeholderText =
         username.isNotEmpty ? username[0].toUpperCase() : '?';
 
-    return Text(
-      placeholderText,
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    return Container(
+      color: Colors.grey[300],
+      child: Center(
+        child: Text(
+          placeholderText,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildStatIcon(IconData icon, int? count) {
+  // 🟢 ЗАГРУЗОЧНЫЙ ИНТЕРФЕЙС
+  Widget _buildLoadingUserInfo() {
     return Row(
       children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
-        if (count != null && count > 0) ...[
-          const SizedBox(width: 4),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.grey[200],
           ),
-        ],
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(width: 100, height: 16, color: Colors.grey[200]),
+              const SizedBox(height: 4),
+              Container(width: 80, height: 12, color: Colors.grey[200]),
+            ],
+          ),
+        ),
       ],
     );
+  }
+
+  Widget _buildLoadingContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(width: double.infinity, height: 12, color: Colors.grey[200]),
+        const SizedBox(height: 8),
+        Container(width: double.infinity, height: 12, color: Colors.grey[200]),
+        const SizedBox(height: 8),
+        Container(width: 200, height: 12, color: Colors.grey[200]),
+      ],
+    );
+  }
+
+  // 🟢 МЕТОД ДЛЯ ПЕРЕХОДА НА ПРОФИЛЬ
+  void _navigateToUserProfile(BuildContext context, int userId) {
+    if (userId == 0) return;
+    try {
+      context.push('/profile/$userId');
+    } catch (e) {
+      print('Navigation error: $e');
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -226,14 +376,20 @@ class StoryCard extends StatelessWidget {
 // 🟢 ИСПРАВЛЕННЫЙ StoryDetailPage
 class StoryDetailPage extends StatefulWidget {
   final Story story;
+  final bool fromProfile; // 🟢 НОВЫЙ ПАРАМЕТР
 
-  const StoryDetailPage({super.key, required this.story});
+  const StoryDetailPage({
+    super.key,
+    required this.story,
+    this.fromProfile = false, // По умолчанию не из профиля
+  });
 
   @override
   State<StoryDetailPage> createState() => _StoryDetailPageState();
 }
 
 class _StoryDetailPageState extends State<StoryDetailPage> {
+  final st.StoryService _storyService = st.StoryService();
   final StoryReplyService _replyService = StoryReplyService();
   List<Story> _replies = [];
   bool _isLoading = true;
@@ -249,10 +405,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   }
 
   void _calculateWordCounts() {
-    // Считаем слова в основной истории
     _totalWords = widget.story.content.split(RegExp(r'\s+')).length;
-
-    // Предварительный расчет слов в ответах
     _totalRepliesWords = _replies.fold(
       0,
       (sum, reply) => sum + reply.content.split(RegExp(r'\s+')).length,
@@ -273,7 +426,6 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
 
       print('✅ Загружено ответов: ${_replies.length}');
 
-      // Обновляем подсчет слов после загрузки ответов
       _totalRepliesWords = _replies.fold(
         0,
         (sum, reply) => sum + reply.content.split(RegExp(r'\s+')).length,
@@ -315,7 +467,6 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
         ],
       ),
       body: _buildBody(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -331,128 +482,73 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Статистика чтения
-                  // Container(
-                  //   padding: const EdgeInsets.all(12),
-                  //   decoration: BoxDecoration(
-                  //     color: Colors.black,
-                  //     borderRadius: BorderRadius.circular(12),
-                  //   ),
-                  //   child: Row(
-                  //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  //     children: [
-                  //       _buildStatItem(
-                  //         '${_totalWords} слов',
-                  //         Icons.text_fields,
-                  //       ),
-                  //       _buildStatItem(
-                  //         '${_replies.length} ответов',
-                  //         Icons.reply,
-                  //       ),
-                  //       _buildStatItem(
-                  //         '${_totalRepliesWords} слов в ответах',
-                  //         Icons.comment,
-                  //       ),
-                  //     ],
-                  //   ),
-                  // ),
-                  const SizedBox(height: 16),
-
-                  // Основная карточка истории
+                  // 🟢 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Передаем fromProfile в StoryCard
                   StoryCard(
                     story: widget.story,
                     isReplyCard: false,
                     onStoryUpdated: _fetchReplies,
+                    useLocalData:
+                        widget
+                            .fromProfile, // Используем локальные данные если из профиля
                   ),
-                  SizedBox(height: 10),
-                  _buildFloatingActionButton(),
-                  SizedBox(height: 10),
-                  Container(
-                    margin: EdgeInsets.all(10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Ответы: ${widget.story.repliesCount}",
-                          style: GoogleFonts.russoOne(
-                            fontSize: 25,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  const SizedBox(height: 20),
+                  _buildReplyButton(),
                 ],
               ),
             ),
           ),
 
           // Заголовок ответов
-          // SliverToBoxAdapter(
-          //   child: Padding(
-          //     padding: const EdgeInsets.symmetric(
-          //       horizontal: 24.0,
-          //       vertical: 16.0,
-          //     ),
-          //     child: Row(
-          //       children: [
-          //         const Icon(Icons.reply, color: Colors.black, size: 24),
-          //         const SizedBox(width: 8),
-          //         Text(
-          //           _replies.isEmpty
-          //               ? 'Нет ответов'
-          //               : 'Ответы (${_replies.length})',
-          //           style: const TextStyle(
-          //             fontSize: 20,
-          //             fontWeight: FontWeight.bold,
-          //           ),
-          //         ),
-          //         if (_replies.isNotEmpty) ...[
-          //           const SizedBox(width: 8),
-          //           Chip(
-          //             label: Text('${_totalRepliesWords} слов'),
-          //             backgroundColor: Colors.green,
-          //           ),
-          //         ],
-          //       ],
-          //     ),
-          //   ),
-          // ),
-
-          // Список ответов или состояние загрузки
-          if (_isLoading)
-            const SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Загружаем ответы...'),
-                  ],
+          if (_replies.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
+                child: Text(
+                  'Ответы (${_replies.length})',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            )
-          else if (_hasError)
+            ),
+
+          // Список ответов
+          if (_replies.isNotEmpty)
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final reply = _replies[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: StoryCard(
+                    story: reply,
+                    isReplyCard: true,
+                    onStoryUpdated: _fetchReplies,
+                    useLocalData: false, // Ответы всегда загружаем онлайн
+                  ),
+                );
+              }, childCount: _replies.length),
+            ),
+
+          // Состояния загрузки/ошибки
+          if (_isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          if (_hasError)
             SliverFillRemaining(
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.red,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Не удалось загрузить ответы',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const Text('Не удалось загрузить ответы'),
+                    const SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: _fetchReplies,
                       child: const Text('Повторить'),
@@ -460,77 +556,34 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                   ],
                 ),
               ),
-            )
-          else if (_replies.isEmpty)
+            ),
+          if (!_isLoading && !_hasError && _replies.isEmpty)
             SliverFillRemaining(
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.forum_outlined,
                       size: 64,
-                      color: Colors.grey[400],
+                      color: Colors.grey,
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Пока нет ответов',
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Будьте первым, кто ответит!',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
+                    const Text('Пока нет ответов'),
                   ],
                 ),
               ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final reply = _replies[index];
-                return Padding(
-                  padding: EdgeInsets.only(
-                    left: 24,
-                    right: 24,
-                    bottom: 16,
-                    top: index == 0 ? 0 : 0,
-                  ),
-                  child: Column(
-                    children: [
-                      // Карточка ответа
-                      StoryCard(
-                        story: reply,
-                        isReplyCard: true,
-                        onStoryUpdated: _fetchReplies,
-                      ),
-                    ],
-                  ),
-                );
-              }, childCount: _replies.length),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(String text, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, size: 20, color: Colors.black),
-        const SizedBox(height: 4),
-        Text(
-          text,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFloatingActionButton() {
+  Widget _buildReplyButton() {
     return Container(
-      height: 80,
+      height: 75,
+      width: MediaQuery.of(context).size.width,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       child: NeoIconButton(
         onPressed: () {
           Navigator.of(context)
@@ -543,13 +596,10 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                       ),
                 ),
               )
-              .then((_) {
-                // Обновляем список ответов после возвращения
-                _fetchReplies();
-              });
+              .then((_) => _fetchReplies());
         },
         icon: const Icon(Icons.reply),
-        child: const Text(' Ответить'),
+        child: const Text('Ответить'),
       ),
     );
   }

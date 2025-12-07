@@ -393,7 +393,7 @@ class _SearchFeedState extends State<SearchFeed> {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        story.username,
+                                        story.resolvedUsername,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
