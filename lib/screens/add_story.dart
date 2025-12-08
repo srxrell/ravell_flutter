@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:readreels/services/moderationEngine.dart';
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/neowidgets.dart'; // Предполагается, что здесь NeoContainer
 import '../models/hashtag.dart';
@@ -7,6 +8,96 @@ import '../models/story.dart';
 import '../services/story_service.dart';
 
 enum CreationStep { selectHashtags, enterContent }
+
+bool isStoryValid(String text) {
+  final cleaned = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final words = cleaned.split(' ');
+
+  // --- 1. Ровно 100 слов ---
+  if (words.length != 100) return false;
+
+  // --- 2. Минимум уникальных ---
+  final uniqueWords = words.toSet();
+  if (uniqueWords.length < 6) return false;
+
+  // --- 3. Запрет 4+ подряд ---
+  int streak = 1;
+  for (int i = 1; i < words.length; i++) {
+    if (words[i].toLowerCase() == words[i - 1].toLowerCase()) {
+      streak++;
+      if (streak >= 4) return false;
+    } else {
+      streak = 1;
+    }
+  }
+
+  // --- 4. Частотный анализ ---
+  const stopWords = {
+    "и",
+    "но",
+    "а",
+    "что",
+    "как",
+    "в",
+    "на",
+    "с",
+    "по",
+    "к",
+    "у",
+    "он",
+    "она",
+    "они",
+    "мы",
+    "я",
+    "ты",
+    "вы",
+    "его",
+    "ее",
+    "их",
+    "это",
+    "то",
+    "так",
+    "же",
+    "ли",
+    "да",
+  };
+
+  final freq = <String, int>{};
+  for (final w in words) {
+    final lw = w.toLowerCase();
+    freq[lw] = (freq[lw] ?? 0) + 1;
+  }
+
+  for (final entry in freq.entries) {
+    final word = entry.key;
+    final count = entry.value;
+
+    if (stopWords.contains(word)) continue; // служебным можно
+
+    final ratio = count / 100;
+
+    // короткие слова (<=3 буквы) чаще треш
+    if (word.length <= 3 && count > 18) {
+      return false;
+    }
+
+    // обычные слова — 30% лимит
+    if (ratio > 0.30) {
+      return false;
+    }
+  }
+
+  // --- 5. Проверка слоговой структуры ---
+  // средняя длинна слова должна быть > 3.8 букв
+  final avgLen =
+      words.map((w) => w.length).reduce((a, b) => a + b) / words.length;
+  if (avgLen < 3.8) return false;
+
+  // хотя бы одно слово длиннее 7 букв
+  if (!words.any((w) => w.length > 7)) return false;
+
+  return true;
+}
 
 // 3. New Screen for Category Creation
 class NewHashtagScreen extends StatefulWidget {
@@ -130,20 +221,35 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
 
   // 🔑 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Метод обновления истории
   Future<void> _updateStory() async {
-    if (_titleController.text.isEmpty || _contentController.text.isEmpty) {
+    final content = _contentController.text.trim();
+
+    // === НОВАЯ ПРОВЕРКА: МОДЕРАЦИЯ ===
+    final moderation = ModerationEngine.moderate(content);
+    if (!moderation.allowed) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заголовок и текст не могут быть пустыми'),
+        SnackBar(
+          content: Text(moderation.reason ?? 'Текст не прошёл модерацию'),
         ),
       );
       return;
     }
 
-    setState(() => _isSaving = true); // Включаем индикатор сохранения
+    // === СУЩЕСТВУЮЩАЯ ПРОВЕРКА ===
+    if (!isStoryValid(content)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'История должна быть осмысленной и содержать ровно 100 слов',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
 
     try {
       await _storyService.updateStory(
-        // 🔑 Используем updateStory
         storyId: widget.story.id,
         title: _titleController.text,
         content: _contentController.text,
@@ -154,7 +260,6 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('История успешно обновлена!')),
         );
-        // Вызываем коллбэк, чтобы обновить данные в UserProfileScreen
         widget.onStoryUpdated?.call();
         Navigator.of(context).pop(true);
       }
@@ -166,7 +271,7 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() => _isSaving = false); // Выключаем индикатор сохранения
+        setState(() => _isSaving = false);
       }
     }
   }
@@ -553,10 +658,26 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   }
 
   Future<void> _submitStory() async {
-    if (_titleController.text.isEmpty || _contentController.text.isEmpty) {
+    final content = _contentController.text.trim();
+
+    // === НОВАЯ ПРОВЕРКА: МОДЕРАЦИЯ ===
+    final moderation = ModerationEngine.moderate(content);
+    if (!moderation.allowed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(moderation.reason ?? 'Текст не прошёл модерацию'),
+        ),
+      );
+      return;
+    }
+
+    // === СУЩЕСТВУЮЩАЯ ПРОВЕРКА ===
+    if (!isStoryValid(content)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Заголовок и текст не могут быть пустыми'),
+          content: Text(
+            'История должна быть осмысленной и содержать ровно 100 слов',
+          ),
         ),
       );
       return;
