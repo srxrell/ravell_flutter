@@ -26,6 +26,7 @@ dependencies:
   firebase_messaging: ^16.0.4
   flutter_local_notifications: ^19.5.0
   web_socket_channel: ^3.0.3
+  delightful_toast: ^1.1.0
 
 dev_dependencies:
   flutter_test:
