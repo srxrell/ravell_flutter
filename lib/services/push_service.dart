@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:delightful_toast/toast/components/toast_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:readreels/models/activity_event.dart';
+import 'package:readreels/services/activity_service.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:delightful_toast/delight_toast.dart';
@@ -31,8 +33,20 @@ class WebSocketPushService {
       String text;
       if (data['type'] == 'follow') {
         text = "${data['from_username']} подписался на вас";
+        final event = ActivityEvent(
+          type: data['type'],
+          username: data['from_username'],
+          timestamp: DateTime.now(),
+        );
+        ActivityService.instance.addEvent(event);
       } else if (data['type'] == 'reply') {
         text = "${data['from_username']} ответил на вашу историю";
+        final event = ActivityEvent(
+          type: data['type'],
+          username: data['from_username'],
+          timestamp: DateTime.now(),
+        );
+        ActivityService.instance.addEvent(event);
       } else {
         return;
       }
