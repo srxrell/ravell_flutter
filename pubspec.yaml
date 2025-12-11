@@ -42,3 +42,4 @@ flutter:
     - assets/icons/search.svg
     - assets/icons/comment.svg
     - assets/icons/options.svg
+    - assets/icons/notification.svg

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
+import 'package:readreels/screens/activity_screen.dart';
 import 'package:readreels/screens/add_story.dart';
 import 'package:readreels/screens/authentication.dart';
 import 'package:readreels/screens/dart_auth_check.dart';
@@ -73,6 +74,10 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
           GoRoute(
             path: "/",
             builder: (context, state) => const AuthCheckerScreen(),
+          ),
+          GoRoute(
+            path: "/notifications",
+            builder: (context, state) => const ActivityScreen(),
           ),
           GoRoute(
             path: "/login",

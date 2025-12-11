@@ -628,6 +628,15 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
               height: 60,
             ),
           ),
+          SizedBox(width: 4),
+          GestureDetector(
+            onTap: () => context.go("/notifications"),
+            child: SvgPicture.asset(
+              "assets/icons/notification.svg",
+              width: 60,
+              height: 60,
+            ),
+          ),
           const SizedBox(width: 10),
         ],
         bottom: PreferredSize(

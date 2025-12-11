@@ -3,8 +3,25 @@ import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import '../models/activity_event.dart';
 
-class ActivityScreen extends StatelessWidget {
+class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
+
+  @override
+  State<ActivityScreen> createState() => _ActivityScreenState();
+}
+
+class _ActivityScreenState extends State<ActivityScreen> {
+  @override
+  void initState() {
+    super.initState();
+    ActivityService.instance.addEvent(
+      ActivityEvent(
+        type: 'follow',
+        username: 'TestUser',
+        timestamp: DateTime.now(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

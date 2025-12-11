@@ -28,28 +28,28 @@ class WebSocketPushService {
     channel = IOWebSocketChannel.connect(uri);
 
     channel.stream.listen((msg) {
+      debugPrint("WS message received: $msg");
       final data = jsonDecode(msg);
 
-      String text;
-      if (data['type'] == 'follow') {
-        text = "${data['from_username']} подписался на вас";
-        final event = ActivityEvent(
-          type: data['type'],
-          username: data['from_username'],
+      final type = data['type'] ?? '';
+      final fromUsername = data['from_username'] ?? 'Система';
+      final message = data['message'] ?? '';
+
+      final text =
+          type == 'follow'
+              ? "$fromUsername подписался на вас"
+              : type == 'reply'
+              ? "$fromUsername ответил на вашу историю"
+              : message;
+
+      // сохраняем и показываем
+      ActivityService.instance.addEvent(
+        ActivityEvent(
+          type: type,
+          username: fromUsername,
           timestamp: DateTime.now(),
-        );
-        ActivityService.instance.addEvent(event);
-      } else if (data['type'] == 'reply') {
-        text = "${data['from_username']} ответил на вашу историю";
-        final event = ActivityEvent(
-          type: data['type'],
-          username: data['from_username'],
-          timestamp: DateTime.now(),
-        );
-        ActivityService.instance.addEvent(event);
-      } else {
-        return;
-      }
+        ),
+      );
 
       final context = navigatorKey.currentContext;
       if (context != null) {
