@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
-import 'package:readreels/services/ws_service.dart';
+import 'package:readreels/services/push_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'services/ws_service.dart';
 import 'readreels.dart';
+import 'services/subscription_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,19 +24,12 @@ void main() {
 
 /// Асинхронная инициализация сервисов
 Future<void> initServices() async {
-  // Локальные уведомления
   final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   await initNotifications(flutterLocalNotificationsPlugin);
-
-  // WebSocket
-  final wsService = WSService();
-  try {
-    await wsService.connect();
-    print('✅ WebSocket connected');
-  } catch (e, st) {
-    print('⚠️ WebSocket connection failed: $e');
-    print(st);
-  }
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('access_token');
+  final userId = prefs.getInt('user_id');
+  await WebSocketPushService.instance.init(userId: userId!, token: token!);
 }
 
 Future<void> initNotifications(FlutterLocalNotificationsPlugin plugin) async {

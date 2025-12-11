@@ -20,6 +20,8 @@ class SubscriptionService {
     return prefs.getString('access_token');
   }
 
+  Future<String?> getToken() => _getToken();
+
   Future<int?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
     final id = prefs.getInt('user_id') ?? 0;
@@ -254,11 +256,9 @@ class SubscriptionService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (!isFollowing) {
           try {
-            await sendPushOnServer(
-              userId: userIdToFollow,
-              title: 'Новый подписчик!',
-              message:
-                  '${responseBody['follower_name'] ?? 'Пользователь'} подписался на вас.',
+            WebSocketPushService.instance.sendToUser(
+              userIdToFollow,
+              "${responseBody['follower_name'] ?? 'Пользователь'} подписался на вас.",
             );
           } catch (e) {
             debugPrint('Ошибка при отправке push: $e');
