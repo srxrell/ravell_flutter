@@ -1,107 +1,103 @@
-// moderation_engine.dart
 class ModerationEngine {
-  // === ЖЁСТКИЕ СТОП-СЛОВА (автобан) ===
-  static final _hardRegex = RegExp(
-    r'\b(?:детс[кх]|педо|инцест|суицид|убийство|террор|наркот[иа]|героин|кокаин|оружие|взрывчатк)\w*\b',
-    caseSensitive: false,
-  );
+  // === УНИВЕРСАЛЬНАЯ ПРОВЕРКА ВСЕГО ТЕКСТА (заголовок + контент) ===
+  static ({bool allowed, String? reason}) moderate(
+    String title,
+    String content,
+  ) {
+    final fullText = '$title $content'.toLowerCase();
 
-  // === МЯГКИЕ СТОП-СЛОВА (требуют контекста) ===
-  static final _softRegex = RegExp(
-    r'\b(?:развели|обманули|купить|продать|заработок|деньги|переведи|отправь|крипта|биткоин|казино|ставк[иа])\w*\b',
-    caseSensitive: false,
-  );
+    print('🔍 МОДЕРАЦИЯ: $title...');
 
-  // === КОНТЕКСТ РАЗРЕШЕНИЯ (образование/предупреждение) ===
-  static final _contextRegex = RegExp(
-    r'(?:не\s+(?:делай|повторяй|верь|попадайся)|осторожно|предупреждаю|будьте\s+бдительны|мошенничеств[оа]|афер[аы]|обман)',
-    caseSensitive: false,
-  );
+    // 1. ЖЁСТКИЙ БАН (нельзя ни в каком контексте)
+    final hardPatterns = [
+      r'нарко[тик]',
+      r'героин',
+      r'кокаин',
+      r'суицид',
+      r'убийств',
+      r'террор',
+      r'взрывчат',
+      r'детс[кх]',
+      r'педо',
+      r'инцест',
+      r'ор[уy]жие',
+    ];
 
-  // === URL/ССЫЛКИ ===
-  static final _urlRegex = RegExp(
-    r'(?:https?://|www\.|t\.me/|bit\.ly/|vk\.cc/)\S+',
-    caseSensitive: false,
-  );
-
-  // === ОСНОВНОЙ МЕТОД ===
-  static ({bool allowed, String? reason}) moderate(String text) {
-    final lowerText = text.toLowerCase();
-
-    // 1. ЖЁСТКИЕ СТОП-СЛОВА → мгновенный бан
-    if (_hardRegex.hasMatch(lowerText)) {
-      return (allowed: false, reason: 'Запрещённый контент');
-    }
-
-    // 2. ССЫЛКИ → бан (кроме образовательных контекстов)
-    if (_urlRegex.hasMatch(text) && !_contextRegex.hasMatch(lowerText)) {
-      return (allowed: false, reason: 'Ссылки запрещены');
-    }
-
-    // 3. МЯГКИЕ СТОП-СЛОВА → проверяем контекст
-    if (_softRegex.hasMatch(lowerText)) {
-      final hasSoftWords = _softRegex.allMatches(lowerText);
-      final hasContext = _contextRegex.hasMatch(lowerText);
-
-      // Если есть стоп-слова, но нет образовательного контекста → блок
-      if (hasSoftWords.isNotEmpty && !hasContext) {
-        return (allowed: false, reason: 'Возможный спам/реклама');
+    for (final pattern in hardPatterns) {
+      if (RegExp(pattern, caseSensitive: false).hasMatch(fullText)) {
+        print('❌ Жёсткий бан по паттерну: $pattern');
+        return (allowed: false, reason: 'Запрещённый контент');
       }
     }
 
+    // 2. ССЫЛКИ (даже в заголовке)
+    final urlPatterns = [
+      r'https?://',
+      r'www\.',
+      r'\.(ru|com|net|org|info)',
+      r't\.me/',
+      r'@[\w_]+',
+      r'bit\.ly/',
+      r'vk\.cc/',
+    ];
+
+    for (final pattern in urlPatterns) {
+      if (RegExp(pattern, caseSensitive: false).hasMatch(fullText)) {
+        // Но если это образовательный контекст (предупреждение о мошенниках)
+        if (!_hasEducationalContext(fullText)) {
+          print('❌ Ссылки без контекста: $pattern');
+          return (allowed: false, reason: 'Ссылки запрещены');
+        }
+      }
+    }
+
+    // 3. МЯГКИЕ СЛОВА (требуют контекста)
+    final softWords = [
+      'развели',
+      'обманули',
+      'купить',
+      'продать',
+      'заработок',
+      'деньги',
+      'переведи',
+      'отправь',
+      'крипт',
+      'биткоин',
+      'казино',
+      'ставк',
+      'лотере',
+      'выигр',
+    ];
+
+    final hasSoftWords = softWords.any((word) => fullText.contains(word));
+    final hasContext = _hasEducationalContext(fullText);
+
+    if (hasSoftWords && !hasContext) {
+      print('❌ Мягкие слова без контекста');
+      return (allowed: false, reason: 'Возможный спам/реклама');
+    }
+
+    print('✅ Пропущено');
     return (allowed: true, reason: null);
   }
 
-  // === ДЛЯ ИНТЕГРАЦИИ В ТВОЙ КОД ===
-  static void integrate() {
-    // Замени в isStoryValid():
-    // if (!isStoryValid(content)) { ... }
-    // на:
-    // final moderation = ModerationEngine.moderate(content);
-    // if (!moderation.allowed) {
-    //   showError(moderation.reason ?? 'Текст не прошёл модерацию');
-    //   return;
-    // }
+  // === КОНТЕКСТ ПРЕДУПРЕЖДЕНИЯ (чтобы пропустить истории про мошенников) ===
+  static bool _hasEducationalContext(String text) {
+    final contextPatterns = [
+      r'не\s+(делай|повторяй|верь|попадайся|доверяй)',
+      r'осторожно',
+      r'предупреждаю',
+      r'будьте\s+бдительны',
+      r'мошенничеств',
+      r'афер',
+      r'обман',
+      r'развод',
+      r'как\s+не\s+попасть',
+      r'как\s+защитить',
+    ];
+
+    return contextPatterns.any(
+      (pattern) => RegExp(pattern, caseSensitive: false).hasMatch(text),
+    );
   }
 }
-
-// === БЫСТРАЯ ИНТЕГРАЦИЯ В ТВОЙ КОД ===
-// В EditStoryScreen и CreateStoryScreen замени:
-/*
-if (!isStoryValid(content)) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text(
-        'История должна быть осмысленной и содержать ровно 100 слов',
-      ),
-    ),
-  );
-  return;
-}
-*/
-
-// На:
-/*
-// 1. Проверка модерации
-final moderation = ModerationEngine.moderate(content);
-if (!moderation.allowed) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(moderation.reason ?? 'Текст не прошёл модерацию'),
-    ),
-  );
-  return;
-}
-
-// 2. Существующая проверка на 100 слов и качество
-if (!isStoryValid(content)) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text(
-        'История должна быть осмысленной и содержать ровно 100 слов',
-      ),
-    ),
-  );
-  return;
-}
-*/

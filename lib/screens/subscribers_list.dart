@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:readreels/screens/profile_screen.dart';
 import 'package:readreels/services/subscription_service.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
 
@@ -6,7 +7,7 @@ class SubscriptionsSubscriberListScreen extends StatefulWidget {
   final int profileuser_id;
   final String profileUsername;
   final String initialTab; // 'followers' или 'following'
-  final VoidCallback onUpdate; // Колбэк для обновления статистики в профиле
+  final VoidCallback onUpdate;
 
   const SubscriptionsSubscriberListScreen({
     super.key,
@@ -30,7 +31,6 @@ class _SubscriptionsSubscriberListScreenState
   @override
   void initState() {
     super.initState();
-    // Определяем начальный индекс для TabBar
     final initialIndex = widget.initialTab == 'following' ? 1 : 0;
     _tabController = TabController(
       length: 2,
@@ -47,8 +47,6 @@ class _SubscriptionsSubscriberListScreenState
 
   @override
   Widget build(BuildContext context) {
-    // ВАЖНО: Мы загружаем ID текущего пользователя здесь,
-    // чтобы не делать это в каждом ListTile
     return FutureBuilder<int?>(
       future: _subscriptionService.getUserId(),
       builder: (context, currentuser_idSnapshot) {
@@ -65,7 +63,6 @@ class _SubscriptionsSubscriberListScreenState
           body: TabBarView(
             controller: _tabController,
             children: [
-              // Вкладка 1: Подписчики
               _UserListWidget(
                 fetchList:
                     () => _subscriptionService.fetchFollowers(
@@ -73,9 +70,9 @@ class _SubscriptionsSubscriberListScreenState
                     ),
                 subscriptionService: _subscriptionService,
                 onActionComplete: widget.onUpdate,
-                currentuser_id: currentuser_id, // ✅ ПЕРЕДАЕМ ID
+                currentuser_id: currentuser_id,
+                isFollowersList: true,
               ),
-              // Вкладка 2: Подписки
               _UserListWidget(
                 fetchList:
                     () => _subscriptionService.fetchFollowing(
@@ -83,7 +80,8 @@ class _SubscriptionsSubscriberListScreenState
                     ),
                 subscriptionService: _subscriptionService,
                 onActionComplete: widget.onUpdate,
-                currentuser_id: currentuser_id, // ✅ ПЕРЕДАЕМ ID
+                currentuser_id: currentuser_id,
+                isFollowersList: false,
               ),
             ],
           ),
@@ -94,18 +92,19 @@ class _SubscriptionsSubscriberListScreenState
   }
 }
 
-// --- Вспомогательный виджет для отображения списка пользователей ---
 class _UserListWidget extends StatefulWidget {
   final Future<List<Map<String, dynamic>>> Function() fetchList;
   final SubscriptionService subscriptionService;
   final VoidCallback onActionComplete;
-  final int? currentuser_id; // ID текущего авторизованного пользователя
+  final int? currentuser_id;
+  final bool isFollowersList; // <-- добавили
 
   const _UserListWidget({
     required this.fetchList,
     required this.subscriptionService,
     required this.onActionComplete,
-    required this.currentuser_id, // ✅ ИСПОЛЬЗУЕМ ПЕРЕДАННЫЙ ID
+    required this.currentuser_id,
+    required this.isFollowersList,
   });
 
   @override
@@ -114,24 +113,52 @@ class _UserListWidget extends StatefulWidget {
 
 class _UserListWidgetState extends State<_UserListWidget> {
   late Future<List<Map<String, dynamic>>> _listFuture;
+  List<int> _followingIds = [];
 
   @override
   void initState() {
     super.initState();
-    _listFuture = widget.fetchList();
+    _initFollowingIds();
+    _listFuture = _fetchSafeList();
   }
 
-  // ✅ ПЕРЕЗАПУСК Future при необходимости (например, после обновления профиля)
+  Future<void> _initFollowingIds() async {
+    if (widget.currentuser_id != null) {
+      try {
+        final following = await widget.subscriptionService.fetchFollowing(
+          widget.currentuser_id!,
+        );
+        _followingIds =
+            following
+                .map((e) => int.tryParse(e['user']['id'].toString()) ?? 0)
+                .toList();
+        if (mounted) setState(() {});
+      } catch (e) {
+        debugPrint('Ошибка fetchFollowing для определения isFollowing: $e');
+      }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchSafeList() async {
+    try {
+      final result = await widget.fetchList();
+      if (!mounted) return [];
+      return result ?? [];
+    } catch (e) {
+      debugPrint('Ошибка fetchList: $e');
+      return [];
+    }
+  }
+
   void _refreshList() {
+    if (!mounted) return;
     setState(() {
-      _listFuture = widget.fetchList();
+      _listFuture = _fetchSafeList();
     });
   }
 
-  // --- Обработчик подписки/отписки в списке ---
-  Future<void> _handleFollowToggle(int user_idToToggle) async {
-    if (widget.currentuser_id == null) {
-      // Это должно быть проверено раньше, но на всякий случай
+  Future<void> _handleFollowToggle(int userIdToToggle) async {
+    if (widget.currentuser_id == null || widget.currentuser_id == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Для подписки требуется авторизация.')),
       );
@@ -140,19 +167,18 @@ class _UserListWidgetState extends State<_UserListWidget> {
 
     try {
       final result = await widget.subscriptionService.toggleFollow(
-        user_idToToggle,
+        userIdToToggle,
       );
-
-      // Перезагружаем список и обновляем статистику в профиле
-      if (mounted) {
-        _refreshList(); // Перезапуск загрузки списка
-        widget.onActionComplete(); // Уведомляем экран профиля об изменении
-      }
-
+      if (!mounted) return;
+      // Обновляем список подписок после действия
+      await _initFollowingIds();
+      _refreshList();
+      widget.onActionComplete();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(result)));
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -167,49 +193,61 @@ class _UserListWidgetState extends State<_UserListWidget> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+
         if (snapshot.hasError) {
           return Center(child: Text("Ошибка загрузки: ${snapshot.error}"));
         }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+
+        final users = snapshot.data ?? [];
+
+        if (users.isEmpty) {
           return const Center(child: Text("Список пуст."));
         }
-
-        final users = snapshot.data!;
 
         return ListView.builder(
           itemCount: users.length,
           itemBuilder: (context, index) {
             final userEntry = users[index];
-            final userData = userEntry['user'] as Map<String, dynamic>;
-            final user_id = userData['id'] as int;
-            final username = userData['username'] as String;
-            final isFollowing = userEntry['is_following'] as bool;
+            final userData = (userEntry['user'] as Map<String, dynamic>?) ?? {};
 
-            // Определяем полное имя
-            final firstName = userData['first_name'] as String? ?? '';
-            final lastName = userData['last_name'] as String? ?? '';
-            final fullName = '${firstName} ${lastName}'.trim();
-            final displayTitle = fullName.isNotEmpty ? fullName : username;
+            final userId = int.tryParse(userData['id']?.toString() ?? '') ?? 0;
+            final username = userData['username']?.toString() ?? '';
+            // Проверяем по списку подписок
+            final isFollowing =
+                widget.isFollowersList ? _followingIds.contains(userId) : true;
 
-            // Проверка, является ли этот пользователь текущим авторизованным пользователем
+            final firstName = userData['first_name']?.toString() ?? '';
+            final lastName = userData['last_name']?.toString() ?? '';
+            final displayTitle =
+                (firstName + ' ' + lastName).trim().isNotEmpty
+                    ? (firstName + ' ' + lastName).trim()
+                    : username;
+
             final isCurrentUser =
-                (widget.currentuser_id != null &&
-                    widget.currentuser_id == user_id);
+                widget.currentuser_id != null &&
+                widget.currentuser_id == userId;
 
             return ListTile(
-              // Навигация на профиль при тапе на ListTile (опционально)
-              // onTap: () => context.go('/profile/$user_id'),
-              leading: const CircleAvatar(child: Icon(Icons.person)),
+              leading: CircleAvatar(
+                backgroundImage:
+                    userData['avatar'] != null && userData['avatar'].isNotEmpty
+                        ? NetworkImage(userData['avatar'])
+                        : null,
+                child:
+                    userData['avatar'] == null || userData['avatar'].isEmpty
+                        ? const Icon(Icons.person)
+                        : null,
+              ),
               title: Text(displayTitle),
               subtitle: Text('@$username'),
               trailing:
                   isCurrentUser
-                      ? const SizedBox.shrink() // Не показываем кнопку, если это наш профиль
+                      ? const SizedBox.shrink()
                       : ElevatedButton(
-                        onPressed: () => _handleFollowToggle(user_id),
+                        onPressed: () => _handleFollowToggle(userId),
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
-                              isFollowing ? Colors.grey : Colors.blue,
+                              isFollowing ? Colors.grey : Colors.black,
                           minimumSize: const Size(100, 35),
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                         ),
@@ -221,6 +259,15 @@ class _UserListWidgetState extends State<_UserListWidget> {
                           ),
                         ),
                       ),
+              onTap: () {
+                // Переход на профиль выбранного пользователя
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (context) => UserProfileScreen(profileUserId: userId),
+                  ),
+                );
+              },
             );
           },
         );

@@ -224,7 +224,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         },
       );
     } else if (_initialAvatarUrl != null) {
-      imageProvider = NetworkImage(_initialAvatarUrl!);
+      final freshUrl =
+          '$_initialAvatarUrl?v=${DateTime.now().millisecondsSinceEpoch}';
+      imageProvider = NetworkImage(freshUrl);
     }
 
     return _buildAvatarWidget(

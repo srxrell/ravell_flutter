@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' if (dart.library.html) 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:readreels/services/push_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
@@ -21,7 +22,8 @@ class SubscriptionService {
 
   Future<int?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('user_id');
+    final id = prefs.getInt('user_id') ?? 0;
+    return id > 0 ? id : null;
   }
 
   /// Обновляет профиль текущего пользователя (без изображения)
@@ -197,24 +199,45 @@ class SubscriptionService {
   Future<String> toggleFollow(int userIdToFollow) async {
     final token = await _getToken();
     if (token == null) {
-      throw Exception('Пользователь не авторизован. Токен отсутствует.');
+      debugPrint('❌ toggleFollow failed: token is null');
+      throw Exception('Пользователь не авторизован');
     }
 
+    final currentUserId = await getUserId();
+    if (currentUserId == null) {
+      debugPrint('❌ toggleFollow failed: currentUserId is null');
+      throw Exception('Не удалось получить ID текущего пользователя');
+    }
+
+    List<Map<String, dynamic>> following = [];
     try {
-      final currentUserId = await getUserId();
-      if (currentUserId == null) {
-        throw Exception('Не удалось получить ID текущего пользователя');
-      }
+      following = await fetchFollowing(currentUserId);
+    } catch (e) {
+      debugPrint('❌ toggleFollow failed fetching following: $e');
+      throw Exception('Не удалось получить список подписок: $e');
+    }
 
-      final following = await fetchFollowing(currentUserId);
-      final isFollowing = following.any((user) => user['id'] == userIdToFollow);
+    final isFollowing = following.any((user) {
+      final userMap = user['user'] as Map<String, dynamic>?;
+      if (userMap == null) return false;
+      final id = userMap['id'];
+      if (id == null) return false;
+      return id.toString() == userIdToFollow.toString();
+    });
 
-      final url = Uri.parse(
-        isFollowing
-            ? '$baseUrl/users/$userIdToFollow/unfollow'
-            : '$baseUrl/users/$userIdToFollow/follow',
-      );
+    final url = Uri.parse(
+      isFollowing
+          ? '$baseUrl/users/$userIdToFollow/unfollow'
+          : '$baseUrl/users/$userIdToFollow/follow',
+    );
 
+    debugPrint('🔹 toggleFollow URL: $url');
+    debugPrint('🔹 toggleFollow isFollowing: $isFollowing');
+    debugPrint(
+      '🔹 toggleFollow currentUserId: $currentUserId, targetUserId: $userIdToFollow',
+    );
+
+    try {
       final response = await http.post(
         url,
         headers: {
@@ -223,18 +246,37 @@ class SubscriptionService {
         },
       );
 
+      debugPrint('🔹 Response status: ${response.statusCode}');
+      debugPrint('🔹 Response body: ${response.body}');
+
       final responseBody = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        if (!isFollowing) {
+          try {
+            await sendPushOnServer(
+              userId: userIdToFollow,
+              title: 'Новый подписчик!',
+              message:
+                  '${responseBody['follower_name'] ?? 'Пользователь'} подписался на вас.',
+            );
+          } catch (e) {
+            debugPrint('Ошибка при отправке push: $e');
+          }
+        }
         return responseBody['message'] ?? "Действие выполнено успешно.";
       } else {
+        debugPrint(
+          '❌ toggleFollow failed: ${responseBody['error'] ?? 'Unknown error'}',
+        );
         throw Exception(
           responseBody['error'] ??
               'Не удалось выполнить действие: статус ${response.statusCode}',
         );
       }
     } catch (e) {
-      throw Exception('Сетевая ошибка при переключении подписки: $e');
+      debugPrint('❌ toggleFollow request failed: $e');
+      throw Exception('Сетевая ошибка при подписке/отписке: $e');
     }
   }
 

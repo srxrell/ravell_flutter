@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:readreels/widgets/neowidgets.dart'; // Убедитесь, что путь верный
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
@@ -23,6 +24,16 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   bool _isLoading = false;
   bool _showSlowConnectionMessage = false;
   Timer? _slowConnectionTimer;
+  final oneSignal = OneSignal();
+
+  Future<String?> getPlayerId() async {
+    // Проверяем состояние подписки через user
+    var pushStatus = OneSignal.User.pushSubscription;
+    if (pushStatus.optIn() == true) {
+      return pushStatus.id; // это playerId
+    }
+    return null;
+  }
 
   void _showSnackBar(String message, {bool isError = false}) {
     if (context.mounted) {
@@ -285,6 +296,14 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
           SharedPreferences prefs = await SharedPreferences.getInstance();
           int? user_id = prefs.getInt('user_id');
           if (user_id != null && user_id != 0) {
+            String? playerId = await getPlayerId();
+
+            if (playerId != null) {
+              // Сохраняем playerId на сервере
+              await _authService.sendPlayerId(
+                playerId,
+              ); // Нужно реализовать на сервере и в AuthService
+            }
             context.go('/home');
             return;
           } else {

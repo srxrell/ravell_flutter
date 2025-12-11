@@ -1,6 +1,7 @@
 import 'dart:io' if (dart.library.html) 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:readreels/screens/story_detail.dart'; // Добавьте этот импорт
 
 import 'package:readreels/screens/add_story.dart';
@@ -40,11 +41,29 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _loadCachedAvatar();
     _loadProfileData();
+  }
+
+  Future<void> _loadCachedAvatar() async {
+    final cachedAvatar = await _authService.getCachedAvatar();
+
+    if (cachedAvatar != null && mounted) {
+      setState(() {
+        _profileData ??= {'user_data': {}};
+        _profileData!['user_data']['avatar'] = cachedAvatar;
+      });
+    }
   }
 
   Future<void> _deleteStory(int storyId) async {
     if (!mounted) return;
+
+    print('======================================');
+    print('🟡 UI DELETE REQUEST');
+    print('🟨 storyId: $storyId');
+    print('🟨 currentUserId: $currentUserId');
+    print('======================================');
 
     Navigator.of(context).pop();
 
@@ -53,11 +72,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     });
 
     try {
+      print('🟦 Calling StoryService.deleteStory($storyId) ...');
       await _storyService.deleteStory(storyId);
+      print('🟢 deleteStory() finished successfully');
+
       _showSnackbar('История успешно удалена.');
       await _loadProfileData();
     } catch (e) {
-      _showSnackbar('Ошибка при удалении истории: ${e.toString()}');
+      print('🔴 UI ERROR WHILE DELETING STORY: $e');
+      _showSnackbar('Ошибка при удалении истории: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -428,12 +451,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (_profileData == null) return {};
 
     print('🟠 DEBUG: Full profile data: $_profileData');
-    print(
-      '🟠 DEBUG: user_data type: ${_profileData!['user_data'].runtimeType}',
-    );
-    print('🟠 DEBUG: user_data value: ${_profileData!['user_data']}');
 
-    // ✅ ПРЯМОЕ ПОЛУЧЕНИЕ user_data БЕЗ ПРОВЕРОК
     try {
       final userData = _profileData!['user_data'];
 
@@ -442,17 +460,59 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         return {};
       }
 
+      Map<String, dynamic> result = {};
+
       // Приводим к Map любым способом
       if (userData is Map<String, dynamic>) {
         print('✅ user_data is already Map<String, dynamic>');
-        return userData;
+        result = Map<String, dynamic>.from(userData);
       } else if (userData is Map) {
         print('✅ user_data is Map, converting to Map<String, dynamic>');
-        return Map<String, dynamic>.from(userData);
+        result = Map<String, dynamic>.from(userData);
       } else {
         print('❌ user_data is not a Map, type: ${userData.runtimeType}');
         return {};
       }
+
+      // 🚨 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Обрабатываем путь к аватару
+      if (result.containsKey('avatar') && result['avatar'] != null) {
+        final avatarPath = result['avatar'].toString();
+
+        // Проверяем, начинается ли путь с http или https
+        if (avatarPath.isNotEmpty && !avatarPath.startsWith('http')) {
+          // Если это относительный путь, добавляем базовый URL
+          final String baseUrl = 'https://ravell-backend-1.onrender.com';
+
+          // Убедимся, что путь начинается с /
+          final String fullPath =
+              avatarPath.startsWith('/') ? avatarPath : '/$avatarPath';
+
+          result['avatar'] = '$baseUrl$fullPath';
+          print('🔄 DEBUG: Fixed avatar path to: ${result['avatar']}');
+        }
+      }
+
+      // Также проверяем profile.avatar, если есть
+      if (result.containsKey('profile') && result['profile'] is Map) {
+        final profile = Map<String, dynamic>.from(result['profile']);
+        if (profile.containsKey('avatar') && profile['avatar'] != null) {
+          final avatarPath = profile['avatar'].toString();
+
+          if (avatarPath.isNotEmpty && !avatarPath.startsWith('http')) {
+            final String baseUrl = 'https://ravell-backend-1.onrender.com';
+            final String fullPath =
+                avatarPath.startsWith('/') ? avatarPath : '/$avatarPath';
+
+            profile['avatar'] = '$baseUrl$fullPath';
+            result['profile'] = profile;
+            print(
+              '🔄 DEBUG: Fixed profile.avatar path to: ${profile['avatar']}',
+            );
+          }
+        }
+      }
+
+      return result;
     } catch (e) {
       print('❌ Error getting user_data: $e');
       return {};
@@ -599,6 +659,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final userStories = _getSafeStories();
     final isFollowing = _getSafeIsFollowing();
     final isMyProfile = _getIsMyProfile();
+    final avatarUrl = userData['avatar'] as String?;
+    final isAvatarSet = avatarUrl != null && avatarUrl.isNotEmpty;
+    ImageProvider? avatarImageProvider;
 
     print('🟣 DEBUG: Is my profile: $isMyProfile');
     print('🟣 DEBUG: Current user ID: $currentUserId');
@@ -607,11 +670,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final firstName = userData['first_name'] as String? ?? '';
     final lastName = userData['last_name'] as String? ?? '';
     final username = userData['username'] as String? ?? 'User';
-    final avatarUrl = userData['avatar'] as String?;
     final fullName = '${firstName} ${lastName}'.trim();
-
-    final isAvatarSet = avatarUrl != null && avatarUrl.isNotEmpty;
-    ImageProvider? avatarImageProvider;
     if (isAvatarSet) {
       // ✅ ДОБАВЛЯЕМ БАЗОВЫЙ URL ДЛЯ АВАТАРОВ
       final fullAvatarUrl =
@@ -747,10 +806,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   color: Colors.red,
                 ),
               ),
-              onTap: () {
-                _authService.logout();
+              onTap: () async {
+                // 1️⃣ Выход из аккаунта
+                await _authService.logout();
+
+                // 2️⃣ Закрываем Drawer
                 if (mounted) {
                   Navigator.pop(context);
+                }
+
+                // 3️⃣ Перенаправляем на экран логина
+                if (mounted) {
+                  // Используем GoRouter для навигации
+                  // Очистка истории навигации
+                  context.go('/login');
                 }
               },
             ),

@@ -10,22 +10,36 @@ import '../services/story_service.dart';
 enum CreationStep { selectHashtags, enterContent }
 
 bool isStoryValid(String text) {
+  print('=== DEBUG isStoryValid ===');
+
   final cleaned = text.trim().replaceAll(RegExp(r'\s+'), ' ');
   final words = cleaned.split(' ');
 
+  print('Количество слов: ${words.length}');
+  print('Уникальных слов: ${words.toSet().length}');
+
   // --- 1. Ровно 100 слов ---
-  if (words.length != 100) return false;
+  if (words.length != 100) {
+    print('❌ Провал: не 100 слов, а ${words.length}');
+    return false;
+  }
 
   // --- 2. Минимум уникальных ---
   final uniqueWords = words.toSet();
-  if (uniqueWords.length < 6) return false;
+  if (uniqueWords.length < 6) {
+    print('❌ Провал: уникальных слов ${uniqueWords.length} < 6');
+    return false;
+  }
 
   // --- 3. Запрет 4+ подряд ---
   int streak = 1;
   for (int i = 1; i < words.length; i++) {
     if (words[i].toLowerCase() == words[i - 1].toLowerCase()) {
       streak++;
-      if (streak >= 4) return false;
+      if (streak >= 4) {
+        print('❌ Провал: слово "${words[i]}" повторяется $streak раз подряд');
+        return false;
+      }
     } else {
       streak = 1;
     }
@@ -72,30 +86,43 @@ bool isStoryValid(String text) {
     final word = entry.key;
     final count = entry.value;
 
-    if (stopWords.contains(word)) continue; // служебным можно
+    if (stopWords.contains(word)) continue;
 
     final ratio = count / 100;
 
     // короткие слова (<=3 буквы) чаще треш
     if (word.length <= 3 && count > 18) {
+      print('❌ Провал: короткое слово "$word" встречается $count раз (>18)');
       return false;
     }
 
     // обычные слова — 30% лимит
     if (ratio > 0.30) {
+      print('❌ Провал: слово "$word" встречается $count раз (${ratio * 100}%)');
       return false;
     }
   }
 
   // --- 5. Проверка слоговой структуры ---
-  // средняя длинна слова должна быть > 3.8 букв
   final avgLen =
       words.map((w) => w.length).reduce((a, b) => a + b) / words.length;
-  if (avgLen < 3.8) return false;
+  print('Средняя длина слова: $avgLen');
+
+  if (avgLen < 3.8) {
+    print('❌ Провал: средняя длина слова $avgLen < 3.8');
+    return false;
+  }
 
   // хотя бы одно слово длиннее 7 букв
-  if (!words.any((w) => w.length > 7)) return false;
+  final longWords = words.where((w) => w.length > 7).toList();
+  print('Слова длиннее 7 букв: $longWords');
 
+  if (!words.any((w) => w.length > 7)) {
+    print('❌ Провал: нет слов длиннее 7 букв');
+    return false;
+  }
+
+  print('✅ Все проверки пройдены');
   return true;
 }
 
@@ -223,24 +250,27 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
   Future<void> _updateStory() async {
     final content = _contentController.text.trim();
 
-    // === НОВАЯ ПРОВЕРКА: МОДЕРАЦИЯ ===
-    final moderation = ModerationEngine.moderate(content);
-    if (!moderation.allowed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(moderation.reason ?? 'Текст не прошёл модерацию'),
-        ),
-      );
-      return;
-    }
-
-    // === СУЩЕСТВУЮЩАЯ ПРОВЕРКА ===
+    // === 1. СНАЧАЛА: Проверка на 100 слов ===
     if (!isStoryValid(content)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'История должна быть осмысленной и содержать ровно 100 слов',
           ),
+        ),
+      );
+      return;
+    }
+
+    // === 2. ПОТОМ: Модерация ===
+    final moderation = ModerationEngine.moderate(
+      content,
+      _titleController.text,
+    );
+    if (!moderation.allowed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(moderation.reason ?? 'Текст не прошёл модерацию'),
         ),
       );
       return;
@@ -660,24 +690,27 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   Future<void> _submitStory() async {
     final content = _contentController.text.trim();
 
-    // === НОВАЯ ПРОВЕРКА: МОДЕРАЦИЯ ===
-    final moderation = ModerationEngine.moderate(content);
-    if (!moderation.allowed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(moderation.reason ?? 'Текст не прошёл модерацию'),
-        ),
-      );
-      return;
-    }
-
-    // === СУЩЕСТВУЮЩАЯ ПРОВЕРКА ===
+    // === 1. СНАЧАЛА: Проверка на 100 слов ===
     if (!isStoryValid(content)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'История должна быть осмысленной и содержать ровно 100 слов',
           ),
+        ),
+      );
+      return;
+    }
+
+    // === 2. ПОТОМ: Модерация ===
+    final moderation = ModerationEngine.moderate(
+      content,
+      _titleController.text,
+    );
+    if (!moderation.allowed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(moderation.reason ?? 'Текст не прошёл модерацию'),
         ),
       );
       return;

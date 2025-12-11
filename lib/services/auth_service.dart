@@ -69,6 +69,8 @@ class AuthService {
         final refreshToken = tokens['refresh_token'];
 
         await _saveAuthData(accessToken, refreshToken, user_id);
+        await loadAndSaveUserProfile(); // ← ДОБАВЛЕНО
+
         return true;
       } else {
         throw Exception(
@@ -109,6 +111,8 @@ class AuthService {
       }
 
       await _saveAuthData(accessToken, refreshToken, user_id);
+      await loadAndSaveUserProfile(); // ← ДОБАВЛЕНО
+
       return true;
     } else if (response.statusCode == 401 || response.statusCode == 403) {
       final errorData = json.decode(utf8.decode(response.bodyBytes));
@@ -175,5 +179,56 @@ class AuthService {
       }
     });
     return error.trim();
+  }
+
+  Future<void> loadAndSaveUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accessToken = prefs.getString('access_token');
+    final userId = prefs.getInt('user_id');
+
+    if (accessToken == null || userId == null) {
+      return;
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/user/$userId'),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      await prefs.setString('username', data['username'] ?? '');
+      await prefs.setString('email', data['email'] ?? '');
+      await prefs.setString('avatar_url', data['avatar_url'] ?? '');
+    }
+  }
+
+  Future<String?> getCachedAvatar() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('avatar_url');
+  }
+
+  // Отправка playerId на сервер
+  Future<void> sendPlayerId(String playerId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final accessToken = prefs.getString('access_token');
+    if (accessToken == null) throw Exception('Access token missing');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/save-player'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({'player_id': playerId}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save player ID: ${response.statusCode}');
+    }
   }
 }
