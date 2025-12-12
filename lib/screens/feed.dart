@@ -630,7 +630,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
           ),
           SizedBox(width: 4),
           GestureDetector(
-            onTap: () => context.go("/notifications"),
+            onTap: () => context.push("/notifications"),
             child: SvgPicture.asset(
               "assets/icons/notification.svg",
               width: 60,

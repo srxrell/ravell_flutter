@@ -13,7 +13,7 @@ import 'package:readreels/services/push_service.dart';
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/profile_stories_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'services/ws_service.dart';
+import 'services/ws_service.dart' as p;
 import 'services/subscription_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -76,7 +76,7 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
             builder: (context, state) => const AuthCheckerScreen(),
           ),
           GoRoute(
-            path: "/notifications",
+            path: '/notifications',
             builder: (context, state) => const ActivityScreen(),
           ),
           GoRoute(
