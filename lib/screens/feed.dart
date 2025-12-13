@@ -42,6 +42,37 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   bool _hasError = false;
   String _errorMessage = '';
 
+  Widget buildPreviewText(String content, {int wordLimit = 35}) {
+    final words = content.split(' ');
+    if (words.length <= wordLimit) {
+      return Text(content);
+    }
+
+    final preview = words.sublist(0, wordLimit).join(' ');
+
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: '$preview... ',
+            style: const TextStyle(
+              color: Colors.black, // обычный текст
+              fontSize: 16,
+            ),
+          ),
+          TextSpan(
+            text: 'Читать далее',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black, // можно поменять на синий или другой
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Для карусели
   final PageController _pageController = PageController(
     viewportFraction: 0.8, // Видимая часть карточек (80%)
@@ -110,7 +141,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
           _hasError = true;
           _errorMessage = 'Требуется авторизация';
         });
-        Future.delayed(Duration.zero, () => context.go('/auth'));
+        Future.delayed(Duration.zero, () => context.go('/auth-check'));
       }
       return;
     }
@@ -182,7 +213,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
     if (currentUserId == null) {
       if (mounted) {
-        context.go('/auth');
+        context.go('/auth-check');
       }
       return;
     }
@@ -358,9 +389,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                             Expanded(
                               child: SingleChildScrollView(
                                 physics: const BouncingScrollPhysics(),
-                                child: ExpandableStoryContent(
-                                  content: story.content,
-                                ),
+                                child: buildPreviewText(story.content),
                               ),
                             ),
 
@@ -398,35 +427,41 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                   children: [
                                     // Кнопка ответить
                                     if (!story.isReply)
-                                      Container(
-                                        width: 400,
-                                        height: 80,
-                                        child: NeoIconButton(
-                                          onPressed: () {
-                                            if (currentUserId == null) {
-                                              if (mounted) {
-                                                context.go('/auth');
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8.0,
+                                        ), // отступы слева и справа
+                                        child: SizedBox(
+                                          // растягиваем на всю ширину с учетом padding
+                                          height:
+                                              70, // или 60, 80, как тебе нравится
+                                          child: NeoIconButton(
+                                            onPressed: () {
+                                              if (currentUserId == null) {
+                                                if (mounted) {
+                                                  context.go('/auth-check');
+                                                }
+                                                return;
                                               }
-                                              return;
-                                            }
 
-                                            context.go(
-                                              '/addStory',
-                                              extra: {
-                                                'replyTo': story.id,
-                                                'parentTitle': story.title,
-                                              },
-                                            );
-                                          },
-                                          icon: const Icon(
-                                            Icons.reply,
-                                            size: 18,
-                                          ),
-                                          child: Text(
-                                            'Ответить | ${_getReplyText(story.repliesCount)}',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
+                                              context.go(
+                                                '/addStory',
+                                                extra: {
+                                                  'replyTo': story.id,
+                                                  'parentTitle': story.title,
+                                                },
+                                              );
+                                            },
+                                            icon: const Icon(
+                                              Icons.reply,
+                                              size: 18,
+                                            ),
+                                            child: Text(
+                                              ' Ответить | ${_getReplyText(story.repliesCount)}',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -628,15 +663,15 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
               height: 60,
             ),
           ),
-          SizedBox(width: 4),
-          GestureDetector(
-            onTap: () => context.push("/notifications"),
-            child: SvgPicture.asset(
-              "assets/icons/notification.svg",
-              width: 60,
-              height: 60,
-            ),
-          ),
+          // SizedBox(width: 4),
+          // GestureDetector(
+          //   onTap: () => context.push("/notifications"),
+          //   child: SvgPicture.asset(
+          //     "assets/icons/notification.svg",
+          //     width: 60,
+          //     height: 60,
+          //   ),
+          // ),
           const SizedBox(width: 10),
         ],
         bottom: PreferredSize(

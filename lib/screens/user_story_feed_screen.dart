@@ -84,7 +84,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
   Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
     if (currentUserId == null) {
       if (mounted) {
-        context.go('/auth');
+        context.go('/auth-check');
       }
       return;
     }
@@ -304,7 +304,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                                       onPressed: () {
                                         if (currentUserId == null) {
                                           if (mounted) {
-                                            context.go('/auth');
+                                            context.go('/auth-check');
                                           }
                                           return;
                                         }
@@ -560,7 +560,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
               onDoubleTapDown: (details) {
                 if (currentUserId == null) {
                   if (mounted) {
-                    context.go('/auth');
+                    context.go('/auth-check');
                   }
                   return;
                 }

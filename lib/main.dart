@@ -1,25 +1,29 @@
 import 'dart:async';
+// import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:readreels/screens/activity_screen.dart';
 import 'package:readreels/screens/add_story.dart';
 import 'package:readreels/screens/authentication.dart';
+import 'package:readreels/screens/credits_screen.dart';
 import 'package:readreels/screens/dart_auth_check.dart';
 import 'package:readreels/screens/feed.dart';
+import 'package:readreels/screens/onboarding_screen.dart';
 import 'package:readreels/screens/profile_screen.dart';
 import 'package:readreels/screens/search.dart';
-import 'package:readreels/services/push_service.dart';
+// import 'package:readreels/services/push_service.dart';
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/profile_stories_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'services/ws_service.dart' as p;
-import 'services/subscription_service.dart';
+// import 'services/ws_service.dart' as p;
+// import 'services/subscription_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // await Firebase.initializeApp();
 
   runZonedGuarded(
     () {
@@ -40,7 +44,7 @@ Future<void> initServices() async {
   final prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('access_token');
   final userId = prefs.getInt('user_id');
-  await WebSocketPushService.instance.init(userId: userId!, token: token!);
+  // PushService.init();
 }
 
 Future<void> initNotifications(FlutterLocalNotificationsPlugin plugin) async {
@@ -63,6 +67,17 @@ class ReadReelsApp extends StatefulWidget {
 
 class _ReadReelsAppState extends State<ReadReelsApp> {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  Future<Widget> getStartScreen() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seenOnboarding = prefs.getBool('seenOnboarding') ?? false;
+
+    if (seenOnboarding) {
+      return const AuthCheckerScreen();
+    } else {
+      return const OnBoardingScreen();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
@@ -71,9 +86,33 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
       theme: fullNeoBrutalismTheme,
       routerConfig: GoRouter(
         routes: [
+          // РАСКОММЕНТИРОВАТЬ
+          // GoRoute(
+          //   path: "/",
+          //   builder: (context, state) => const AuthCheckerScreen(),
+          // ),
           GoRoute(
             path: "/",
+            builder:
+                (context, state) => FutureBuilder<Widget>(
+                  future: getStartScreen(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Scaffold(
+                        body: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    return snapshot.data!;
+                  },
+                ),
+          ),
+          GoRoute(
+            path: '/auth-check',
             builder: (context, state) => const AuthCheckerScreen(),
+          ),
+          GoRoute(
+            path: "/credits",
+            builder: (context, state) => const CreditsScreen(),
           ),
           GoRoute(
             path: '/notifications',

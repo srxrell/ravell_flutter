@@ -109,7 +109,7 @@ class _SearchFeedState extends State<SearchFeed> {
   Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
     if (currentUserId == null) {
       if (mounted) {
-        context.go('/auth');
+        context.go('/auth-check');
       }
       return;
     }

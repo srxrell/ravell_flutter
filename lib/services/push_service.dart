@@ -1,88 +1,43 @@
-import 'dart:convert';
-import 'package:delightful_toast/toast/components/toast_card.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:readreels/models/activity_event.dart';
-import 'package:readreels/services/activity_service.dart';
-import 'package:web_socket_channel/io.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:delightful_toast/delight_toast.dart';
-import '../main.dart'; // чтобы видеть navigatorKey
+// import 'dart:convert';
+// import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:http/http.dart' as http;
+// import 'package:shared_preferences/shared_preferences.dart';
 
-// ws_service.dart
-class WebSocketPushService {
-  static final WebSocketPushService instance = WebSocketPushService._();
-  WebSocketPushService._();
+// class PushService {
+//   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
-  late WebSocketChannel channel;
-  final _notifications = FlutterLocalNotificationsPlugin();
+//   static Future<void> init() async {
+//     // 1. Разрешения (Android сам разрешает, но пусть будет)
+//     await _messaging.requestPermission();
 
-  Future<void> init({required int userId, required String token}) async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: android);
-    await _notifications.initialize(settings);
+//     // 2. Получаем токен
+//     final token = await _messaging.getToken();
+//     print("FCM TOKEN: $token");
 
-    final uri = Uri.parse(
-      "wss://ravell-backend-1.onrender.com/ws?user_id=$userId&token=$token",
-    );
-    channel = IOWebSocketChannel.connect(uri);
+//     if (token != null) {
+//       await _saveTokenToBackend(token);
+//     }
+//   }
 
-    channel.stream.listen((msg) {
-      debugPrint("WS message received: $msg");
-      final data = jsonDecode(msg);
+//   static Future<void> _saveTokenToBackend(String token) async {
+//     final prefs = await SharedPreferences.getInstance();
+//     final access = prefs.getString('access_token');
+//     if (access == null) return;
 
-      final type = data['type'] ?? '';
-      final fromUsername = data['from_username'] ?? 'Система';
-      final message = data['message'] ?? '';
+//     final url = Uri.parse(
+//       'https://ravell-backend-1.onrender.com/users/save-player',
+//     );
 
-      final text =
-          type == 'follow'
-              ? "$fromUsername подписался на вас"
-              : type == 'reply'
-              ? "$fromUsername ответил на вашу историю"
-              : message;
+//     final res = await http.post(
+//       url,
+//       headers: {
+//         'Authorization': 'Bearer $access',
+//         'Content-Type': 'application/json',
+//       },
+//       body: jsonEncode({'player_id': token}),
+//     );
 
-      // сохраняем и показываем
-      ActivityService.instance.addEvent(
-        ActivityEvent(
-          type: type,
-          username: fromUsername,
-          timestamp: DateTime.now(),
-        ),
-      );
-
-      final context = navigatorKey.currentContext;
-      if (context != null) {
-        DelightToastBar(
-          builder:
-              (ctx) => ToastCard(
-                leading: const Icon(Icons.flutter_dash, size: 28),
-                title: Text(
-                  text,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-        ).show(context);
-      }
-    });
-  }
-
-  /// ✅ Отправка пуша через WS конкретному пользователю
-  void sendToUser(int userId, String message) {
-    final payload = jsonEncode({
-      'action': 'send_to_user',
-      'user_id': userId,
-      'message': message,
-    });
-
-    try {
-      channel.sink.add(payload);
-      debugPrint('🔹 Push отправлен пользователю $userId: $message');
-    } catch (e) {
-      debugPrint('❌ Ошибка при отправке push: $e');
-    }
-  }
-}
+//     print("SAVE TOKEN STATUS: ${res.statusCode}");
+//     print("SAVE TOKEN BODY: ${res.body}");
+//   }
+// }

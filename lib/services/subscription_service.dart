@@ -254,16 +254,6 @@ class SubscriptionService {
       final responseBody = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        if (!isFollowing) {
-          try {
-            WebSocketPushService.instance.sendToUser(
-              userIdToFollow,
-              "${responseBody['follower_name'] ?? 'Пользователь'} подписался на вас.",
-            );
-          } catch (e) {
-            debugPrint('Ошибка при отправке push: $e');
-          }
-        }
         return responseBody['message'] ?? "Действие выполнено успешно.";
       } else {
         debugPrint(

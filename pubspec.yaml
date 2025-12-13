@@ -23,10 +23,11 @@ dependencies:
   pinput: 6.0.1
   flutter_carousel_slider: ^1.1.0
   onesignal_flutter: ^5.3.4
-  firebase_messaging: ^16.0.4
   flutter_local_notifications: ^19.5.0
   web_socket_channel: ^3.0.3
   delightful_toast: ^1.1.0
+  flutter_markdown: ^0.7.7+1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -43,3 +44,6 @@ flutter:
     - assets/icons/comment.svg
     - assets/icons/options.svg
     - assets/icons/notification.svg
+    - assets/icons/creditlogo.svg
+    - assets/icons/guchaMiu.svg
+    - assets/icons/bigbig.png

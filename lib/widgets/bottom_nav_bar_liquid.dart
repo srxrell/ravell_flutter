@@ -70,8 +70,18 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
   Widget build(BuildContext context) {
     return Container(
       width: MediaQuery.of(context).size.width,
-      height: 85, // Оставляем высоту, но можно ее увеличить
-      decoration: BoxDecoration(color: bottomBackground),
+      // margin: EdgeInsets.all(10),
+      // height: 85, // Оставляем высоту, но можно ее увеличить
+      decoration: BoxDecoration(
+        color: bottomBackground,
+        // border: Border(
+        //   top: BorderSide(width: 3, color: Colors.black),
+        //   bottom: BorderSide(width: 3, color: Colors.black),
+        //   left: BorderSide(width: 3, color: Colors.black),
+        //   right: BorderSide(width: 3, color: Colors.black),
+        // ),
+        // borderRadius: BorderRadius.all(Radius.circular(10)),
+      ),
       // Используем Padding для горизонтальных отступов от краев
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 21.0),
@@ -84,8 +94,8 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
           children: [
             _buildNavItem(
               context,
-              icon: Icons.grid_view_sharp,
-              label: "Home",
+              icon: Icons.home,
+              label: "Feed",
               onTap: () => context.go('/home'),
             ),
             _buildNavItem(

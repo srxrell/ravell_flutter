@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1036794355722",
+    "project_id": "hhhhh-eda4f",
+    "storage_bucket": "hhhhh-eda4f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1036794355722:android:8f5d82c198520d61e1fff3",
+        "android_client_info": {
+          "package_name": "com.caelis.ravell"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgfgXPHwhLrkq_G90-lC7xHhkMfgIWoP4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

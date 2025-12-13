@@ -386,7 +386,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 20.0),
         child: Center(
-          child: Text('Пока нет историй', style: TextStyle(color: Colors.grey)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.view_agenda),
+              Text(
+                "Оставь свой след в приложении",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                "Возможно твоя первая история будет самой обсуждаемой",
+                style: TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -796,6 +810,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
           children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.info, color: Colors.black),
+              title: const Text(
+                'О приложении',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black,
+                ),
+              ),
+              onTap: () {
+                context.push('/credits');
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.logout_outlined, color: Colors.red),
               title: const Text(

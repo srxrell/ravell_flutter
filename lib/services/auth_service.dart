@@ -203,7 +203,10 @@ class AuthService {
 
       await prefs.setString('username', data['username'] ?? '');
       await prefs.setString('email', data['email'] ?? '');
-      await prefs.setString('avatar_url', data['avatar_url'] ?? '');
+      await prefs.setString(
+        'avatar_url',
+        data['avatar_url'] ?? data['avatar'] ?? '',
+      );
     }
   }
 

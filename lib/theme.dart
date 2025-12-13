@@ -12,7 +12,7 @@ const btnColorSuccess = Color(0xFF37FD00);
 const btnColorLogin = Color(0xFFFFAF81); // Персиковый (Login)
 const btnColorSignup = Color(0xFFFFAF81); // Салатовый (Sign Up)
 const btnColorDefault = Color(0xFFFD7600); // Оранжевый (General)
-const bottomBackground = Color(0xFFFFAF81);
+const bottomBackground = Color.fromARGB(255, 239, 239, 239);
 // --- 2. Typography Helper (EPILOGUE FONT) ---
 // Используем Epilogue везде
 TextStyle neoTextStyle(
