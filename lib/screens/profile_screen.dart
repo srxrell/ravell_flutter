@@ -1,15 +1,20 @@
+import 'dart:convert';
 import 'dart:io' if (dart.library.html) 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:readreels/screens/achievement_screen.dart';
 import 'package:readreels/screens/story_detail.dart'; // Добавьте этот импорт
 
 import 'package:readreels/screens/add_story.dart';
+import 'package:readreels/screens/streak_screen.dart';
 import 'package:readreels/screens/subscribers_list.dart';
 import 'package:readreels/screens/user_story_feed_screen.dart';
 import 'package:readreels/services/auth_service.dart';
 import 'package:readreels/services/story_service.dart';
 import 'package:readreels/theme.dart';
+import 'package:readreels/widgets/early_access_bottom.dart';
 import 'package:readreels/widgets/neowidgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:readreels/services/subscription_service.dart';
@@ -32,6 +37,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final SubscriptionService _subscriptionService = SubscriptionService();
   final StoryService _storyService = StoryService();
   final AuthService _authService = AuthService();
+  int? streakCount;
 
   int? currentUserId;
   Map<String, dynamic>? _profileData;
@@ -43,6 +49,48 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     super.initState();
     _loadCachedAvatar();
     _loadProfileData();
+    _loadUserStreak(widget.profileUserId);
+  }
+
+  Future<void> _loadUserStreak(int userId) async {
+    try {
+      int? streak;
+      final sp = await SharedPreferences.getInstance();
+      final currentUserId = sp.getInt('user_id');
+
+      if (userId == currentUserId) {
+        // Своё — используем эндпоинт с токеном
+        final token = await AuthService().getAccessToken();
+        final res = await http.get(
+          Uri.parse('https://ravell-backend-1.onrender.com/streak'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          print('🟢 DEBUG: StreakScreen data: $data');
+          print("TOKEN: ${token}");
+          streak = data['streak_count'] ?? 0;
+        }
+      } else {
+        // Чужое — используем эндпоинт без токена
+        final res = await http.get(
+          Uri.parse(
+            'https://ravell-backend-1.onrender.com/users/$userId/streak',
+          ),
+        );
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          print('🟢 DEBUG: StreakScreen data: $data');
+          streak = data['streak_count'] ?? 0;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          streakCount = streak ?? 0;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadCachedAvatar() async {
@@ -446,13 +494,41 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       context,
                     ).textTheme.headlineLarge!.copyWith(fontSize: 20),
                   ),
-                  subtitle: Text(
-                    story.content.length > 150
-                        ? '${story.content.substring(0, 150)}...'
-                        : story.content,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey[700]),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        story.content.length > 150
+                            ? '${story.content.substring(0, 150)}...'
+                            : story.content,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              if (story.hashtags.isNotEmpty)
+                                for (var x in story.hashtags)
+                                  Text(
+                                    x.name == "" ? "Text" : x.name,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.grey[700]),
+                                  ),
+                            ],
+                          ),
+                          Text(
+                            story.createdAt.toString(),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.grey[700]),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -684,6 +760,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final firstName = userData['first_name'] as String? ?? '';
     final lastName = userData['last_name'] as String? ?? '';
     final username = userData['username'] as String? ?? 'User';
+    print(userData['is_early']);
     final fullName = '${firstName} ${lastName}'.trim();
     if (isAvatarSet) {
       // ✅ ДОБАВЛЯЕМ БАЗОВЫЙ URL ДЛЯ АВАТАРОВ
@@ -696,8 +773,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 100,
         automaticallyImplyLeading: false,
+
+        toolbarHeight: 100,
         elevation: 0,
         surfaceTintColor: neoBackground,
         centerTitle: false,
@@ -721,95 +799,180 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           const SizedBox(width: 10),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(
-          left: 16.0,
-          right: 16.0,
-          bottom: 16.0,
-          top: 20.0,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- СЕКЦИЯ 1: АВАТАР, ИМЯ И СТАТИСТИКА ---
-            Column(
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.only(
+              left: 16.0,
+              right: 16.0,
+              bottom: 16.0,
+              top: 20.0,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor:
-                      isAvatarSet ? Colors.transparent : Colors.blueGrey,
-                  backgroundImage: avatarImageProvider,
-                  child:
-                      isAvatarSet
-                          ? null
-                          : const Icon(
-                            Icons.person,
-                            size: 40,
-                            color: Colors.white,
-                          ),
-                ),
-                if (fullName.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      fullName,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.headlineLarge?.copyWith(fontSize: 25),
-                    ),
-                  ),
-                Text(
-                  '@$username',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.headlineLarge!.copyWith(fontSize: 16),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                // --- СЕКЦИЯ 1: АВАТАР, ИМЯ И СТАТИСТИКА ---
+                Column(
                   children: [
-                    _buildStatColumn("Статей", stats['stories_count']),
-                    _buildStatColumn("Подписчиков", stats['followers_count']),
-                    _buildStatColumn("Подписок", stats['following_count']),
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor:
+                          isAvatarSet ? Colors.transparent : Colors.blueGrey,
+                      backgroundImage: avatarImageProvider,
+                      child:
+                          isAvatarSet
+                              ? null
+                              : const Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Colors.white,
+                              ),
+                    ),
+                    if (fullName.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              fullName,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.headlineLarge?.copyWith(fontSize: 25),
+                            ),
+                            SizedBox(width: 10),
+                            if (userData['is_early'] == true)
+                              GestureDetector(
+                                onTap: () => EarlyAccessSheet.show(context),
+                                child: Icon(Icons.star, color: Colors.amber),
+                              ),
+                          ],
+                        ),
+                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '@$username',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.headlineLarge!.copyWith(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Chip(
+                      side: const BorderSide(
+                        color: Colors.black,
+                        width: 2,
+                        strokeAlign: BorderSide.strokeAlignOutside,
+                      ),
+                      label:
+                          streakCount != null
+                              ? GestureDetector(
+                                onTap: () {
+                                  if (isMyProfile) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const StreakScreen(),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: Row(
+                                  children: [
+                                    const Text(
+                                      '🔥',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                    Text(
+                                      streakCount.toString(),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                              : SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatColumn("Статей", stats['stories_count']),
+                        _buildStatColumn(
+                          "Подписчиков",
+                          stats['followers_count'],
+                        ),
+                        _buildStatColumn("Подписок", stats['following_count']),
+                      ],
+                    ),
                   ],
                 ),
+
+                // --- СЕКЦИЯ 2: КНОПКА ПОДПИСКИ/РЕДАКТИРОВАНИЯ ---
+                const SizedBox(height: 10),
+
+                if (isMyProfile)
+                  SizedBox(
+                    height: 75,
+                    width: double.infinity,
+                    child: NeoButton(
+                      onPressed: _navigateToEditProfile,
+                      text: 'Редактировать профиль',
+                    ),
+                  )
+                else if (currentUserId != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: NeoButton(
+                      onPressed: _handleFollowToggle,
+                      text: isFollowing ? 'Вы подписаны' : 'Подписаться',
+                    ),
+                  )
+                else
+                  const Center(
+                    child: Text('Авторизуйтесь, чтобы подписаться.'),
+                  ),
+                const SizedBox(height: 10),
+
+                // ✅ Передаем флаг isMyProfile в список историй
+                _buildExpandableStoryList(userStories, isMyProfile),
+                const SizedBox(height: 50),
               ],
             ),
-
-            // --- СЕКЦИЯ 2: КНОПКА ПОДПИСКИ/РЕДАКТИРОВАНИЯ ---
-            const SizedBox(height: 10),
-
-            if (isMyProfile)
-              SizedBox(
-                height: 75,
-                width: double.infinity,
-                child: NeoButton(
-                  onPressed: _navigateToEditProfile,
-                  text: 'Редактировать профиль',
-                ),
-              )
-            else if (currentUserId != null)
-              SizedBox(
-                width: double.infinity,
-                child: NeoButton(
-                  onPressed: _handleFollowToggle,
-                  text: isFollowing ? 'Вы подписаны' : 'Подписаться',
-                ),
-              )
-            else
-              const Center(child: Text('Авторизуйтесь, чтобы подписаться.')),
-            const SizedBox(height: 10),
-
-            // ✅ Передаем флаг isMyProfile в список историй
-            _buildExpandableStoryList(userStories, isMyProfile),
-          ],
-        ),
+          ),
+          Positioned(
+            bottom: 0,
+            child: Container(
+              width: MediaQuery.of(context).size.width,
+              child: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+            ),
+          ),
+        ],
       ),
-      bottomNavigationBar: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
       endDrawer: Drawer(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
           children: <Widget>[
+            ListTile(
+              title: Text("Achievements"),
+              leading: Icon(Icons.star),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (_) =>
+                            isMyProfile
+                                ? AchievementScreen(
+                                  userId: userData['id'],
+                                ) // свои ачивки
+                                : AchievementScreen(userId: userData['id']),
+                  ),
+                );
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.info, color: Colors.black),
               title: const Text(

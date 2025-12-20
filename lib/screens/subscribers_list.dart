@@ -54,6 +54,8 @@ class _SubscriptionsSubscriberListScreenState
 
         return Scaffold(
           appBar: AppBar(
+            automaticallyImplyLeading: false,
+
             title: Text(widget.profileUsername),
             bottom: TabBar(
               controller: _tabController,

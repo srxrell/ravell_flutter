@@ -494,8 +494,9 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
     if (widget.stories.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          toolbarHeight: 100,
           automaticallyImplyLeading: false,
+
+          toolbarHeight: 100,
           elevation: 0,
           surfaceTintColor: neoBackground,
           centerTitle: false,
@@ -524,8 +525,9 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 100,
         automaticallyImplyLeading: false,
+
+        toolbarHeight: 100,
         elevation: 0,
         surfaceTintColor: neoBackground,
         centerTitle: false,

@@ -210,6 +210,11 @@ class AuthService {
     }
   }
 
+  Future<int?> getMyUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('user_id');
+  }
+
   Future<String?> getCachedAvatar() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('avatar_url');

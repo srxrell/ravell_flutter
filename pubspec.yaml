@@ -28,6 +28,7 @@ dependencies:
   delightful_toast: ^1.1.0
   flutter_markdown: ^0.7.7+1
   url_launcher: ^6.3.2
+  step_progress: ^2.5.2
 
 dev_dependencies:
   flutter_test:
@@ -47,3 +48,4 @@ flutter:
     - assets/icons/creditlogo.svg
     - assets/icons/guchaMiu.svg
     - assets/icons/bigbig.png
+    - assets/icons/jacky.svg

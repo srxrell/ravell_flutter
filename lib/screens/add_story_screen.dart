@@ -84,7 +84,7 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
     final titleText = isReply ? 'Написать ответ' : 'Создать новую историю';
 
     return Scaffold(
-      appBar: AppBar(title: Text(titleText)),
+      appBar: AppBar(automaticallyImplyLeading: false, title: Text(titleText)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(

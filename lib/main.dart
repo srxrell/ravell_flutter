@@ -9,9 +9,12 @@ import 'package:readreels/screens/authentication.dart';
 import 'package:readreels/screens/credits_screen.dart';
 import 'package:readreels/screens/dart_auth_check.dart';
 import 'package:readreels/screens/feed.dart';
+import 'package:readreels/screens/influencers_board.dart';
 import 'package:readreels/screens/onboarding_screen.dart';
 import 'package:readreels/screens/profile_screen.dart';
 import 'package:readreels/screens/search.dart';
+import 'package:readreels/screens/streak_screen.dart';
+import 'package:readreels/services/influencer_service.dart';
 // import 'package:readreels/services/push_service.dart';
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/profile_stories_list.dart';
@@ -22,11 +25,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
   // await Firebase.initializeApp();
 
   runZonedGuarded(
     () {
+      WidgetsFlutterBinding.ensureInitialized();
       runApp(const ReadReelsApp()); // UI стартует сразу
       initServices(); // Асинхронная инициализация фоново
     },
@@ -139,6 +142,10 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
             builder: (context, state) {
               return const CreateStoryScreen();
             },
+          ),
+          GoRoute(
+            path: '/streak',
+            builder: (context, state) => const StreakScreen(),
           ),
           GoRoute(
             path: '/story/:storyId',

@@ -13,7 +13,11 @@ class _ActivityScreenState extends State<ActivityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Активность')),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+
+        title: const Text('Активность'),
+      ),
       body: ValueListenableBuilder<List<ActivityEvent>>(
         valueListenable: ActivityService.instance.eventsNotifier,
         builder: (context, events, _) {

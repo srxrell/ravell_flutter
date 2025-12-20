@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -29,6 +31,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
 
   late TabController _tabController;
   StoryType _currentStoryType = StoryType.seeds;
+  bool _isRefreshing = false;
 
   int? currentUserId;
   bool isHeartAnimating = false;
@@ -150,8 +153,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   }
 
   Future<void> _fetchCurrentTabStories() async {
-    if (!mounted) return;
-
     setState(() {
       _isLoading = true;
       _hasError = false;
@@ -171,26 +172,34 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
           break;
       }
 
-      // Инициализируем likeCounts из данных историй
+      if (!mounted) return;
+
+      _currentStories.shuffle(Random());
+
       likeCounts.clear();
+      likeStatuses.clear();
+
       for (var story in _currentStories) {
         likeCounts[story.id] = story.likesCount;
-        // Проверяем лайк пользователя
+
         if (currentUserId != null) {
           final isLiked = await _storyService.isStoryLiked(
             story.id,
             currentUserId!,
           );
+
+          if (!mounted) return;
           likeStatuses[story.id] = isLiked;
         }
       }
 
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _currentPage = 0;
       });
     } catch (e) {
-      debugPrint('Ошибка загрузки историй: $e');
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _hasError = true;
@@ -208,6 +217,25 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
       case StoryType.all:
         return allStories;
     }
+  }
+
+  Future<void> _refreshFeed() async {
+    if (_isRefreshing) return;
+
+    _isRefreshing = true;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    await _fetchCurrentTabStories();
+
+    // ВАЖНО: возвращаем карусель в начало
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
+
+    _isRefreshing = false;
   }
 
   Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
@@ -644,10 +672,40 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     );
   }
 
+  bool _readyToRefresh = false;
+  double _pullOffset = 0.0;
+
+  static const double _maxPull = 140.0;
+  static const double _triggerPull = 100.0;
+
+  void _startRefresh() async {
+    setState(() {
+      _isRefreshing = true;
+    });
+
+    await _fetchCurrentTabStories();
+
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
+
+    _resetPull();
+  }
+
+  void _resetPull() {
+    setState(() {
+      _pullOffset = 0;
+      _readyToRefresh = false;
+      _isRefreshing = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+
         toolbarHeight: 100,
         elevation: 0,
         surfaceTintColor: neoBackground,
@@ -781,19 +839,83 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                 ? _buildLoadingState()
                 : _currentStories.isEmpty
                 ? _buildEmptyState()
-                : PageView.builder(
-                  controller: _pageController,
-                  itemCount: _currentStories.length,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentPage = index;
-                    });
+                : NotificationListener(
+                  onNotification: (n) {
+                    if (_currentPage != 0 || _isRefreshing) return false;
+
+                    if (n is OverscrollNotification && n.overscroll < 0) {
+                      setState(() {
+                        _pullOffset = (_pullOffset + n.overscroll.abs()).clamp(
+                          0.0,
+                          _maxPull,
+                        );
+                        _readyToRefresh = _pullOffset >= _triggerPull;
+                      });
+
+                      if (_readyToRefresh) {
+                        HapticFeedback.lightImpact();
+                      }
+                    }
+
+                    if (n is ScrollEndNotification) {
+                      if (_readyToRefresh) {
+                        _startRefresh();
+                      } else {
+                        _resetPull();
+                      }
+                    }
+
+                    return false;
                   },
-                  scrollDirection: Axis.horizontal,
-                  itemBuilder: (context, index) {
-                    return _buildStoryCard(_currentStories[index], index);
-                  },
+                  child: Stack(
+                    children: [
+                      PageView.builder(
+                        controller: _pageController,
+                        itemCount: _currentStories.length,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentPage = index;
+                          });
+                        },
+                        scrollDirection: Axis.horizontal,
+                        itemBuilder: (context, index) {
+                          return _buildStoryCard(_currentStories[index], index);
+                        },
+                      ),
+                      _buildPullCurtain(),
+                    ],
+                  ),
                 ),
+      ),
+    );
+  }
+
+  Widget _buildPullCurtain() {
+    if (_pullOffset == 0) return const SizedBox();
+
+    return Positioned(
+      left: -_maxPull + _pullOffset,
+      top: 0,
+      bottom: 0,
+      width: _maxPull,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        color: neoAccent,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _readyToRefresh ? Icons.refresh : Icons.arrow_forward_ios,
+              size: 28,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _readyToRefresh ? 'Отпусти, чтобы обновить' : 'Потяни ещё',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

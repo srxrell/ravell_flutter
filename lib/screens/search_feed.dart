@@ -633,6 +633,8 @@ class _SearchFeedState extends State<SearchFeed> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+
         toolbarHeight: 60,
         elevation: 0,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,

@@ -297,8 +297,12 @@ class SubscriptionService {
         final user = data['user'];
         final profile = data['profile'];
         final stats = data['stats'];
+        final is_early = data['is_early'];
 
-        if (user != null && profile != null && stats != null) {
+        if (user != null &&
+            profile != null &&
+            stats != null &&
+            is_early != null) {
           // ✅ ОБЪЕДИНЯЕМ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ И ПРОФИЛЯ
           final userData = {
             ...user,
@@ -306,6 +310,7 @@ class SubscriptionService {
             'last_name': user['last_name'] ?? '',
             'avatar': profile['avatar'] ?? '',
             'bio': profile['bio'] ?? '',
+            'is_early': is_early,
             'is_verified': profile['is_verified'] ?? false,
           };
 

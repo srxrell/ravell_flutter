@@ -207,6 +207,8 @@ class _SearchStoryState extends State<SearchStory> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+
         toolbarHeight: 130,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: TextField(

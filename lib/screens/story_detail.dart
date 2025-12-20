@@ -4,12 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/screens/add_story_screen.dart';
+import 'package:readreels/services/auth_service.dart';
 import 'package:readreels/services/comment_service.dart';
 import 'package:readreels/services/story_service.dart' as st;
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/neowidgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
 
 // 🟢 ИСПРАВЛЕННЫЙ StoryCard с логикой выбора источника данных
 class StoryCard extends StatelessWidget {
@@ -402,6 +404,25 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     super.initState();
     _fetchReplies();
     _calculateWordCounts();
+    _makeUpdateStreak();
+  }
+
+  Future<void> _makeUpdateStreak() async {
+    final token = await AuthService().getAccessToken();
+
+    // 1. обновляем стрейк
+    await http.post(
+      Uri.parse('https://ravell-backend-1.onrender.com/streak/update'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    // 2. грузим историю
+    final res = await http.get(
+      Uri.parse(
+        'https://ravell-backend-1.onrender.com/stories/${widget.story.id}',
+      ),
+      headers: {'Authorization': 'Bearer $token'},
+    );
   }
 
   void _calculateWordCounts() {
@@ -447,9 +468,10 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+
         toolbarHeight: 100,
         elevation: 0,
-        automaticallyImplyLeading: false,
         surfaceTintColor: neoBackground,
         centerTitle: false,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,

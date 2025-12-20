@@ -41,7 +41,6 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
   Widget _buildNavItem(
     BuildContext context, {
     required IconData icon,
-    required String label,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -58,8 +57,8 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(icon, size: 35), // Увеличиваем размер иконки
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 16)),
+            // const SizedBox(height: 4),
+            //Text(label, style: const TextStyle(fontSize: 16)),
           ],
         ),
       ),
@@ -68,51 +67,54 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: MediaQuery.of(context).size.width,
-      // margin: EdgeInsets.all(10),
-      // height: 85, // Оставляем высоту, но можно ее увеличить
-      decoration: BoxDecoration(
-        color: bottomBackground,
-        // border: Border(
-        //   top: BorderSide(width: 3, color: Colors.black),
-        //   bottom: BorderSide(width: 3, color: Colors.black),
-        //   left: BorderSide(width: 3, color: Colors.black),
-        //   right: BorderSide(width: 3, color: Colors.black),
-        // ),
-        // borderRadius: BorderRadius.all(Radius.circular(10)),
-      ),
-      // Используем Padding для горизонтальных отступов от краев
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 21.0),
-        child: Row(
-          mainAxisAlignment:
-              MainAxisAlignment
-                  .spaceBetween, // Распределяем пространство между элементами
-          crossAxisAlignment:
-              CrossAxisAlignment.center, // Центрируем весь ряд по вертикали
-          children: [
-            _buildNavItem(
-              context,
-              icon: Icons.home,
-              label: "Feed",
-              onTap: () => context.go('/home'),
+    return Stack(
+      children: [
+        SizedBox(
+          child: Container(
+            margin: EdgeInsets.symmetric(horizontal: 80, vertical: 10),
+            height: 85, // Оставляем высоту, но можно ее увеличить
+            decoration: BoxDecoration(
+              color: neoAccent,
+              border: Border(
+                top: BorderSide(width: 3, color: Colors.black),
+                bottom: BorderSide(width: 7, color: Colors.black),
+                left: BorderSide(width: 3, color: Colors.black),
+                right: BorderSide(width: 5, color: Colors.black),
+              ),
+              borderRadius: BorderRadius.all(Radius.circular(4410)),
             ),
-            _buildNavItem(
-              context,
-              icon: Icons.add_box,
-              label: "Add",
-              onTap: () => context.go('/addStory'),
+            // Используем Padding для горизонтальных отступов от краев
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 21.0),
+              child: Row(
+                mainAxisAlignment:
+                    MainAxisAlignment
+                        .spaceBetween, // Распределяем пространство между элементами
+                crossAxisAlignment:
+                    CrossAxisAlignment
+                        .center, // Центрируем весь ряд по вертикали
+                children: [
+                  _buildNavItem(
+                    context,
+                    icon: Icons.home,
+                    onTap: () => context.push('/home'),
+                  ),
+                  _buildNavItem(
+                    context,
+                    icon: Icons.add_box,
+                    onTap: () => context.push('/addStory'),
+                  ),
+                  _buildNavItem(
+                    context,
+                    icon: Icons.person,
+                    onTap: () => _navigateToProfile(context),
+                  ),
+                ],
+              ),
             ),
-            _buildNavItem(
-              context,
-              icon: Icons.person,
-              label: "Me",
-              onTap: () => _navigateToProfile(context),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

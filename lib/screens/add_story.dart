@@ -468,6 +468,8 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+
         title: Text(
           'Редактировать историю',
           style: Theme.of(context).textTheme.headlineMedium,
@@ -549,6 +551,8 @@ class _NewHashtagScreenState extends State<NewHashtagScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+
         title: Text(
           'Создать Новую Категорию',
           style: Theme.of(context).textTheme.headlineMedium,
