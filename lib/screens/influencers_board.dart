@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:readreels/services/influencer_service.dart';
 import 'package:readreels/services/auth_service.dart';
 import '../models/influencer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class InfluencersBoard extends StatefulWidget {
   const InfluencersBoard({super.key});
@@ -12,11 +13,35 @@ class InfluencersBoard extends StatefulWidget {
 
 class _InfluencersBoardState extends State<InfluencersBoard> {
   late Future<List<Influencer>> future;
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
     future = _loadInfluencers();
+    _checkAdmin();
+  }
+
+  Future<void> _checkAdmin() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? username = prefs.getString('username');
+
+    if (username == null) {
+      print('Username is null, reloading user profile...');
+      await AuthService().loadAndSaveUserProfile();
+      username = prefs.getString('username');
+    }
+
+    print('================ DEBUG ADMIN CHECK ================');
+    print('Stored username: "$username"');
+    if (username == 'serellvorne' && mounted) {
+      print('User IS admin. Enabling button.');
+      setState(() {
+        _isAdmin = true;
+      });
+    } else {
+      print('User is NOT admin.');
+    }
   }
 
   Future<List<Influencer>> _loadInfluencers() async {
@@ -38,7 +63,13 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Early contributors')),
+      appBar: AppBar(title: const Text('Ранние участники')),
+      floatingActionButton: _isAdmin
+          ? FloatingActionButton(
+              onPressed: _showAddInfluencerDialog,
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: FutureBuilder<List<Influencer>>(
         future: future,
         builder: (context, snapshot) {
@@ -127,6 +158,56 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
             },
           );
         },
+      ),
+    );
+  }
+
+
+  void _showAddInfluencerDialog() {
+    final usernameController = TextEditingController();
+    final ideaController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Early Influencer'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: usernameController,
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                hintText: 'Enter username to add',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: ideaController,
+              decoration: const InputDecoration(
+                labelText: 'Idea / Contribution',
+                hintText: 'What did they do?',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Implement backend call
+              print('Adding influencer: ${usernameController.text}, Idea: ${ideaController.text}');
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Request sent (Backend pending)')),
+              );
+            },
+            child: const Text('Add'),
+          ),
+        ],
       ),
     );
   }

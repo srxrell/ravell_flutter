@@ -191,7 +191,7 @@ class AuthService {
     }
 
     final response = await http.get(
-      Uri.parse('$baseUrl/user/$userId'),
+      Uri.parse('$baseUrl/users/$userId/profile'),
       headers: {
         'Authorization': 'Bearer $accessToken',
         'Content-Type': 'application/json',
@@ -200,13 +200,21 @@ class AuthService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(utf8.decode(response.bodyBytes));
-
-      await prefs.setString('username', data['username'] ?? '');
-      await prefs.setString('email', data['email'] ?? '');
+      // /users/:id/profile usually returns { "user_data": { ... }, ... }
+      // We need to handle both cases or check what the backend actually returns.
+      // Based on ProfileScreen usage, it seems to be nested in user_data sometimes?
+      // Let's safe parse.
+      
+      final userData = data['user_data'] ?? data;
+      
+      await prefs.setString('username', userData['username'] ?? '');
+      await prefs.setString('email', userData['email'] ?? '');
       await prefs.setString(
         'avatar_url',
-        data['avatar_url'] ?? data['avatar'] ?? '',
+        userData['avatar_url'] ?? userData['avatar'] ?? '',
       );
+    } else {
+       print('❌ AuthService: Failed to load user profile. Status: ${response.statusCode}');
     }
   }
 

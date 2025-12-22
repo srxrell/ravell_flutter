@@ -63,12 +63,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
 
     // 🟢 ИСПРАВЛЕНИЕ: Правильно формируем полный URL аватара
-    final rawAvatar = widget.initialUserData['avatar'];
-    if (rawAvatar != null && rawAvatar is String) {
+    // 🟢 ИСПРАВЛЕНИЕ: Правильно формируем URL только если есть реально путь к аватару
+    final rawAvatar = widget.initialUserData['avatar']?.toString() ?? '';
+    final profileAvatar =
+        widget.initialUserData['profile']?['avatar']?.toString() ?? '';
+
+    if (rawAvatar.isNotEmpty) {
       _initialAvatarUrl =
           rawAvatar.startsWith('http')
               ? rawAvatar
               : 'https://ravell-backend-1.onrender.com$rawAvatar';
+    } else if (profileAvatar.isNotEmpty) {
+      _initialAvatarUrl =
+          profileAvatar.startsWith('http')
+              ? profileAvatar
+              : 'https://ravell-backend-1.onrender.com$profileAvatar';
+    } else {
+      _initialAvatarUrl = null; // ✅ если файла нет — не строим URL
     }
 
     // Также проверяем путь в profile
@@ -104,90 +115,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _pickAvatarImage() async {
-    final pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 50,
-    );
-
-    if (pickedFile != null && mounted) {
-      setState(() {
-        _avatarXFile = pickedFile;
-      });
-    }
-  }
-
   void _clearAvatar() {
     setState(() {
       _avatarXFile = null;
       _initialAvatarUrl = null;
     });
-  }
-
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    final dataToUpdate = <String, String>{
-      'username': _usernameController.text,
-      'email': _emailController.text,
-      'first_name': _firstNameController.text,
-      'last_name': _lastNameController.text,
-    };
-
-    String? filePath;
-    List<int>? fileBytes;
-    String? fileName;
-
-    if (_avatarXFile != null) {
-      if (kIsWeb) {
-        fileBytes = await _avatarXFile!.readAsBytes();
-        fileName = _avatarXFile!.name;
-      } else {
-        filePath = _avatarXFile!.path;
-      }
-    } else if (widget.initialUserData['avatar'] != null &&
-        _initialAvatarUrl == null) {
-      dataToUpdate['avatar'] = '';
-    }
-
-    try {
-      final response = await _subscriptionService.updateProfileWithImage(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-        bio: '',
-        avatarFilePath: filePath,
-        avatarFileBytes: fileBytes,
-        avatarFileName: fileName,
-      );
-
-      if (response.containsKey('username') && response['username'] is List ||
-          response.containsKey('detail')) {
-        final errorDetail =
-            response['detail'] ??
-            (response.values.first is List
-                ? response.values.first[0]
-                : 'Неизвестная ошибка валидации');
-        _showErrorSnackbar('Ошибка валидации: $errorDetail');
-      } else {
-        widget.onProfileUpdated(response);
-        Navigator.of(context).pop();
-        _showSuccessSnackbar("Профиль успешно обновлен!");
-      }
-    } catch (e) {
-      _showErrorSnackbar('Ошибка: ${e.toString()}');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
   }
 
   void _showErrorSnackbar(String message) {
@@ -208,31 +140,105 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  Future<void> _pickAvatarImage() async {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+      if (pickedFile != null && mounted) {
+        setState(() {
+          _avatarXFile = pickedFile;
+        });
+        print('🟢 IMAGE PICKED: ${pickedFile.path}');
+      } else {
+        print('⚠️ IMAGE PICKER CANCELLED');
+      }
+    } catch (e) {
+      print('❌ IMAGE PICKER ERROR: $e');
+      _showErrorSnackbar('Не удалось открыть галерею: ${e.toString()}');
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSaving = true);
+
+    String? filePath;
+    Uint8List? fileBytes;
+    String? fileName;
+
+    if (_avatarXFile != null) {
+      if (kIsWeb) {
+        fileBytes = await _avatarXFile!.readAsBytes();
+        fileName = _avatarXFile!.name;
+      } else {
+        filePath = _avatarXFile!.path;
+      }
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? accessToken = prefs.getString('access_token');
+
+      if (accessToken == null) {
+        // пробуем обновить токен
+        await AuthService().refreshToken();
+        accessToken = await AuthService().getAccessToken();
+        if (accessToken == null) throw Exception('Не удалось получить токен');
+      }
+
+      final response = await _subscriptionService.updateProfileWithImage(
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        bio: '',
+        avatarFilePath: filePath,
+        avatarFileBytes: fileBytes,
+        avatarFileName: fileName,
+        accessToken: accessToken,
+      );
+
+      if (response.containsKey('error')) {
+        _showErrorSnackbar('Ошибка обновления: ${response['error']}');
+      } else {
+        // обновляем профиль в родителе
+        widget.onProfileUpdated(response);
+        if (mounted) Navigator.of(context).pop();
+        _showSuccessSnackbar("Профиль успешно обновлен!");
+      }
+    } catch (e) {
+      _showErrorSnackbar('Ошибка обновления: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   Widget _buildAvatarSection() {
     ImageProvider? imageProvider;
 
     if (_avatarXFile != null) {
-      return FutureBuilder<Uint8List>(
-        future: _avatarXFile!.readAsBytes(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done &&
-              snapshot.hasData) {
-            imageProvider = MemoryImage(snapshot.data!);
-            return _buildAvatarWidget(imageProvider, false);
-          }
-          return _buildAvatarWidget(null, true);
-        },
-      );
+      if (kIsWeb) {
+        return FutureBuilder<Uint8List>(
+          future: _avatarXFile!.readAsBytes(),
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              imageProvider = MemoryImage(snapshot.data!);
+              return _buildAvatarWidget(imageProvider, false);
+            }
+            return _buildAvatarWidget(null, true);
+          },
+        );
+      } else {
+        imageProvider = FileImage(File(_avatarXFile!.path));
+      }
     } else if (_initialAvatarUrl != null) {
       final freshUrl =
           '$_initialAvatarUrl?v=${DateTime.now().millisecondsSinceEpoch}';
       imageProvider = NetworkImage(freshUrl);
     }
 
-    return _buildAvatarWidget(
-      imageProvider,
-      _avatarXFile == null && _initialAvatarUrl == null,
-    );
+    return _buildAvatarWidget(imageProvider, imageProvider == null);
   }
 
   Widget _buildAvatarWidget(ImageProvider? imageProvider, bool isPlaceholder) {

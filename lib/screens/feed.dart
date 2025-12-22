@@ -714,7 +714,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
         title: SvgPicture.asset("assets/icons/logo.svg", width: 60, height: 60),
         actions: [
           GestureDetector(
-            onTap: () => context.go("/search"),
+            onTap: () => context.push("/search"),
             child: SvgPicture.asset(
               "assets/icons/search.svg",
               width: 60,

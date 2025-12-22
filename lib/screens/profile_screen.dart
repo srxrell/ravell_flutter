@@ -5,7 +5,8 @@ import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:readreels/screens/achievement_screen.dart';
-import 'package:readreels/screens/story_detail.dart'; // Добавьте этот импорт
+import 'package:readreels/screens/story_detail.dart';
+import 'package:readreels/screens/influencers_board.dart';
 
 import 'package:readreels/screens/add_story.dart';
 import 'package:readreels/screens/streak_screen.dart';
@@ -800,6 +801,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ],
       ),
       body: Stack(
+        fit: StackFit.expand,
         children: [
           SingleChildScrollView(
             padding: const EdgeInsets.only(
@@ -860,41 +862,68 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Chip(
-                      side: const BorderSide(
-                        color: Colors.black,
-                        width: 2,
-                        strokeAlign: BorderSide.strokeAlignOutside,
-                      ),
-                      label:
-                          streakCount != null
-                              ? GestureDetector(
-                                onTap: () {
-                                  if (isMyProfile) {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => const StreakScreen(),
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: Row(
-                                  children: [
-                                    const Text(
-                                      '🔥',
-                                      style: TextStyle(fontSize: 16),
+                    const SizedBox(width: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Chip(
+                          side: const BorderSide(
+                            color: Colors.black,
+                            width: 2,
+                            strokeAlign: BorderSide.strokeAlignOutside,
+                          ),
+                          label:
+                              streakCount != null
+                                  ? GestureDetector(
+                                    onTap: () {
+                                      if (isMyProfile) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder:
+                                                (_) => const StreakScreen(),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: Row(
+                                      children: [
+                                        const Text(
+                                          '🔥',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                        Text(
+                                          streakCount.toString(),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    Text(
-                                      streakCount.toString(),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  )
+                                  : SizedBox.shrink(),
+                        ),
+                        SizedBox(width: 5),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder:
+                                    (_) => AchievementScreen(
+                                      userId: _safeParseInt(userData['id']) ?? 0,
                                     ),
-                                  ],
-                                ),
-                              )
-                              : SizedBox.shrink(),
+                              ),
+                            );
+                          },
+                          child: const Chip(
+                            side: BorderSide(
+                              color: Colors.black,
+                              width: 2,
+                              strokeAlign: BorderSide.strokeAlignOutside,
+                            ),
+                            label: Text("🎯 Your achievements"),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -957,18 +986,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
           children: <Widget>[
             ListTile(
-              title: Text("Achievements"),
-              leading: Icon(Icons.star),
+              title: const Text("Доска почета"),
+              leading: const Icon(Icons.people),
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder:
-                        (_) =>
-                            isMyProfile
-                                ? AchievementScreen(
-                                  userId: userData['id'],
-                                ) // свои ачивки
-                                : AchievementScreen(userId: userData['id']),
+                    builder: (_) => const InfluencersBoard(),
                   ),
                 );
               },
@@ -1014,6 +1037,57 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 }
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAchievementsButton(
+    List<String> achievementIcons,
+    VoidCallback onTap,
+  ) {
+    final double size = 50;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        height: size,
+        width: size,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            for (int i = 0; i < achievementIcons.length && i < 3; i++)
+              Positioned(
+                left: i * 15.0, // смещение для перекрытия
+                child: NeoContainer(
+                  width: size,
+                  height: size,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(size / 2),
+                    child: SvgPicture.asset(
+                      achievementIcons[i],
+                      width: size,
+                      height: size,
+                    ),
+                  ),
+                ),
+              ),
+            if (achievementIcons.length > 3)
+              Positioned(
+                left: 3 * 15.0,
+                child: NeoContainer(
+                  width: size,
+                  height: size,
+                  color: Colors.grey[300]!,
+                  child: Center(
+                    child: Text(
+                      '+${achievementIcons.length - 3}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

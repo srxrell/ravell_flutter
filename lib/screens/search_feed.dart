@@ -551,7 +551,7 @@ class _SearchFeedState extends State<SearchFeed> {
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: () => context.go('/search'),
+            onPressed: () => context.push("/search"),
             style: ElevatedButton.styleFrom(
               backgroundColor: neoBlack,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
