@@ -2,9 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:readreels/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatefulWidget {
-  const PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS({super.key});
+  final GlobalKey? homeKey;
+  final GlobalKey? addKey;
+  final GlobalKey? profileKey;
+
+  const PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS({
+    super.key,
+    this.homeKey,
+    this.addKey,
+    this.profileKey,
+  });
 
   @override
   State<PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS> createState() =>
@@ -47,7 +57,7 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
       onTap: onTap,
       // Увеличиваем область нажатия и контейнер для кнопки
       child: Container(
-        width: 80, // Увеличиваем ширину кнопки
+        width: 60, // Уменьшаем ширину кнопки для предотвращения переполнения
         height: 83,
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Column(
@@ -56,7 +66,7 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
                   .center, // Центрируем по вертикали внутри контейнера
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(icon, size: 35), // Увеличиваем размер иконки
+            Icon(icon, size: 30), // Слегка уменьшаем размер иконки
             // const SizedBox(height: 4),
             //Text(label, style: const TextStyle(fontSize: 16)),
           ],
@@ -71,43 +81,55 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
       children: [
         SizedBox(
           child: Container(
-            margin: EdgeInsets.symmetric(horizontal: 80, vertical: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             height: 85, // Оставляем высоту, но можно ее увеличить
             decoration: BoxDecoration(
               color: neoAccent,
               border: Border(
-                top: BorderSide(width: 3, color: Colors.black),
-                bottom: BorderSide(width: 7, color: Colors.black),
-                left: BorderSide(width: 3, color: Colors.black),
-                right: BorderSide(width: 5, color: Colors.black),
+                top: const BorderSide(width: 3, color: Colors.black),
+                bottom: const BorderSide(width: 7, color: Colors.black),
+                left: const BorderSide(width: 3, color: Colors.black),
+                right: const BorderSide(width: 5, color: Colors.black),
               ),
-              borderRadius: BorderRadius.all(Radius.circular(4410)),
+              borderRadius: const BorderRadius.all(Radius.circular(4410)),
             ),
             // Используем Padding для горизонтальных отступов от краев
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 21.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0),
               child: Row(
                 mainAxisAlignment:
                     MainAxisAlignment
-                        .spaceBetween, // Распределяем пространство между элементами
+                        .spaceEvenly, // Распределяем пространство равномерно
                 crossAxisAlignment:
                     CrossAxisAlignment
                         .center, // Центрируем весь ряд по вертикали
                 children: [
-                  _buildNavItem(
-                    context,
-                    icon: Icons.home,
-                    onTap: () => context.push('/home'),
+                  _wrapWithShowcase(
+                    key: widget.homeKey,
+                    description: 'Главная лента историй',
+                    child: _buildNavItem(
+                      context,
+                      icon: Icons.home,
+                      onTap: () => context.push('/home'),
+                    ),
                   ),
-                  _buildNavItem(
-                    context,
-                    icon: Icons.add_box,
-                    onTap: () => context.push('/addStory'),
+                  _wrapWithShowcase(
+                    key: widget.addKey,
+                    description: 'Создать свою историю',
+                    child: _buildNavItem(
+                      context,
+                      icon: Icons.add_box,
+                      onTap: () => context.push('/addStory'),
+                    ),
                   ),
-                  _buildNavItem(
-                    context,
-                    icon: Icons.person,
-                    onTap: () => _navigateToProfile(context),
+                  _wrapWithShowcase(
+                    key: widget.profileKey,
+                    description: 'Ваш личный профиль',
+                    child: _buildNavItem(
+                      context,
+                      icon: Icons.person,
+                      onTap: () => _navigateToProfile(context),
+                    ),
                   ),
                 ],
               ),
@@ -115,6 +137,19 @@ class _PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASSState
           ),
         ),
       ],
+    );
+  }
+
+  Widget _wrapWithShowcase({
+    GlobalKey? key,
+    required String description,
+    required Widget child,
+  }) {
+    if (key == null) return child;
+    return Showcase(
+      key: key,
+      description: description,
+      child: child,
     );
   }
 }

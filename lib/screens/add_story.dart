@@ -410,19 +410,15 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Шаг 2: Отредактируйте свою историю', // 🔑 Изменен текст
-            style: theme.textTheme.headlineLarge,
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
           // Заголовок
           TextField(
             controller: _titleController,
-            style: theme.textTheme.headlineLarge,
+            style: theme.textTheme.headlineMedium,
             decoration: InputDecoration(
               hintText: 'Заголовок истории',
-              hintStyle: theme.textTheme.headlineLarge!.copyWith(
-                color: theme.textTheme.headlineLarge!.color!.withOpacity(0.5),
+              hintStyle: theme.textTheme.headlineMedium!.copyWith(
+                color: theme.textTheme.headlineMedium!.color!.withOpacity(0.5),
               ),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
@@ -455,6 +451,13 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
             ),
             maxLines: null,
             keyboardType: TextInputType.multiline,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          // Word counter
+          Text(
+            'Слов: ${_contentController.text.trim().isEmpty ? 0 : _contentController.text.trim().split(RegExp(r"\s+")).length}',
+            style: theme.textTheme.bodyMedium!.copyWith(color: Colors.grey[600]),
           ),
         ],
       ),
@@ -463,47 +466,53 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Используем _isSaving для отображения индикатора загрузки
     final bool showLoading = _isLoading || _isSaving;
 
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-
         title: Text(
-          'Редактировать историю',
-          style: Theme.of(context).textTheme.headlineMedium,
+          _currentStep == CreationStep.selectHashtags
+              ? 'Выберите категории'
+              : 'Редактирование',
         ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        actions: [
+          if (!showLoading)
+            IconButton(
+              icon: Icon(
+                _currentStep == CreationStep.selectHashtags
+                    ? Icons.arrow_forward
+                    : Icons.check,
+                color: neoBlack,
+              ),
+              onPressed:
+                  _currentStep == CreationStep.selectHashtags
+                      ? _goToNextStep
+                      : _updateStory,
+            ),
+          if (showLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+        ],
       ),
       body:
           showLoading && _currentStep == CreationStep.selectHashtags
               ? const Center(child: CircularProgressIndicator())
-              : _currentStep == CreationStep.selectHashtags
-              ? _buildHashtagGrid(context)
-              : _buildStoryForm(context),
-
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SizedBox(
-          height: 75,
-          child:
-              showLoading
-                  ? const Center(
-                    child: CircularProgressIndicator(),
-                  ) // Индикатор при сохранении/загрузке
-                  : NeoButton(
-                    onPressed:
-                        _currentStep == CreationStep.selectHashtags
-                            ? _goToNextStep
-                            : _updateStory, // 🔑 Вызываем _updateStory
-                    text:
-                        _currentStep == CreationStep.selectHashtags
-                            ? 'Далее (${_selectedHashtagIds.length})'
-                            : 'Сохранить изменения', // 🔑 Изменен текст кнопки
-                  ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+              : SafeArea(
+                child:
+                    _currentStep == CreationStep.selectHashtags
+                        ? _buildHashtagGrid(context)
+                        : _buildStoryForm(context),
+              ),
     );
   }
 }
@@ -518,6 +527,19 @@ class _NewHashtagScreenState extends State<NewHashtagScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Введите название категории')),
+        );
+      }
+      return;
+    }
+
+    // === Модерация категории ===
+    final moderation = ModerationEngine.moderate(name, "");
+    if (!moderation.allowed) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(moderation.reason ?? 'Название не прошло модерацию'),
+          ),
         );
       }
       return;
@@ -551,12 +573,21 @@ class _NewHashtagScreenState extends State<NewHashtagScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(
-          'Создать Новую Категорию',
+          'Новая категория',
           style: Theme.of(context).textTheme.headlineMedium,
         ),
+        actions: [
+          if (!_isLoading)
+            IconButton(
+              icon: const Icon(Icons.check, color: neoBlack, size: 28),
+              onPressed: _createNewHashtag,
+            ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -581,13 +612,11 @@ class _NewHashtagScreenState extends State<NewHashtagScreen> {
               ),
               onSubmitted: (_) => _createNewHashtag(),
             ),
-            const SizedBox(height: 32),
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : NeoButton(
-                  onPressed: _createNewHashtag,
-                  text: 'Создать и выбрать',
-                ),
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.only(top: 32),
+                child: Center(child: CircularProgressIndicator()),
+              ),
           ],
         ),
       ),
@@ -787,18 +816,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(
-              bottom: 24.0,
-              left: 8.0,
-              right: 8.0,
-              top: 20,
-            ),
-            child: Text(
-              'Шаг 1: Select category for your story',
-              style: theme.textTheme.headlineMedium,
-            ),
-          ),
+          const SizedBox(height: 8),
           Expanded(
             child: GridView.count(
               crossAxisCount: 2,
@@ -842,104 +860,124 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   }
 
   Widget _buildStoryForm(BuildContext context) {
-    final theme = Theme.of(context);
+  final theme = Theme.of(context);
+  final wordCount = _contentController.text.trim().isEmpty 
+      ? 0 
+      : _contentController.text.trim().split(RegExp(r"\s+")).length;
 
-    return SingleChildScrollView(
-      // 💡 Добавлено для корректного отображения над клавиатурой
-      padding: EdgeInsets.fromLTRB(
-        24.0,
-        24.0,
-        24.0,
-        24.0 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Шаг 2: Напишите свою историю',
-            style: theme.textTheme.headlineLarge,
+  return SingleChildScrollView(
+    padding: EdgeInsets.fromLTRB(
+      24.0,
+      8.0, // Уменьшили верхний отступ, так как счетчик теперь над формой
+      24.0,
+      24.0 + MediaQuery.of(context).viewInsets.bottom,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+         Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: wordCount == 100 ? Colors.green : (wordCount > 100 ? Colors.red : btnColorDefault),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '$wordCount / 100 слов',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                      const SizedBox(height: 10),
+        // Заголовок
+        TextField(
+          controller: _titleController,
+          style: theme.textTheme.headlineMedium,
+          decoration: InputDecoration(
+            hintText: 'Заголовок истории',
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            fillColor: Colors.transparent,
           ),
-          const SizedBox(height: 24),
-          // Заголовок
-          TextField(
-            controller: _titleController,
-            style: theme.textTheme.headlineLarge,
-            decoration: InputDecoration(
-              hintText: 'Заголовок истории',
-              hintStyle: theme.textTheme.headlineLarge!.copyWith(
-                color: theme.textTheme.headlineLarge!.color!.withOpacity(0.5),
-              ),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              fillColor:
-                  Colors
-                      .transparent, // Disable fill to make it look like part of the background
-            ),
-            maxLength: 100,
+          maxLength: 100,
+          buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null, // Скрываем стандартный счетчик символов
+        ),
+        Divider(color: theme.colorScheme.onBackground.withOpacity(0.5)),
+        const SizedBox(height: 10),
+        // Контент истории
+        TextField(
+          controller: _contentController,
+          style: theme.textTheme.bodyLarge!.copyWith(height: 1.5),
+          decoration: InputDecoration(
+            hintText: 'Начните писать свою историю здесь...',
+            border: InputBorder.none,
+            
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            isDense: true,
+            contentPadding: EdgeInsets.zero,
+            fillColor: Colors.transparent,
           ),
-          Divider(color: theme.colorScheme.onBackground.withOpacity(0.5)),
-          const SizedBox(height: 20),
-          // Контент истории
-          TextField(
-            controller: _contentController,
-            style: theme.textTheme.bodyLarge!.copyWith(height: 1.5),
-            decoration: InputDecoration(
-              hintText: 'Начните писать свою историю здесь...',
-              hintStyle: theme.textTheme.bodyLarge!.copyWith(
-                color: theme.textTheme.bodyLarge!.color!.withOpacity(0.5),
-              ),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              fillColor:
-                  Colors
-                      .transparent, // Disable fill to make it look like part of the background
-            ),
-            maxLines: null,
-            keyboardType: TextInputType.multiline,
-          ),
-        ],
-      ),
-    );
-  }
+          maxLines: null,
+          keyboardType: TextInputType.multiline,
+          onChanged: (_) => setState(() {}), // Обновляем состояние для счетчика наверху
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
-    // final theme = Theme.of(context);
-
     return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _currentStep == CreationStep.selectHashtags
+              ? 'Выберите категории'
+              : 'Новая история',
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () {
+            if (_currentStep == CreationStep.enterContent) {
+              setState(() {
+                _currentStep = CreationStep.selectHashtags;
+              });
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+        actions: [
+          if (!(_isLoading && _currentStep == CreationStep.enterContent))
+            IconButton(
+              icon: Icon(
+                _currentStep == CreationStep.selectHashtags
+                    ? Icons.arrow_forward
+                    : Icons.check,
+                color: neoBlack,
+              ),
+              onPressed:
+                  _currentStep == CreationStep.selectHashtags
+                      ? _goToNextStep
+                      : _submitStory,
+            ),
+          if (_isLoading && _currentStep == CreationStep.enterContent)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+        ],
+      ),
       body:
           _currentStep == CreationStep.selectHashtags
               ? _buildHashtagGrid(context)
               : _buildStoryForm(context),
-
-      floatingActionButton:
-          (_isLoading && _currentStep == CreationStep.enterContent)
-              ? null
-              : Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: SizedBox(
-                  height: 75,
-                  child: NeoButton(
-                    onPressed:
-                        _currentStep == CreationStep.selectHashtags
-                            ? _goToNextStep
-                            : _submitStory,
-                    text:
-                        _currentStep == CreationStep.selectHashtags
-                            ? 'Далее (${_selectedHashtagIds.length})'
-                            : 'Опубликовать',
-                  ),
-                ),
-              ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

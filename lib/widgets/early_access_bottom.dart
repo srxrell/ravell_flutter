@@ -24,7 +24,7 @@ class EarlyAccessSheet {
               SizedBox(height: 16),
               Center(
                 child: Text(
-                  "Вы попали в ранний доступ!",
+                  "Это информация о функциях раннего доступа!",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                 ),

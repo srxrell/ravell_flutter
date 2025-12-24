@@ -13,6 +13,7 @@ import 'package:readreels/screens/influencers_board.dart';
 import 'package:readreels/screens/onboarding_screen.dart';
 import 'package:readreels/screens/profile_screen.dart';
 import 'package:readreels/screens/search.dart';
+import 'package:readreels/screens/splash_screen.dart';
 import 'package:readreels/screens/streak_screen.dart';
 import 'package:readreels/services/influencer_service.dart';
 // import 'package:readreels/services/push_service.dart';
@@ -21,6 +22,7 @@ import 'package:readreels/widgets/profile_stories_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // import 'services/ws_service.dart' as p;
 // import 'services/subscription_service.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -69,109 +71,93 @@ class ReadReelsApp extends StatefulWidget {
 }
 
 class _ReadReelsAppState extends State<ReadReelsApp> {
-  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  Future<Widget> getStartScreen() async {
-    final prefs = await SharedPreferences.getInstance();
-    final seenOnboarding = prefs.getBool('seenOnboarding') ?? false;
+  late final GoRouter _router;
 
-    if (seenOnboarding) {
-      return const AuthCheckerScreen();
-    } else {
-      return const OnBoardingScreen();
-    }
+  @override
+  void initState() {
+    super.initState();
+    _router = GoRouter(
+      navigatorKey: navigatorKey,
+      routes: [
+        GoRoute(
+          path: "/",
+          builder: (context, state) => const SplashScreen(),
+        ),
+        GoRoute(
+          path: "/onboarding",
+          builder: (context, state) => const OnBoardingScreen(),
+        ),
+        GoRoute(
+          path: '/auth-check',
+          builder: (context, state) => const AuthCheckerScreen(),
+        ),
+        GoRoute(
+          path: "/credits",
+          builder: (context, state) => const CreditsScreen(),
+        ),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const ActivityScreen(),
+        ),
+        GoRoute(
+          path: "/login",
+          builder: (context, state) => const AuthenticationScreen(),
+        ),
+        GoRoute(path: '/home', builder: (context, state) => const Feed()),
+        GoRoute(
+          path: '/search',
+          builder: (context, state) => const SearchStory(),
+        ),
+        GoRoute(
+          path: '/profile/:user_id',
+          builder: (context, state) {
+            final user_id = int.parse(state.pathParameters['user_id']!);
+            return UserProfileScreen(profileUserId: user_id);
+          },
+        ),
+        GoRoute(
+          path: '/addStory',
+          builder: (context, state) {
+            return const CreateStoryScreen();
+          },
+        ),
+        GoRoute(
+          path: '/streak',
+          builder: (context, state) => const StreakScreen(),
+        ),
+        GoRoute(
+          path: '/story/:storyId',
+          builder: (context, state) {
+            final storyId = int.parse(state.pathParameters['storyId']!);
+            final authorIdStr = state.uri.queryParameters['authorId'];
+            final authorId =
+                authorIdStr != null ? int.tryParse(authorIdStr) : null;
+
+            if (authorId == null) {
+              return const Scaffold(
+                body: Center(
+                  child: Text('Ошибка: Не удалось найти ID автора.'),
+                ),
+              );
+            }
+            return UserStoryFeedLoaderScreen(
+              initialStoryId: storyId,
+              authorId: authorId,
+            );
+          },
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: "ReadReels App",
-      key: navigatorKey,
-      theme: fullNeoBrutalismTheme,
-      routerConfig: GoRouter(
-        routes: [
-          // РАСКОММЕНТИРОВАТЬ
-          // GoRoute(
-          //   path: "/",
-          //   builder: (context, state) => const AuthCheckerScreen(),
-          // ),
-          GoRoute(
-            path: "/",
-            builder:
-                (context, state) => FutureBuilder<Widget>(
-                  future: getStartScreen(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Scaffold(
-                        body: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    return snapshot.data!;
-                  },
-                ),
-          ),
-          GoRoute(
-            path: '/auth-check',
-            builder: (context, state) => const AuthCheckerScreen(),
-          ),
-          GoRoute(
-            path: "/credits",
-            builder: (context, state) => const CreditsScreen(),
-          ),
-          GoRoute(
-            path: '/notifications',
-            builder: (context, state) => const ActivityScreen(),
-          ),
-          GoRoute(
-            path: "/login",
-            builder: (context, state) => AuthenticationScreen(),
-          ),
-          GoRoute(path: '/home', builder: (context, state) => const Feed()),
-          GoRoute(
-            path: '/search',
-            builder: (context, state) => const SearchStory(),
-          ),
-          GoRoute(
-            path: '/profile/:user_id', // Маршрут с обязательным параметром ID
-            builder: (context, state) {
-              final user_id = int.parse(state.pathParameters['user_id']!);
-              return UserProfileScreen(profileUserId: user_id);
-            },
-          ),
-          GoRoute(
-            path: '/addStory',
-            builder: (context, state) {
-              return const CreateStoryScreen();
-            },
-          ),
-          GoRoute(
-            path: '/streak',
-            builder: (context, state) => const StreakScreen(),
-          ),
-          GoRoute(
-            path: '/story/:storyId',
-            builder: (context, state) {
-              final storyId = int.parse(state.pathParameters['storyId']!);
-
-              // Извлекаем authorId из query parameters: /story/123?authorId=45
-              final authorIdStr = state.uri.queryParameters['authorId'];
-              final authorId =
-                  authorIdStr != null ? int.tryParse(authorIdStr) : null;
-
-              if (authorId == null) {
-                return const Scaffold(
-                  body: Center(
-                    child: Text('Ошибка: Не удалось найти ID автора.'),
-                  ),
-                );
-              }
-              // NOTE: Замените 'StoryDetailScreen' на ваш фактический виджет
-              return UserStoryFeedLoaderScreen(
-                initialStoryId: storyId,
-                authorId: authorId,
-              );
-            },
-          ),
-        ],
+    return ShowCaseWidget(
+      builder: (context) => MaterialApp.router(
+        title: "ReadReels App",
+        routerConfig: _router,
+        theme: fullNeoBrutalismTheme,
+        debugShowCheckedModeBanner: false,
       ),
     );
   }

@@ -30,6 +30,7 @@ dependencies:
   url_launcher: ^6.3.2
   step_progress: ^2.5.2
   supabase: ^2.10.2
+  showcaseview: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -50,3 +51,4 @@ flutter:
     - assets/icons/guchaMiu.svg
     - assets/icons/bigbig.png
     - assets/icons/jacky.svg
+    - assets/icons/medal.svg

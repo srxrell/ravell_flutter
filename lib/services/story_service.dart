@@ -290,26 +290,30 @@ class StoryService {
   // --------------------------------------------------------------------------
 
   Future<Hashtag> createHashtag(String name) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/hashtags/'),
-      headers: await _getHeaders(includeAuth: true),
-      body: jsonEncode(<String, String>{'name': name}),
-    );
+    return _executeWithRefresh(() async {
+      final response = await http.post(
+        Uri.parse('$baseUrl/hashtags/'),
+        headers: await _getHeaders(includeAuth: true),
+        body: jsonEncode(<String, String>{'name': name}),
+      );
 
-    if (response.statusCode == 201) {
-      final data = _safeJsonDecode(response);
-      if (data is Map<String, dynamic>) {
-        return Hashtag.fromJson(data);
+      if (response.statusCode == 201) {
+        final data = _safeJsonDecode(response);
+        if (data is Map<String, dynamic>) {
+          return Hashtag.fromJson(data);
+        }
+        throw const FormatException(
+          'Invalid response format for hashtag creation',
+        );
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized');
+      } else {
+        final errorBody = _safeJsonDecode(response);
+        throw Exception(
+          'Failed to create hashtag: ${errorBody['error'] ?? errorBody.toString()}',
+        );
       }
-      throw const FormatException(
-        'Invalid response format for hashtag creation',
-      );
-    } else {
-      final errorBody = _safeJsonDecode(response);
-      throw Exception(
-        'Failed to create hashtag: ${errorBody['error'] ?? errorBody.toString()}',
-      );
-    }
+    });
   }
 
   Future<List<Hashtag>> getHashtags() async {
@@ -355,27 +359,52 @@ class StoryService {
     required String content,
     required List<int> hashtagIds,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/stories/'),
-      headers: await _getHeaders(includeAuth: true),
-      body: jsonEncode(<String, dynamic>{
-        'title': title,
-        'content': content,
-        'hashtag_ids': hashtagIds,
-      }),
-    );
-
-    if (response.statusCode == 201) {
-      final data = _safeJsonDecode(response);
-      if (data is Map<String, dynamic>) {
-        return Story.fromJson(data);
-      }
-      throw const FormatException('Invalid response format for story creation');
-    } else {
-      final errorBody = _safeJsonDecode(response);
-      throw Exception(
-        'Failed to create story: ${errorBody['error'] ?? errorBody.toString()}',
+    return _executeWithRefresh(() async {
+      final response = await http.post(
+        Uri.parse('$baseUrl/stories/'),
+        headers: await _getHeaders(includeAuth: true),
+        body: jsonEncode(<String, dynamic>{
+          'title': title,
+          'content': content,
+          'hashtag_ids': hashtagIds,
+        }),
       );
+
+      if (response.statusCode == 201) {
+        final data = _safeJsonDecode(response);
+        if (data is Map<String, dynamic>) {
+          return Story.fromJson(data);
+        }
+        throw const FormatException('Invalid response format for story creation');
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized');
+      } else {
+        final errorBody = _safeJsonDecode(response);
+        throw Exception(
+          'Failed to create story: ${errorBody['error'] ?? errorBody.toString()}',
+        );
+      }
+    });
+  }
+
+  // 🟢 Helper for executing requests with token refresh logic
+  Future<T> _executeWithRefresh<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } catch (e) {
+      if (e.toString().contains('Unauthorized') || e.toString().contains('token is expired')) {
+        print('🔄 Token expired during request. Refreshing...');
+        try {
+          await _authService.refreshToken();
+          print('✅ Token refreshed. Retrying request...');
+          return await action();
+        } catch (refreshError) {
+          print('❌ Token refresh failed: $refreshError');
+          await _authService.logout();
+           throw Exception('AUTH_EXPIRED_LOGIN_REQUIRED');
+        }
+      }
+      rethrow;
     }
   }
 

@@ -12,6 +12,7 @@ import 'package:readreels/widgets/neowidgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
+import 'package:readreels/widgets/early_access_bottom.dart';
 
 // 🟢 ИСПРАВЛЕННЫЙ StoryCard с логикой выбора источника данных
 class StoryCard extends StatelessWidget {
@@ -30,16 +31,29 @@ class StoryCard extends StatelessWidget {
 
   // 🟢 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРА
   Future<String?> _getAvatarUrl() async {
+     // Вспомогательная функция для очистки
+    String? clean(String? s) {
+      if (s == null) return null;
+      final trimmed = s.replaceAll(RegExp(r'\s+'), '');
+      if (trimmed.isEmpty || trimmed.contains('Useragent')) return null;
+      if (s.contains('User agent')) return null;
+      return trimmed;
+    }
+
+    String resolve(String path) {
+      if (path.startsWith('http')) return path;
+      final String cleanPath = path.startsWith('/') ? path : '/$path';
+      return 'https://ravell-backend-1.onrender.com$cleanPath';
+    }
+
     if (useLocalData) {
       // 🟢 ИСПОЛЬЗУЕМ ДАННЫЕ ИЗ SHAREDPREFERENCES
       try {
         final prefs = await SharedPreferences.getInstance();
-        final avatarUrl = prefs.getString('avatar_url');
+        final avatarUrl = clean(prefs.getString('avatar_url'));
 
-        if (avatarUrl != null && avatarUrl.isNotEmpty) {
-          return avatarUrl.startsWith('http')
-              ? avatarUrl
-              : 'https://ravell-backend-1.onrender.com$avatarUrl';
+        if (avatarUrl != null) {
+          return resolve(avatarUrl);
         }
       } catch (e) {
         print('Error getting avatar from SharedPreferences: $e');
@@ -48,39 +62,35 @@ class StoryCard extends StatelessWidget {
 
     // 🟢 ИНАЧЕ ИСПОЛЬЗУЕМ ОНЛАЙН ДАННЫЕ ИЗ STORY
     // 1. Пробуем новый формат: user -> profile -> avatar
-    if (story.user != null && story.user is Map<String, dynamic>) {
-      final userMap = story.user as Map<String, dynamic>;
+    if (story.user != null && story.user is Map) {
+      final userMap = story.user as Map;
       if (userMap['profile'] != null &&
-          userMap['profile'] is Map<String, dynamic>) {
-        final profile = userMap['profile'] as Map<String, dynamic>;
-        final avatar = profile['avatar'] as String?;
-        if (avatar != null && avatar.isNotEmpty) {
-          return avatar.startsWith('http')
-              ? avatar
-              : 'https://ravell-backend-1.onrender.com$avatar';
+          userMap['profile'] is Map) {
+        final profile = userMap['profile'] as Map;
+        final avatar = clean(profile['avatar'] as String?);
+        if (avatar != null) {
+          return resolve(avatar);
         }
       }
 
       if (userMap['avatar'] != null) {
-        final avatar = userMap['avatar'] as String?;
-        if (avatar != null && avatar.isNotEmpty) {
-          return avatar.startsWith('http')
-              ? avatar
-              : 'https://ravell-backend-1.onrender.com$avatar';
+        final avatar = clean(userMap['avatar'] as String?);
+        if (avatar != null) {
+          return resolve(avatar);
         }
       }
     }
 
     // 2. Пробуем поле avatarUrl
-    if (story.avatarUrl != null && story.avatarUrl!.isNotEmpty) {
-      return story.avatarUrl!.startsWith('http')
-          ? story.avatarUrl
-          : 'https://ravell-backend-1.onrender.com${story.avatarUrl}';
+    final cleanAvatarUrl = clean(story.avatarUrl);
+    if (cleanAvatarUrl != null) {
+      return resolve(cleanAvatarUrl);
     }
 
     // 3. Пробуем authorAvatar
-    if (story.authorAvatar != null && story.authorAvatar!.isNotEmpty) {
-      return 'https://ravell-backend-1.onrender.com${story.authorAvatar}';
+    final cleanAuthorAvatar = clean(story.authorAvatar);
+    if (cleanAuthorAvatar != null) {
+      return resolve(cleanAuthorAvatar);
     }
 
     return null;
@@ -184,7 +194,32 @@ class StoryCard extends StatelessWidget {
                         border: Border.all(color: Colors.black, width: 2),
                         color: Colors.grey[200],
                       ),
-                      child: _buildAvatar(avatarUrl, username!),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          _buildAvatar(avatarUrl, username!),
+                          if (story.isEarly)
+                            Positioned(
+                              top: -8,
+                              right: -8,
+                              child: GestureDetector(
+                                onTap: () => EarlyAccessSheet.show(context),
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.star,
+                                    color: Colors.amber,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
 
@@ -267,6 +302,9 @@ class StoryCard extends StatelessWidget {
           width: 36,
           height: 36,
           fit: BoxFit.cover,
+          httpHeaders: const {
+            'User-Agent': 'FlutterApp/1.0',
+          },
           placeholder:
               (context, url) => Container(
                 color: Colors.grey[200],

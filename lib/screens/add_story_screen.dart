@@ -84,7 +84,29 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
     final titleText = isReply ? 'Написать ответ' : 'Создать новую историю';
 
     return Scaffold(
-      appBar: AppBar(automaticallyImplyLeading: false, title: Text(titleText)),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(titleText),
+        actions: [
+          if (!_isLoading)
+            IconButton(
+              icon: const Icon(Icons.check, color: Colors.black, size: 28),
+              onPressed: _submitStory,
+            ),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -113,27 +135,6 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
                 labelText: 'Контент (мин. 100 слов)',
               ),
               maxLines: 8,
-            ),
-            const SizedBox(height: 24),
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : _submitStory,
-                icon:
-                    _isLoading
-                        ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : Icon(isReply ? Icons.reply_all : Icons.send),
-                label: Text(
-                  _isLoading
-                      ? 'Отправка...'
-                      : isReply
-                      ? 'Опубликовать ответ'
-                      : 'Опубликовать историю',
-                ),
-              ),
             ),
           ],
         ),

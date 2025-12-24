@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:readreels/screens/profile_screen.dart';
 import 'package:readreels/services/subscription_service.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:readreels/widgets/early_access_bottom.dart';
 
 class SubscriptionsSubscriberListScreen extends StatefulWidget {
   final int profileuser_id;
@@ -159,6 +161,25 @@ class _UserListWidgetState extends State<_UserListWidget> {
     });
   }
 
+  String? _getResolvedAvatarUrl(dynamic rawUrl) {
+    if (rawUrl == null) return null;
+    final String urlStr = rawUrl.toString().trim();
+    if (urlStr.isEmpty) return null;
+    
+    // Очистка от пробелов и проверка на сообщения об ошибках
+    final cleanUrl = urlStr.replaceAll(RegExp(r'\s+'), '');
+    if (cleanUrl.contains('Useragent') || urlStr.contains('User agent')) return null;
+    if (cleanUrl.toLowerCase() == 'null') return null;
+
+    if (cleanUrl.startsWith('http')) {
+      return cleanUrl;
+    }
+    
+    // Если относительный путь, добавляем базовый URL
+    final String path = cleanUrl.startsWith('/') ? cleanUrl : '/$cleanUrl';
+    return 'https://ravell-backend-1.onrender.com$path';
+  }
+
   Future<void> _handleFollowToggle(int userIdToToggle) async {
     if (widget.currentuser_id == null || widget.currentuser_id == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -229,16 +250,67 @@ class _UserListWidgetState extends State<_UserListWidget> {
                 widget.currentuser_id != null &&
                 widget.currentuser_id == userId;
 
+            final rawAvatar = userData['avatar'];
+            final profileAvatar = (userData['profile'] as Map<String, dynamic>?)?['avatar'];
+            final resolvedAvatar = _getResolvedAvatarUrl(rawAvatar ?? profileAvatar);
+
             return ListTile(
-              leading: CircleAvatar(
-                backgroundImage:
-                    userData['avatar'] != null && userData['avatar'].isNotEmpty
-                        ? NetworkImage(userData['avatar'])
-                        : null,
-                child:
-                    userData['avatar'] == null || userData['avatar'].isEmpty
-                        ? const Icon(Icons.person)
-                        : null,
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.grey[200],
+                  border: Border.all(color: Colors.grey[300]!, width: 1),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    resolvedAvatar != null && resolvedAvatar.isNotEmpty
+                        ? ClipOval(
+                            child: CachedNetworkImage(
+                              imageUrl: resolvedAvatar,
+                              fit: BoxFit.cover,
+                              width: 40,
+                              height: 40,
+                              httpHeaders: const {
+                                'User-Agent': 'FlutterApp/1.0',
+                              },
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              errorWidget: (context, url, error) => const Center(
+                                child: Icon(
+                                  Icons.person,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const Center(child: Icon(Icons.person, color: Colors.grey)),
+                    if (userData['is_early'] == true || 
+                        (userData['profile'] != null && userData['profile']['is_early'] == true))
+                      Positioned(
+                        top: -4,
+                        right: -4,
+                        child: GestureDetector(
+                          onTap: () => EarlyAccessSheet.show(context),
+                          child: Container(
+                            padding: const EdgeInsets.all(1),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.star,
+                              color: Colors.amber,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               title: Text(displayTitle),
               subtitle: Text('@$username'),

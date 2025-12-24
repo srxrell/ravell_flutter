@@ -12,10 +12,12 @@ import 'package:readreels/services/story_service.dart' as st;
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart';
 import 'package:readreels/widgets/neowidgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:readreels/widgets/early_access_bottom.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/comments_bottom_sheet.dart';
 import 'package:readreels/widgets/expandable_story_content.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 enum StoryType { seeds, branches, all }
 
@@ -44,6 +46,16 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   bool _hasError = false;
   String _errorMessage = '';
+
+  // Showcase keys
+  final GlobalKey _homeKey = GlobalKey();
+  final GlobalKey _addKey = GlobalKey();
+  final GlobalKey _profileKey = GlobalKey();
+  final GlobalKey _replyKey = GlobalKey();
+  final GlobalKey _avatarKey = GlobalKey();
+  final GlobalKey _searchKey = GlobalKey();
+  final GlobalKey _seedsKey = GlobalKey();
+  final GlobalKey _branchesKey = GlobalKey();
 
   Widget buildPreviewText(String content, {int wordLimit = 35}) {
     final words = content.split(' ');
@@ -110,10 +122,32 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     _tabController.addListener(_handleTabChange);
     _checkAuthStatusAndFetch();
 
-    // Слушатель для обновления UI при скролле
     _pageController.addListener(() {
       setState(() {});
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showCaseIfNeeded();
+    });
+  }
+
+  Future<void> _showCaseIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool showcased = prefs.getBool('feed_showcased') ?? false;
+    if (!showcased) {
+      if (mounted) {
+        ShowCaseWidget.of(context).startShowCase([
+          _searchKey,
+          _seedsKey,
+          _branchesKey,
+          _avatarKey,
+          _replyKey,
+          _addKey,
+          _profileKey,
+        ]);
+        await prefs.setBool('feed_showcased', true);
+      }
+    }
   }
 
   @override
@@ -362,8 +396,12 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                             // РЯД: Аватар + Имя пользователя
                             Row(
                               children: [
-                                // Аватар
-                                _buildAuthorAvatar(story),
+                                _wrapWithShowcase(
+                                  showcaseKey: index == 0 ? _avatarKey : null,
+                                  description:
+                                      'Нажмите на аватар, чтобы перейти в профиль автора',
+                                  child: _buildAuthorAvatar(story),
+                                ),
 
                                 const SizedBox(width: 12),
 
@@ -387,20 +425,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          if (story.isVerified)
-                                            const Padding(
-                                              padding: EdgeInsets.only(left: 4),
-                                              child: Icon(
-                                                Icons.verified,
-                                                color: Color.fromARGB(
-                                                  255,
-                                                  0,
-                                                  0,
-                                                  0,
-                                                ),
-                                                size: 18,
-                                              ),
-                                            ),
                                         ],
                                       ),
 
@@ -459,36 +483,39 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 8.0,
                                         ), // отступы слева и справа
-                                        child: SizedBox(
-                                          // растягиваем на всю ширину с учетом padding
-                                          height:
-                                              70, // или 60, 80, как тебе нравится
-                                          child: NeoIconButton(
-                                            onPressed: () {
-                                              if (currentUserId == null) {
-                                                if (mounted) {
-                                                  context.go('/auth-check');
+                                        child: _wrapWithShowcase(
+                                          showcaseKey:
+                                              index == 0 ? _replyKey : null,
+                                          description:
+                                              'Отвечай на историю своим развитием сюжета!',
+                                          child: SizedBox(
+                                            height: 70,
+                                            child: NeoIconButton(
+                                              onPressed: () {
+                                                if (currentUserId == null) {
+                                                  if (mounted) {
+                                                    context.go('/auth-check');
+                                                  }
+                                                  return;
                                                 }
-                                                return;
-                                              }
-
-                                              context.go(
-                                                '/addStory',
-                                                extra: {
-                                                  'replyTo': story.id,
-                                                  'parentTitle': story.title,
-                                                },
-                                              );
-                                            },
-                                            icon: const Icon(
-                                              Icons.reply,
-                                              size: 18,
-                                            ),
-                                            child: Text(
-                                              ' Ответить | ${_getReplyText(story.repliesCount)}',
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
+                                                context.push(
+                                                  '/addStory',
+                                                  extra: {
+                                                    'replyTo': story.id,
+                                                    'parentTitle': story.title,
+                                                  },
+                                                );
+                                              },
+                                              icon: const Icon(
+                                                Icons.reply,
+                                                size: 18,
+                                              ),
+                                              child: Text(
+                                                ' Ответить | ${_getReplyText(story.repliesCount)}',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -538,6 +565,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                   width: 46,
                   height: 46,
                   fit: BoxFit.cover,
+                  httpHeaders: const {'User-Agent': 'FlutterApp/1.0'},
                   placeholder:
                       (context, url) => Container(
                         color: Colors.grey[200],
@@ -580,6 +608,28 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                     Icons.verified,
                     color: Colors.blue,
                     size: 14,
+                  ),
+                ),
+              ),
+
+            // Звездочка раннего доступа
+            if (story.isEarly)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: () => EarlyAccessSheet.show(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.star,
+                      color: Colors.amber,
+                      size: 14,
+                    ),
                   ),
                 ),
               ),
@@ -713,12 +763,16 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: SvgPicture.asset("assets/icons/logo.svg", width: 60, height: 60),
         actions: [
-          GestureDetector(
-            onTap: () => context.push("/search"),
-            child: SvgPicture.asset(
-              "assets/icons/search.svg",
-              width: 60,
-              height: 60,
+          Showcase(
+            key: _searchKey,
+            description: 'Поиск интересных историй',
+            child: GestureDetector(
+              onTap: () => context.push("/search"),
+              child: SvgPicture.asset(
+                "assets/icons/search.svg",
+                width: 60,
+                height: 60,
+              ),
             ),
           ),
           // SizedBox(width: 4),
@@ -743,36 +797,40 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                 children: [
                   // Левая кнопка - скругление слева, нет справа
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        if (_tabController.index != 0) {
-                          _tabController.animateTo(0);
-                        }
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color:
-                              _tabController.index == 0
-                                  ? neoBlack
-                                  : Colors.white,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(15),
-                            bottomLeft: Radius.circular(15),
-                            topRight: Radius.circular(0),
-                            bottomRight: Radius.circular(0),
+                    child: Showcase(
+                      key: _seedsKey,
+                      description: 'Основные истории сообщества',
+                      child: GestureDetector(
+                        onTap: () {
+                          if (_tabController.index != 0) {
+                            _tabController.animateTo(0);
+                          }
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color:
+                                _tabController.index == 0
+                                    ? neoBlack
+                                    : Colors.white,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(15),
+                              bottomLeft: Radius.circular(15),
+                              topRight: Radius.circular(0),
+                              bottomRight: Radius.circular(0),
+                            ),
+                            border: Border.all(color: neoBlack, width: 2),
                           ),
-                          border: Border.all(color: neoBlack, width: 2),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Семена',
-                            style: TextStyle(
-                              color:
-                                  _tabController.index == 0
-                                      ? Colors.white
-                                      : Colors.grey[700],
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
+                          child: Center(
+                            child: Text(
+                              'Семена',
+                              style: TextStyle(
+                                color:
+                                    _tabController.index == 0
+                                        ? Colors.white
+                                        : Colors.grey[700],
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                         ),
@@ -782,43 +840,47 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
 
                   // Правая кнопка - скругление справа, нет слева
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        if (_tabController.index != 1) {
-                          _tabController.animateTo(1);
-                        }
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color:
-                              _tabController.index == 1
-                                  ? neoBlack
-                                  : Colors.white,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(0),
-                            bottomLeft: Radius.circular(0),
-                            topRight: Radius.circular(15),
-                            bottomRight: Radius.circular(15),
-                          ),
-                          border: Border.all(color: neoBlack, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: neoBlack.withOpacity(0.2),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+                    child: Showcase(
+                      key: _branchesKey,
+                      description: 'Разветвления историй от других авторов',
+                      child: GestureDetector(
+                        onTap: () {
+                          if (_tabController.index != 1) {
+                            _tabController.animateTo(1);
+                          }
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color:
+                                _tabController.index == 1
+                                    ? neoBlack
+                                    : Colors.white,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(0),
+                              bottomLeft: Radius.circular(0),
+                              topRight: Radius.circular(15),
+                              bottomRight: Radius.circular(15),
                             ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Ветки',
-                            style: TextStyle(
-                              color:
-                                  _tabController.index == 1
-                                      ? Colors.white
-                                      : Colors.grey[700],
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
+                            border: Border.all(color: neoBlack, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: neoBlack.withOpacity(0.2),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Ветки',
+                              style: TextStyle(
+                                color:
+                                    _tabController.index == 1
+                                        ? Colors.white
+                                        : Colors.grey[700],
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                         ),
@@ -832,7 +894,11 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
         ),
       ),
       extendBody: true,
-      bottomNavigationBar: const PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+      bottomNavigationBar: PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(
+        homeKey: _homeKey,
+        addKey: _addKey,
+        profileKey: _profileKey,
+      ),
       body: SafeArea(
         child:
             _isLoading
@@ -917,6 +983,19 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _wrapWithShowcase({
+    required GlobalKey? showcaseKey,
+    required String description,
+    required Widget child,
+  }) {
+    if (showcaseKey == null) return child;
+    return Showcase(
+      key: showcaseKey,
+      description: description,
+      child: child,
     );
   }
 }

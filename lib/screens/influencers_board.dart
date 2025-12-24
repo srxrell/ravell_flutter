@@ -3,6 +3,8 @@ import 'package:readreels/services/influencer_service.dart';
 import 'package:readreels/services/auth_service.dart';
 import '../models/influencer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:readreels/widgets/early_access_bottom.dart';
 
 class InfluencersBoard extends StatefulWidget {
   const InfluencersBoard({super.key});
@@ -107,14 +109,45 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
                 ),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundImage:
-                          inf.avatar != null ? NetworkImage(inf.avatar!) : null,
-                      child:
-                          inf.avatar == null
-                              ? Text(inf.username[0].toUpperCase())
-                              : null,
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[200],
+                        border: Border.all(color: Colors.black, width: 1),
+                      ),
+                      child: inf.resolvedAvatar != null
+                          ? ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: inf.resolvedAvatar!,
+                                fit: BoxFit.cover,
+                                httpHeaders: const {
+                                  'User-Agent': 'FlutterApp/1.0',
+                                },
+                                placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => Center(
+                                  child: Text(
+                                    inf.username[0].toUpperCase(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                inf.username[0].toUpperCase(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -131,12 +164,9 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
                               ),
                               if (inf.isEarly) ...[
                                 const SizedBox(width: 6),
-                                const Text(
-                                  'EARLY',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                GestureDetector(
+                                  onTap: () => EarlyAccessSheet.show(context),
+                                  child: const Icon(Icons.star, color: Colors.amber, size: 16),
                                 ),
                               ],
                             ],

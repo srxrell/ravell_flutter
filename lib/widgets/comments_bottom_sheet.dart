@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/services/comment_service.dart';
 import 'package:readreels/widgets/expandable_story_content.dart';
+import 'package:readreels/widgets/neowidgets.dart';
+import 'package:readreels/theme.dart';
 
 class RepliesBottomSheet extends StatefulWidget {
   final Story parentStory;
@@ -98,45 +100,89 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
           ),
           child: Column(
             children: [
-              // Заголовок
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Ответы на историю',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
 
-              // Поле для ответа
+              // Сама форма ответа
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _replyController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'Напишите ответ (ровно 100 слов)...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Ваш ответ',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontSize: 24,
                           ),
                         ),
-                      ),
+                        if (_isSubmitting)
+                          const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(Icons.check, color: neoBlack, size: 28),
+                            onPressed: _submitReply,
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submitReply,
-                      child:
-                          _isSubmitting
-                              ? const CircularProgressIndicator()
-                              : const Text('Ответить'),
+                    Divider(color: Theme.of(context).colorScheme.onBackground.withOpacity(0.5)),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _replyController,
+                      maxLines: null,
+                      keyboardType: TextInputType.multiline,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        height: 1.5,
+                        fontSize: 18,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Начните писать ответ здесь...',
+                        hintStyle: TextStyle(
+                          color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.5),
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Слов: ${_replyController.text.trim().isEmpty ? 0 : _replyController.text.trim().split(RegExp(r"\s+")).length}',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(),
+                      ],
                     ),
                   ],
                 ),
               ),
 
-              const Divider(),
+              const Divider(height: 32),
 
               // Список ответов
               Expanded(

@@ -22,6 +22,7 @@ class Story {
   // ✅ ДОБАВЬТЕ ЭТИ ПОЛЯ
   final String? username; // Имя пользователя
   final String? avatarUrl; // URL аватара
+  final bool isEarly; // Флаг раннего доступа
 
   Story({
     required this.id,
@@ -45,6 +46,7 @@ class Story {
     // ✅ ДОБАВЬТЕ ЭТИ ПАРАМЕТРЫ
     this.username,
     this.avatarUrl,
+    this.isEarly = false,
   });
 
   int get repliesCount => replyCount; // Алиас для replyCount
@@ -67,6 +69,7 @@ class Story {
     String? avatarUrl;
     Map<String, dynamic>? userData;
     String? username;
+    bool? isEarly;
 
     if (json['user'] != null && json['user'] is Map<String, dynamic>) {
       userData = json['user'] as Map<String, dynamic>;
@@ -77,6 +80,10 @@ class Story {
         final profile = userData['profile'] as Map<String, dynamic>;
         avatarUrl = profile['avatar'] as String?;
       }
+      
+      // Проверяем is_early в user или profile
+      isEarly = userData['is_early'] == true || 
+                (userData['profile'] != null && userData['profile']['is_early'] == true);
     }
 
     // ✅ ТАКЖЕ ПРОВЕРЯЕМ ПРЯМЫЕ ПОЛЯ В КОРНЕ JSON
@@ -117,6 +124,7 @@ class Story {
       // ✅ ИНИЦИАЛИЗИРУЕМ ДОБАВЛЕННЫЕ ПОЛЯ
       username: username,
       avatarUrl: avatarUrl,
+      isEarly: isEarly ?? json['is_early'] == true,
     );
   }
 
@@ -139,6 +147,7 @@ class Story {
     DateTime? lastReplyAt,
     String? username, // ✅ ДОБАВЬТЕ
     String? avatarUrl, // ✅ ДОБАВЬТЕ
+    bool? isEarly, // ✅ ДОБАВЬТЕ
   }) {
     return Story(
       id: id ?? this.id,
@@ -158,6 +167,7 @@ class Story {
       lastReplyAt: lastReplyAt ?? this.lastReplyAt,
       username: username ?? this.username, // ✅ ДОБАВЬТЕ
       avatarUrl: avatarUrl ?? this.avatarUrl, // ✅ ДОБАВЬТЕ
+      isEarly: isEarly ?? this.isEarly, // ✅ ДОБАВЬТЕ
     );
   }
 
@@ -180,6 +190,7 @@ class Story {
       'last_reply_at': lastReplyAt?.toIso8601String(),
       'username': username, // ✅ ДОБАВЬТЕ
       'avatar': avatarUrl, // ✅ ДОБАВЬТЕ
+      'is_early': isEarly, // ✅ ДОБАВЬТЕ
     };
   }
 
@@ -196,26 +207,51 @@ class Story {
   }
 
   // ✅ ИСПРАВЛЕННЫЙ ГЕТТЕР ДЛЯ ПОЛУЧЕНИЯ АВАТАРА
-  String? get resolvedAvatarUrl {
+    String? get resolvedAvatarUrl {
+    // Вспомогательная функция для очистки
+    String? clean(String? s) {
+      if (s == null) return null;
+      final trimmed = s.replaceAll(RegExp(r'\s+'), '');
+      if (trimmed.isEmpty || trimmed.contains('Useragent')) return null;
+       // Также проверяем исходную строку на пробелы, если это сообщение об ошибке
+      if (s.contains('User agent')) return null;
+      return trimmed;
+    }
+
+    String resolve(String path) {
+      if (path.startsWith('http')) return path;
+      final String cleanPath = path.startsWith('/') ? path : '/$path';
+      return 'https://ravell-backend-1.onrender.com$cleanPath';
+    }
+
     // 1. Проверяем поле avatarUrl (прямое)
-    if (avatarUrl != null && avatarUrl!.isNotEmpty) {
-      return avatarUrl!.startsWith('http')
-          ? avatarUrl
-          : 'https://ravell-backend-1.onrender.com$avatarUrl';
+    final cleanAvatarUrl = clean(avatarUrl);
+    if (cleanAvatarUrl != null) {
+      return resolve(cleanAvatarUrl);
     }
 
     // 2. Проверяем authorAvatar (старый формат)
-    if (authorAvatar != null && authorAvatar!.isNotEmpty) {
-      return 'https://ravell-backend-1.onrender.com$authorAvatar';
+    final cleanAuthorAvatar = clean(authorAvatar);
+    if (cleanAuthorAvatar != null) {
+      return resolve(cleanAuthorAvatar);
     }
 
     // 3. Проверяем user -> profile -> avatar (новый формат)
     if (user != null &&
         user!['profile'] != null &&
-        user!['profile'] is Map<String, dynamic>) {
-      final avatar = user!['profile']['avatar'] as String?;
-      if (avatar != null && avatar.isNotEmpty) {
-        return 'https://ravell-backend-1.onrender.com$avatar';
+        user!['profile'] is Map) {
+      final profile = user!['profile'] as Map;
+      final avatar = clean(profile['avatar'] as String?);
+      if (avatar != null) {
+        return resolve(avatar);
+      }
+    }
+    
+    // 4. Проверяем user -> avatar
+     if (user != null && user!['avatar'] != null) {
+      final avatar = clean(user!['avatar'] as String?);
+      if (avatar != null) {
+        return resolve(avatar);
       }
     }
 

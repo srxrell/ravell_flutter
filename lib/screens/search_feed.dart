@@ -7,6 +7,7 @@ import 'package:readreels/widgets/comments_bottom_sheet.dart';
 import 'package:readreels/widgets/expandable_story_content.dart';
 import 'package:readreels/widgets/heart_animation.dart';
 import 'package:readreels/services/story_service.dart' as st;
+import 'package:readreels/widgets/early_access_bottom.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart'; // ЗАМЕНА: CommentsBottomSheet на RepliesBottomSheet
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -250,6 +251,7 @@ class _SearchFeedState extends State<SearchFeed> {
   }
 
   Widget _buildAuthorInfo(Story story) {
+    final avatarUrl = story.resolvedAvatarUrl;
     return GestureDetector(
       onTap: () => context.go('/profile/${story.userId}'),
       child: Container(
@@ -263,13 +265,16 @@ class _SearchFeedState extends State<SearchFeed> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if (story.avatarUrl != null && story.avatarUrl!.isNotEmpty)
+            if (avatarUrl != null && avatarUrl.isNotEmpty)
               ClipOval(
                 child: CachedNetworkImage(
-                  imageUrl: story.avatarUrl!,
+                  imageUrl: avatarUrl,
                   width: 46,
                   height: 46,
                   fit: BoxFit.cover,
+                  httpHeaders: const {
+                    'User-Agent': 'FlutterApp/1.0',
+                  },
                   placeholder:
                       (context, url) => Container(
                         color: Colors.grey[200],
@@ -367,13 +372,18 @@ class _SearchFeedState extends State<SearchFeed> {
                               border: Border.all(color: neoBlack, width: 2),
                               color: Colors.grey[200],
                             ),
-                            child:
-                                story.avatarUrl != null &&
-                                        story.avatarUrl!.isNotEmpty
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                story.resolvedAvatarUrl != null &&
+                                        story.resolvedAvatarUrl!.isNotEmpty
                                     ? ClipOval(
                                       child: CachedNetworkImage(
-                                        imageUrl: story.avatarUrl!,
+                                        imageUrl: story.resolvedAvatarUrl!,
                                         fit: BoxFit.cover,
+                                        httpHeaders: const {
+                                          'User-Agent': 'FlutterApp/1.0',
+                                        },
                                         placeholder:
                                             (context, url) =>
                                                 const CircularProgressIndicator(),
@@ -383,6 +393,28 @@ class _SearchFeedState extends State<SearchFeed> {
                                       ),
                                     )
                                     : const Icon(Icons.person, size: 20),
+                                if (story.isEarly)
+                                  Positioned(
+                                    top: -4,
+                                    right: -4,
+                                    child: GestureDetector(
+                                      onTap: () => EarlyAccessSheet.show(context),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(1),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.star,
+                                          color: Colors.amber,
+                                          size: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(

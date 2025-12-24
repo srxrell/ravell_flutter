@@ -9,7 +9,7 @@ enum NeoButtonType { login, signup, general, white }
 class NeoIconButton extends StatelessWidget {
   final Widget child;
   final Widget icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final NeoButtonType type;
 
   const NeoIconButton({
@@ -36,26 +36,32 @@ class NeoIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDisabled = onPressed == null;
     return GestureDetector(
       onTap: onPressed,
-      child: Container(
-        height: 70,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        decoration: BoxDecoration(
-          color: _getButtonColor(),
-          // Асимметричные границы: Слева/Верх = 4, Справа/Низ = 8
-          border: const Border(
-            top: BorderSide(color: neoBlack, width: 4),
-            left: BorderSide(color: neoBlack, width: 4),
-            right: BorderSide(color: neoBlack, width: 8),
-            bottom: BorderSide(color: neoBlack, width: 8),
+      child: Opacity(
+        opacity: isDisabled ? 0.6 : 1.0,
+        child: Container(
+          height: 70,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: _getButtonColor(),
+            // Асимметричные границы: Слева/Верх = 4, Справа/Низ = 8
+            border: const Border(
+              top: BorderSide(color: neoBlack, width: 4),
+              left: BorderSide(color: neoBlack, width: 4),
+              right: BorderSide(color: neoBlack, width: 8),
+              bottom: BorderSide(color: neoBlack, width: 8),
+            ),
+            borderRadius: BorderRadius.circular(20),
           ),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            icon, child,]
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              icon,
+              child,
+            ],
+          ),
         ),
       ),
     );
@@ -64,7 +70,7 @@ class NeoIconButton extends StatelessWidget {
 
 class NeoButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final NeoButtonType type;
 
   const NeoButton({
@@ -88,28 +94,32 @@ class NeoButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDisabled = onPressed == null;
     return GestureDetector(
       onTap: onPressed,
-      child: Container(
-        height: 70,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        decoration: BoxDecoration(
-          color: _getButtonColor(),
-          // Асимметричные границы: Слева/Верх = 4, Справа/Низ = 8
-          border: const Border(
-            top: BorderSide(color: neoBlack, width: 4),
-            left: BorderSide(color: neoBlack, width: 4),
-            right: BorderSide(color: neoBlack, width: 8),
-            bottom: BorderSide(color: neoBlack, width: 8),
+      child: Opacity(
+        opacity: isDisabled ? 0.6 : 1.0,
+        child: Container(
+          height: 70,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: _getButtonColor(),
+            // Асимметричные границы: Слева/Верх = 4, Справа/Низ = 8
+            border: const Border(
+              top: BorderSide(color: neoBlack, width: 4),
+              left: BorderSide(color: neoBlack, width: 4),
+              right: BorderSide(color: neoBlack, width: 8),
+              bottom: BorderSide(color: neoBlack, width: 8),
+            ),
+            borderRadius: BorderRadius.circular(20),
           ),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Center(
-          child: Text(
-            text.toUpperCase(),
-            textAlign: TextAlign.center,
-            // Шрифт Epilogue
-            style: neoTextStyle(18, weight: FontWeight.w900),
+          child: Center(
+            child: Text(
+              text.toUpperCase(),
+              textAlign: TextAlign.center,
+              // Шрифт Epilogue
+              style: neoTextStyle(18, weight: FontWeight.w900),
+            ),
           ),
         ),
       ),

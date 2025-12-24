@@ -12,6 +12,7 @@ import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
 import 'package:go_router/go_router.dart';
 import 'package:readreels/widgets/neowidgets.dart';
+import 'package:readreels/widgets/early_access_bottom.dart';
 
 class UserStoryFeedScreen extends StatefulWidget {
   final List<Story> stories;
@@ -309,7 +310,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                                           return;
                                         }
 
-                                        context.go(
+                                        context.push(
                                           '/addStory',
                                           extra: {
                                             'replyTo': story.id,
@@ -345,7 +346,8 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
 
   // Аватар автора - ТОЧЬ В ТОЧЬ КАК В FEED
   Widget _buildAuthorAvatar(Story story) {
-    print('🟣 USER STORY FEED Avatar URL: ${story.avatarUrl}');
+    final avatarUrl = story.resolvedAvatarUrl;
+    print('🟣 USER STORY FEED Avatar URL: $avatarUrl');
     print('🟣 USER STORY FEED Username: ${story.username}');
     print('🟣 USER STORY FEED Story ID: ${story.id}');
     return GestureDetector(
@@ -362,13 +364,16 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
           alignment: Alignment.center,
           children: [
             // Аватар
-            if (story.avatarUrl != null && story.avatarUrl!.isNotEmpty)
+            if (avatarUrl != null && avatarUrl.isNotEmpty)
               ClipOval(
                 child: CachedNetworkImage(
-                  imageUrl: story.avatarUrl!,
+                  imageUrl: avatarUrl,
                   width: 46,
                   height: 46,
                   fit: BoxFit.cover,
+                  httpHeaders: const {
+                    'User-Agent': 'FlutterApp/1.0',
+                  },
                   placeholder:
                       (context, url) => Container(
                         color: Colors.grey[200],
@@ -411,6 +416,24 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                     Icons.verified,
                     color: Colors.blue,
                     size: 14,
+                  ),
+                ),
+              ),
+
+            // Звездочка раннего доступа
+            if (story.isEarly)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: () => EarlyAccessSheet.show(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.star, color: Colors.amber, size: 14),
                   ),
                 ),
               ),

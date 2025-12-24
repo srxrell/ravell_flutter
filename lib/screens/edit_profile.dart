@@ -41,6 +41,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _emailController;
   late TextEditingController _firstNameController;
   late TextEditingController _lastNameController;
+  late ImageProvider? _avatarImageProvider;
 
   bool _isSaving = false;
   XFile? _avatarXFile;
@@ -64,16 +65,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     // 🟢 ИСПРАВЛЕНИЕ: Правильно формируем полный URL аватара
     // 🟢 ИСПРАВЛЕНИЕ: Правильно формируем URL только если есть реально путь к аватару
-    final rawAvatar = widget.initialUserData['avatar']?.toString() ?? '';
-    final profileAvatar =
-        widget.initialUserData['profile']?['avatar']?.toString() ?? '';
+    final rawAvatar =
+    widget.initialUserData['avatar']?.toString().trim() ?? '';
 
-    if (rawAvatar.isNotEmpty) {
+final profileAvatar =
+    widget.initialUserData['profile']?['avatar']?.toString().trim() ?? '';
+
+
+    if (rawAvatar.isNotEmpty && !rawAvatar.contains('User agent')) {
       _initialAvatarUrl =
           rawAvatar.startsWith('http')
               ? rawAvatar
               : 'https://ravell-backend-1.onrender.com$rawAvatar';
-    } else if (profileAvatar.isNotEmpty) {
+    } else if (profileAvatar.isNotEmpty && !profileAvatar.contains('User agent')) {
       _initialAvatarUrl =
           profileAvatar.startsWith('http')
               ? profileAvatar
@@ -88,7 +92,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         profile != null &&
         profile is Map<String, dynamic>) {
       final profileAvatar = profile['avatar'];
-      if (profileAvatar != null && profileAvatar is String) {
+      if (profileAvatar != null && profileAvatar is String && !profileAvatar.contains('User agent')) {
         _initialAvatarUrl =
             profileAvatar.startsWith('http')
                 ? profileAvatar
@@ -104,6 +108,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (widget.initialUserData.containsKey('profile')) {
       print('  profile: ${widget.initialUserData['profile']}');
     }
+
+    if (_initialAvatarUrl != null) {
+  _avatarImageProvider = NetworkImage(_initialAvatarUrl!);
+} else {
+  _avatarImageProvider = null;
+}
   }
 
   @override
@@ -161,58 +171,67 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSaving = true);
+  setState(() => _isSaving = true);
 
-    String? filePath;
-    Uint8List? fileBytes;
-    String? fileName;
+  String? filePath;
+  Uint8List? fileBytes;
+  String? fileName;
 
-    if (_avatarXFile != null) {
-      if (kIsWeb) {
-        fileBytes = await _avatarXFile!.readAsBytes();
-        fileName = _avatarXFile!.name;
-      } else {
-        filePath = _avatarXFile!.path;
-      }
-    }
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      String? accessToken = prefs.getString('access_token');
-
-      if (accessToken == null) {
-        // пробуем обновить токен
-        await AuthService().refreshToken();
-        accessToken = await AuthService().getAccessToken();
-        if (accessToken == null) throw Exception('Не удалось получить токен');
-      }
-
-      final response = await _subscriptionService.updateProfileWithImage(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-        bio: '',
-        avatarFilePath: filePath,
-        avatarFileBytes: fileBytes,
-        avatarFileName: fileName,
-        accessToken: accessToken,
-      );
-
-      if (response.containsKey('error')) {
-        _showErrorSnackbar('Ошибка обновления: ${response['error']}');
-      } else {
-        // обновляем профиль в родителе
-        widget.onProfileUpdated(response);
-        if (mounted) Navigator.of(context).pop();
-        _showSuccessSnackbar("Профиль успешно обновлен!");
-      }
-    } catch (e) {
-      _showErrorSnackbar('Ошибка обновления: ${e.toString()}');
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
+  if (_avatarXFile != null) {
+    if (kIsWeb) {
+      fileBytes = await _avatarXFile!.readAsBytes();
+      fileName = _avatarXFile!.name;
+    } else {
+      filePath = _avatarXFile!.path;
     }
   }
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    String? accessToken = prefs.getString('access_token');
+
+    if (accessToken == null) {
+      await AuthService().refreshToken();
+      accessToken = await AuthService().getAccessToken();
+      if (accessToken == null) throw Exception('Не удалось получить токен');
+    }
+
+    final response = await _subscriptionService.updateProfileWithImage(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      bio: '',
+      avatarFilePath: filePath,
+      avatarFileBytes: fileBytes,
+      avatarFileName: fileName,
+      accessToken: accessToken,
+    );
+
+    if (response.containsKey('error')) {
+      _showErrorSnackbar('Ошибка обновления: ${response['error']}');
+    } else {
+      // обновляем профиль в родителе
+      widget.onProfileUpdated(response);
+
+      // обновляем аватар
+      final newAvatarPath = response['avatar'] ?? response['profile']?['avatar'];
+      if (newAvatarPath != null) {
+        _avatarImageProvider = newAvatarPath.startsWith('http')
+            ? NetworkImage(newAvatarPath)
+            : NetworkImage('https://ravell-backend-1.onrender.com$newAvatarPath');
+      }
+
+      if (mounted) Navigator.of(context).pop();
+      _showSuccessSnackbar("Профиль успешно обновлен!");
+    }
+  } catch (e) {
+    _showErrorSnackbar('Ошибка обновления: ${e.toString()}');
+  } finally {
+    if (mounted) setState(() => _isSaving = false);
+  }
+}
+
 
   Widget _buildAvatarSection() {
     ImageProvider? imageProvider;
@@ -232,14 +251,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       } else {
         imageProvider = FileImage(File(_avatarXFile!.path));
       }
-    } else if (_initialAvatarUrl != null) {
-      final freshUrl =
-          '$_initialAvatarUrl?v=${DateTime.now().millisecondsSinceEpoch}';
-      imageProvider = NetworkImage(freshUrl);
+    } else {
+      // используем закэшированный provider
+      imageProvider = _avatarImageProvider;
     }
 
     return _buildAvatarWidget(imageProvider, imageProvider == null);
   }
+
 
   Widget _buildAvatarWidget(ImageProvider? imageProvider, bool isPlaceholder) {
     return Column(

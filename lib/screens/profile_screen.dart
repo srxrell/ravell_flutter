@@ -48,10 +48,48 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCachedAvatar();
+    _initProfile();
+  }
+
+  @override
+  void didUpdateWidget(UserProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profileUserId != widget.profileUserId) {
+      _initProfile();
+    }
+  }
+
+  Future<void> _initProfile() async {
+    setState(() {
+      _isLoading = true;
+      _profileData = null;
+      _errorMessage = null;
+    });
+
+    final sp = await SharedPreferences.getInstance();
+    currentUserId = sp.getInt('user_id');
+    
+    // Only load cached avatar if it's potentially our own profile
+    if (widget.profileUserId == currentUserId) {
+      await _loadCachedAvatar();
+    }
+    
     _loadProfileData();
     _loadUserStreak(widget.profileUserId);
   }
+
+  String? _cleanUrl(dynamic value) {
+  if (value == null) return null;
+
+  final s = value
+      .toString()
+      .replaceAll(RegExp(r'\s+'), ''); // 💀 вырезаем \n \r пробелы табы
+
+  if (s.isEmpty) return null;
+  if (s.contains('User agent')) return null;
+
+  return s;
+}
 
   Future<void> _loadUserStreak(int userId) async {
     try {
@@ -280,16 +318,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (!mounted) return;
 
     try {
+      // ✅ НЕ сбрасываем _isLoading здесь, так как это может перекрывать кешированный аватар
+      // Но сбрасываем ошибку
       setState(() {
-        _isLoading = true;
         _errorMessage = null;
       });
-
-      final sp = await SharedPreferences.getInstance();
-      currentUserId = sp.getInt('user_id');
-
-      print('🟡 DEBUG: Current User ID: $currentUserId');
-      print('🟡 DEBUG: Profile User ID: ${widget.profileUserId}');
 
       final data = await _subscriptionService.fetchUserProfile(
         widget.profileUserId,
@@ -498,6 +531,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      SizedBox(height: 5),
                       Text(
                         story.content.length > 150
                             ? '${story.content.substring(0, 150)}...'
@@ -506,6 +540,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: Colors.grey[700]),
                       ),
+                      SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -567,10 +602,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
       // 🚨 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Обрабатываем путь к аватару
       if (result.containsKey('avatar') && result['avatar'] != null) {
-        final avatarPath = result['avatar'].toString();
+        final avatarPath = _cleanUrl(result['avatar']) ?? '';
+
+
 
         // Проверяем, начинается ли путь с http или https
-        if (avatarPath.isNotEmpty && !avatarPath.startsWith('http')) {
+        if (avatarPath.contains('User agent')) {
+          result['avatar'] = null;
+          print('⚠️ DEBUG: Ignored invalid avatar path: $avatarPath');
+        } else if (avatarPath.isNotEmpty && !avatarPath.startsWith('http')) {
           // Если это относительный путь, добавляем базовый URL
           final String baseUrl = 'https://ravell-backend-1.onrender.com';
 
@@ -587,9 +627,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (result.containsKey('profile') && result['profile'] is Map) {
         final profile = Map<String, dynamic>.from(result['profile']);
         if (profile.containsKey('avatar') && profile['avatar'] != null) {
-          final avatarPath = profile['avatar'].toString();
+          final avatarPath = profile['avatar'].toString().trim();
 
-          if (avatarPath.isNotEmpty && !avatarPath.startsWith('http')) {
+          if (avatarPath.contains('User agent')) {
+            profile['avatar'] = null;
+          } else if (avatarPath.isNotEmpty && !avatarPath.startsWith('http')) {
             final String baseUrl = 'https://ravell-backend-1.onrender.com';
             final String fullPath =
                 avatarPath.startsWith('/') ? avatarPath : '/$avatarPath';
@@ -599,6 +641,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             print(
               '🔄 DEBUG: Fixed profile.avatar path to: ${profile['avatar']}',
             );
+          }
+          
+          // Fallback: Если в корне 'avatar' пусто, берем из профиля
+          if (result['avatar'] == null || result['avatar'].toString().trim().isEmpty || result['avatar'].toString().contains('User agent')) {
+            result['avatar'] = profile['avatar'];
           }
         }
       }
@@ -690,31 +737,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   bool _getIsMyProfile() {
-    // ✅ ПЕРВЫЙ ПРИОРИТЕТ: проверяем флаг из API
-    if (_profileData != null && _profileData!.containsKey('is_my_profile')) {
-      print(
-        '✅ DEBUG: Using API flag is_my_profile: ${_profileData!['is_my_profile']}',
-      );
-      return _profileData!['is_my_profile'] == true;
-    }
-
-    // ✅ ВТОРОЙ ПРИОРИТЕТ: сравниваем ID пользователей
+    // ✅ ПЕРВЫЙ ПРИОРИТЕТ: сравниваем ID пользователей
     final userData = _getSafeUserData();
     final profileId = userData['id'];
 
-    print('🔍 DEBUG: Profile ID from user data: $profileId');
-    print('🔍 DEBUG: Current user ID: $currentUserId');
-    print('🔍 DEBUG: User data type: ${profileId.runtimeType}');
-    print('🔍 DEBUG: Current user ID type: ${currentUserId.runtimeType}');
+    if (currentUserId != null && profileId != null) {
+      final bool isMatch = currentUserId == int.tryParse(profileId.toString());
+      print('🔍 DEBUG: IDs comparison (Current: $currentUserId, Profile: $profileId) -> Match: $isMatch');
+      return isMatch;
+    }
 
-    final bool isMyProfile =
-        currentUserId != null &&
-        profileId != null &&
-        currentUserId == int.tryParse(profileId.toString());
+    // ✅ ВТОРОЙ ПРИОРИТЕТ: проверяем флаг из API
+    if (_profileData != null && _profileData!.containsKey('is_my_profile')) {
+      print('✅ DEBUG: Using API flag is_my_profile: ${_profileData!['is_my_profile']}');
+      return _profileData!['is_my_profile'] == true;
+    }
 
-    print('✅ DEBUG: Calculated is_my_profile: $isMyProfile');
-
-    return isMyProfile;
+    return false;
   }
 
   @override
@@ -750,8 +789,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final userStories = _getSafeStories();
     final isFollowing = _getSafeIsFollowing();
     final isMyProfile = _getIsMyProfile();
-    final avatarUrl = userData['avatar'] as String?;
-    final isAvatarSet = avatarUrl != null && avatarUrl.isNotEmpty;
+    final avatarUrl = _cleanUrl(userData['avatar']);
+
+    final isAvatarSet = avatarUrl != null &&
+        avatarUrl.isNotEmpty &&
+        avatarUrl != 'null' &&
+        !avatarUrl.contains('User agent');
     ImageProvider? avatarImageProvider;
 
     print('🟣 DEBUG: Is my profile: $isMyProfile');
@@ -768,9 +811,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final fullAvatarUrl =
           avatarUrl.startsWith('http')
               ? avatarUrl
-              : 'https://ravell-backend-1.onrender.com$avatarUrl';
+              : '$avatarUrl';
       avatarImageProvider = NetworkImage(fullAvatarUrl);
     }
+
+    Future<ImageProvider> loadNetworkImage(String url) async {
+  try {
+    final uri = Uri.parse(url);
+    final response = await http.get(
+      uri,
+      headers: {
+        'User-Agent': 'FlutterApp/1.0',
+        'Accept': 'image/*',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return MemoryImage(response.bodyBytes);
+    } else {
+      print('🔴 Failed to load avatar. Status: ${response.statusCode}');
+      return const AssetImage('assets/default_avatar.png');
+    }
+  } catch (e) {
+    print('🔴 Error loading avatar: $e');
+    return const AssetImage('assets/default_avatar.png');
+  }
+}
+
 
     return Scaffold(
       appBar: AppBar(
@@ -816,19 +883,72 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 // --- СЕКЦИЯ 1: АВАТАР, ИМЯ И СТАТИСТИКА ---
                 Column(
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor:
-                          isAvatarSet ? Colors.transparent : Colors.blueGrey,
-                      backgroundImage: avatarImageProvider,
-                      child:
-                          isAvatarSet
-                              ? null
-                              : const Icon(
-                                Icons.person,
-                                size: 40,
-                                color: Colors.white,
+                    Stack(
+                      children: [
+                        ClipOval(
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            color: Colors.blueGrey,
+                            child: isAvatarSet
+                                ? FutureBuilder<ImageProvider>(
+                                    future: loadNetworkImage(avatarUrl!),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const CircularProgressIndicator();
+                                      }
+                                      final imageProvider =
+                                          snapshot.data ??
+                                          const AssetImage(
+                                            'assets/default_avatar.png',
+                                          );
+                                      return ClipOval(
+                                        child: Image(
+                                          image: imageProvider,
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : const Icon(
+                                    Icons.person,
+                                    size: 40,
+                                    color: Colors.white,
+                                  ),
+                          ),
+                        ),
+                        if (userData['is_early'] == true ||
+                            (userData['profile'] != null &&
+                                userData['profile']['is_early'] == true))
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: GestureDetector(
+                              onTap: () => EarlyAccessSheet.show(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: neoWhite,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: neoBlack,
+                                      offset: Offset(1, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                  size: 16,
+                                ),
                               ),
+                            ),
+                          ),
+                      ],
                     ),
                     if (fullName.isNotEmpty)
                       Padding(
@@ -842,12 +962,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 context,
                               ).textTheme.headlineLarge?.copyWith(fontSize: 25),
                             ),
-                            SizedBox(width: 10),
-                            if (userData['is_early'] == true)
+                            if (userData['is_early'] == true ||
+                                (userData['profile'] != null &&
+                                    userData['profile']['is_early'] == true)) ...[
+                              const SizedBox(width: 8),
                               GestureDetector(
                                 onTap: () => EarlyAccessSheet.show(context),
-                                child: Icon(Icons.star, color: Colors.amber),
+                                child: const Icon(Icons.star, color: Colors.amber),
                               ),
+                            ],
                           ],
                         ),
                       ),
@@ -860,6 +983,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             context,
                           ).textTheme.headlineLarge!.copyWith(fontSize: 16),
                         ),
+                        if (fullName.isEmpty &&
+                            (userData['is_early'] == true ||
+                                (userData['profile'] != null &&
+                                    userData['profile']['is_early'] == true))) ...[
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => EarlyAccessSheet.show(context),
+                            child: const Icon(
+                              Icons.star,
+                              color: Colors.amber,
+                              size: 18,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(width: 10),
@@ -902,7 +1039,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   )
                                   : SizedBox.shrink(),
                         ),
-                        SizedBox(width: 5),
+                        SizedBox(width: 10),
                         GestureDetector(
                           onTap: () {
                             Navigator.of(context).push(
@@ -920,7 +1057,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               width: 2,
                               strokeAlign: BorderSide.strokeAlignOutside,
                             ),
-                            label: Text("🎯 Your achievements"),
+                            label: Text("🎯 Ваши достижения"),
                           ),
                         ),
                       ],

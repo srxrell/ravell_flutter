@@ -25,4 +25,15 @@ class Influencer {
       isEarly: json['is_early'] ?? false,
     );
   }
+
+  String? get resolvedAvatar {
+    if (avatar == null || avatar!.isEmpty) return null;
+    final cleanUrl = avatar!.replaceAll(RegExp(r'\s+'), '');
+    if (cleanUrl.contains('Useragent') || avatar!.contains('User agent')) return null;
+    if (cleanUrl.toLowerCase() == 'null') return null;
+
+    return cleanUrl.startsWith('http')
+        ? cleanUrl
+        : 'https://ravell-backend-1.onrender.com$cleanUrl';
+  }
 }
