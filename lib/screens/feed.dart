@@ -561,7 +561,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(color: neoBlack, width: 2),
-          color: Colors.grey[200],
+          color: neoAccent,
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -578,7 +578,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                   httpHeaders: const {'User-Agent': 'FlutterApp/1.0'},
                   placeholder:
                       (context, url) => Container(
-                        color: Colors.grey[200],
+                        color: neoAccent,
                         child: const Center(
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
@@ -588,7 +588,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                       ),
                   errorWidget:
                       (context, url, error) => Container(
-                        color: Colors.grey[300],
                         child: const Icon(
                           Icons.person,
                           size: 24,
@@ -599,7 +598,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
               )
             else
               Container(
-                color: Colors.grey[300],
+                color: neoAccent,
                 child: const Icon(Icons.person, size: 24, color: Colors.white),
               ),
 

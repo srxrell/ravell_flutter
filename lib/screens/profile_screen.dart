@@ -514,7 +514,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       );
     }
 
-    return Column(
+    return Expanded(child: ListView(
       children:
           stories.map((story) {
             return GestureDetector(
@@ -549,12 +549,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                   borderRadius: const BorderRadius.all(Radius.circular(10)),
                 ),
                 child: ListTile(
-                  title: Text(
-                    story.title.isNotEmpty ? story.title : 'Без названия',
+                  title: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(
+                    // show shorten title with "..."
+                    story.title.length > 30 ? '${story.title.substring(0, 30)}...' : story.title,
                     style: Theme.of(
                       context,
                     ).textTheme.headlineLarge!.copyWith(fontSize: 20 * titleFontScale),
-                  ),
+                  ),GestureDetector(onTap: isMyProfile ? () => _showStoryOptionsDialog(story) : null, child:Icon(Icons.more_vert))]),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -598,7 +599,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               ),
             );
           }).toList(),
-    );
+    ));
   }
 
   Widget _buildDraftList(List<DraftStory> drafts, double titleFontScale) {
@@ -1382,12 +1383,10 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           ],
                         ),
                       ),
-                      Expanded(
-                        child: _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
-                      ),
+                      _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale)
                     ],
                   ),
-                const SizedBox(height: 50),
+                const SizedBox(height: 100),
 
 
         ]),
