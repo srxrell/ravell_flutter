@@ -125,18 +125,48 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
                     ),
                   ),
                 ),
+              // inputs are still shown
+              // Заголовок
+TextField(
+  controller: _titleController,
+  decoration: const InputDecoration(
+    hintText: 'Заголовок',
+    fillColor: Colors.transparent,
+    border: UnderlineInputBorder(
+      borderSide: BorderSide(color: Colors.black),
+    ),
+    enabledBorder: UnderlineInputBorder(
+      borderSide: BorderSide(color: Colors.black),
+    ),
+    focusedBorder: UnderlineInputBorder(
+      borderSide: BorderSide(color: Colors.black),
+    ),
+  ),
+),
 
-              TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Заголовок'),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _contentController,
-                decoration: const InputDecoration(
-                  labelText: 'Контент (мин. 100 слов)',
-                ),
-              ),
+const SizedBox(height: 16),
+
+// Контент
+TextField(
+  controller: _contentController,
+  minLines: 1,
+  maxLines: null,
+  keyboardType: TextInputType.multiline,
+  decoration: const InputDecoration(
+    hintText: 'Контент',
+    fillColor: Colors.transparent,
+    border: UnderlineInputBorder(
+      borderSide: BorderSide(color: Colors.black),
+    ),
+    enabledBorder: UnderlineInputBorder(
+      borderSide: BorderSide(color: Colors.black),
+    ),
+    focusedBorder: UnderlineInputBorder(
+      borderSide: BorderSide(color: Colors.black),
+    ),
+  ),
+),
+
             ],
           ),
         ),
