@@ -584,7 +584,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                             ],
                           ),
                           Text(
-                            story.createdAt.toString(),
+                            // display date in dd/mm/yyyy format
+                            story.createdAt.toString().substring(0, 10),
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: Colors.grey[700]),
@@ -597,7 +598,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               ),
             );
           }).toList(),
-    
     );
   }
 
@@ -643,7 +643,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           },
           onLongPress: () => _showDraftOptionsDialog(draft),
           child: Container(
-            margin: const EdgeInsets.only(bottom: 10, top: 10),
+            margin: const EdgeInsets.only(bottom: 12, top: 10),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.black, width: 2),
@@ -1278,13 +1278,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         unselectedLabelColor: Colors.grey, // Inactive tab color
                         indicatorColor: Colors.black, // Indicator color
                       ),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: 300,
-                          maxHeight: MediaQuery.of(context).size.height * 0.7,
-                        ), // Adjust height as needed
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.5, // Adjust height as needed
                         child: TabBarView(
-                          physics: const NeverScrollableScrollPhysics(),
                           controller: _tabController,
                           children: [
                             // Tab 1: Published Stories
@@ -1331,7 +1327,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                     ],
                                   ),
                                 ),
-                                 _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale)
+                                _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
+                                
                               ],
                             ),
                             // Tab 2: Drafts
@@ -1385,7 +1382,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           ],
                         ),
                       ),
-                      _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
+                      Expanded(
+                        child: _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
+                      ),
                     ],
                   ),
                 const SizedBox(height: 50),
@@ -1393,9 +1392,15 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
         ]),
           ),
+          Positioned(
+            bottom: 0,
+            child: Container(
+              width: MediaQuery.of(context).size.width,
+              child: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
+            ),
+          ),
         ],
       ),
-      bottomNavigationBar: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
       endDrawer: Drawer(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
@@ -1422,24 +1427,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 );
               },
             ),
-            // ListTile(
-            //   leading: const Icon(Icons.bug_report, color: Colors.black),
-            //   title: const Text(
-            //     'Backstage логи',
-            //     style: TextStyle(
-            //       fontSize: 15,
-            //       fontWeight: FontWeight.w900,
-            //       color: Colors.black,
-            //     ),
-            //   ),
-            //   onTap: () {
-            //     Navigator.of(context).push(
-            //       MaterialPageRoute(
-            //         builder: (_) => const LogsScreen(),
-            //       ),
-            //     );
-            //   },
-            // ),
+            
             ListTile(
               leading: const Icon(Icons.info, color: Colors.black),
               title: const Text(

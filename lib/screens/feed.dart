@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:convert';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/screens/story_detail.dart';
 import 'package:readreels/widgets/heart_animation.dart';
@@ -102,6 +103,20 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   double _fontScale = 1.0;
   double _titleFontScale = 1.0;
 
+  Future<void> _saveStoriesLocally(List<Story> stories, StoryType type) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = stories.map((s) => s.toJson()).toList(); // Story должен иметь toJson()
+    prefs.setString(type.toString(), json.encode(jsonList));
+  }
+
+  Future<List<Story>> _loadStoriesFromLocal(StoryType type) async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(type.toString());
+    if (data == null) return [];
+    final List decoded = json.decode(data);
+    return decoded.map((e) => Story.fromJson(e)).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -170,60 +185,78 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   }
 
   Future<void> _fetchCurrentTabStories() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-      _errorMessage = '';
-    });
+  setState(() {
+    _isLoading = true;
+    _hasError = false;
+    _errorMessage = '';
+  });
 
-    try {
-      switch (_currentStoryType) {
-        case StoryType.seeds:
-          seeds = await _storyService.getSeeds();
-          break;
-        case StoryType.branches:
-          branches = await _storyService.getBranches();
-          break;
-        case StoryType.all:
-          allStories = await _storyService.getStories();
-          break;
-      }
+  try {
+    // сначала пробуем загрузить из локального хранилища
+    List<Story> localStories = await _loadStoriesFromLocal(_currentStoryType);
 
-      if (!mounted) return;
-
-      // Применяем сортировку
-      _applySorting();
-
-      likeCounts.clear();
-      likeStatuses.clear();
-
-      for (var story in _currentStories) {
-        likeCounts[story.id] = story.likesCount;
-
-        if (currentUserId != null) {
-          final isLiked = await _storyService.isStoryLiked(
-            story.id,
-            currentUserId!,
-          );
-
-          if (!mounted) return;
-          likeStatuses[story.id] = isLiked;
+    if (localStories.isNotEmpty) {
+      setState(() {
+        switch (_currentStoryType) {
+          case StoryType.seeds:
+            seeds = localStories;
+            break;
+          case StoryType.branches:
+            branches = localStories;
+            break;
+          case StoryType.all:
+            allStories = localStories;
+            break;
         }
-      }
-
-      if (!mounted) return;
-      setState(() {
         _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-        _errorMessage = 'Ошибка загрузки историй';
       });
     }
+
+    // потом обновляем с сервера
+    List<Story> fetched;
+    switch (_currentStoryType) {
+      case StoryType.seeds:
+        fetched = await _storyService.getSeeds();
+        seeds = fetched;
+        break;
+      case StoryType.branches:
+        fetched = await _storyService.getBranches();
+        branches = fetched;
+        break;
+      case StoryType.all:
+        fetched = await _storyService.getStories();
+        allStories = fetched;
+        break;
+    }
+
+    // сохраняем в локальное хранилище
+    await _saveStoriesLocally(fetched, _currentStoryType);
+
+    // лайки и сортировка
+    likeCounts.clear();
+    likeStatuses.clear();
+    for (var story in _currentStories) {
+      likeCounts[story.id] = story.likesCount;
+      if (currentUserId != null) {
+        likeStatuses[story.id] =
+            await _storyService.isStoryLiked(story.id, currentUserId!);
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+    });
+  } catch (e) {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _hasError = true;
+      _errorMessage = 'Ошибка загрузки историй';
+    });
   }
+}
+
 
   List<Story> get _currentStories {
     switch (_currentStoryType) {

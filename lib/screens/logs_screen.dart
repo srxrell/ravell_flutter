@@ -25,7 +25,7 @@ class _LogsScreenState extends State<LogsScreen> {
         title: const Text('Backstage логи'),
         actions: [
           IconButton(
-            tooltip: 'Очистить логи',
+            tooltip: 'Очистить',
             icon: const Icon(Icons.delete_outline),
             onPressed: () {
               AppLogger.clear();
@@ -54,10 +54,9 @@ class _LogsScreenState extends State<LogsScreen> {
                   }
                   if (_search.isNotEmpty) {
                     final needle = _search.toLowerCase();
-                    final msg = e.message.toLowerCase();
-                    final data = (e.data ?? '').toString().toLowerCase();
-                    if (!msg.contains(needle) &&
-                        !data.contains(needle)) {
+                    if (!e.message.toLowerCase().contains(needle) &&
+                        !(e.data != null &&
+                            (e.data.toString().toLowerCase().contains(needle)))) {
                       return false;
                     }
                   }
@@ -67,23 +66,19 @@ class _LogsScreenState extends State<LogsScreen> {
                 if (filtered.isEmpty) {
                   return const Center(
                     child: Text(
-                      'Логи отсутствуют',
+                      'Логи пока пусты',
                       style: TextStyle(color: Colors.grey),
                     ),
                   );
                 }
 
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    setState(() {});
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final entry = filtered[index];
+                    return _buildLogTile(entry);
                   },
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(8),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      return _buildLogTile(filtered[index]);
-                    },
-                  ),
                 );
               },
             ),
@@ -100,56 +95,84 @@ class _LogsScreenState extends State<LogsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            decoration: const InputDecoration(
-              hintText: 'Поиск по логам',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            onChanged: (value) {
-              setState(() => _search = value.trim());
-            },
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: 'Поиск по логам',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (value) {
+                    setState(() => _search = value.trim());
+                  },
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _chip('Все уровни', _levelFilter == null,
-                    () => setState(() => _levelFilter = null)),
-                _chip('INFO', _levelFilter == LogLevel.info,
-                    () => setState(() => _levelFilter = LogLevel.info)),
-                _chip('WARN', _levelFilter == LogLevel.warning,
-                    () => setState(() => _levelFilter = LogLevel.warning)),
-                _chip('ERROR', _levelFilter == LogLevel.error,
-                    () => setState(() => _levelFilter = LogLevel.error)),
-                const SizedBox(width: 12),
-                _chip('Все типы', _categoryFilter == null,
-                    () => setState(() => _categoryFilter = null)),
-                _chip('API', _categoryFilter == LogCategory.api,
-                    () => setState(() => _categoryFilter = LogCategory.api)),
-                _chip('NET', _categoryFilter == LogCategory.network,
-                    () => setState(() => _categoryFilter = LogCategory.network)),
-                _chip('UI', _categoryFilter == LogCategory.ui,
-                    () => setState(() => _categoryFilter = LogCategory.ui)),
-                _chip('SYS', _categoryFilter == LogCategory.system,
-                    () => setState(() => _categoryFilter = LogCategory.system)),
-              ],
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Все уровни'),
+                selected: _levelFilter == null,
+                onSelected: (_) => setState(() => _levelFilter = null),
+              ),
+              ChoiceChip(
+                label: const Text('INFO'),
+                selected: _levelFilter == LogLevel.info,
+                onSelected: (_) =>
+                    setState(() => _levelFilter = LogLevel.info),
+              ),
+              ChoiceChip(
+                label: const Text('WARN'),
+                selected: _levelFilter == LogLevel.warning,
+                onSelected: (_) =>
+                    setState(() => _levelFilter = LogLevel.warning),
+              ),
+              ChoiceChip(
+                label: const Text('ERROR'),
+                selected: _levelFilter == LogLevel.error,
+                onSelected: (_) =>
+                    setState(() => _levelFilter = LogLevel.error),
+              ),
+              const SizedBox(width: 16),
+              ChoiceChip(
+                label: const Text('Все типы'),
+                selected: _categoryFilter == null,
+                onSelected: (_) => setState(() => _categoryFilter = null),
+              ),
+              ChoiceChip(
+                label: const Text('API'),
+                selected: _categoryFilter == LogCategory.api,
+                onSelected: (_) =>
+                    setState(() => _categoryFilter = LogCategory.api),
+              ),
+              ChoiceChip(
+                label: const Text('NET'),
+                selected: _categoryFilter == LogCategory.network,
+                onSelected: (_) =>
+                    setState(() => _categoryFilter = LogCategory.network),
+              ),
+              ChoiceChip(
+                label: const Text('UI'),
+                selected: _categoryFilter == LogCategory.ui,
+                onSelected: (_) =>
+                    setState(() => _categoryFilter = LogCategory.ui),
+              ),
+              ChoiceChip(
+                label: const Text('SYS'),
+                selected: _categoryFilter == LogCategory.system,
+                onSelected: (_) =>
+                    setState(() => _categoryFilter = LogCategory.system),
+              ),
+            ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _chip(String label, bool selected, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) => onTap(),
       ),
     );
   }
@@ -167,130 +190,86 @@ class _LogsScreenState extends State<LogsScreen> {
 
   Widget _buildLogTile(LogEntry entry) {
     final ts =
-        '${entry.timestamp.hour.toString().padLeft(2, '0')}:'
-        '${entry.timestamp.minute.toString().padLeft(2, '0')}:'
-        '${entry.timestamp.second.toString().padLeft(2, '0')}';
+        '${entry.timestamp.hour.toString().padLeft(2, '0')}:${entry.timestamp.minute.toString().padLeft(2, '0')}:${entry.timestamp.second.toString().padLeft(2, '0')}';
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => _openLogDetails(entry),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.black12),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: _levelColor(entry.level),
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(8),
-                ),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            width: 4,
+            decoration: BoxDecoration(
+              color: _levelColor(entry.level),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(8),
               ),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '• ${entry.categoryLabel} • ${entry.levelLabel}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                        Text(
-                          ts,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      entry.message,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _openLogDetails(LogEntry entry) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${entry.categoryLabel} • ${entry.levelLabel}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '• ${entry.categoryLabel} • ${entry.levelLabel}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        ts,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(entry.message),
-                  if (entry.data != null &&
-                      entry.data.toString().isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Данные:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
+                  const SizedBox(height: 4),
+                  Text(
+                    entry.message,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  if (entry.data != null && entry.data!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      entry.data.toString(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    SelectableText(entry.data.toString()),
                   ],
                 ],
               ),
             ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
   Widget _buildBottomBar() {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _copyLogs,
                 icon: const Icon(Icons.copy),
-                label: const Text('Копировать'),
+                label: const Text('Скопировать'),
               ),
             ),
             const SizedBox(width: 8),
@@ -298,7 +277,7 @@ class _LogsScreenState extends State<LogsScreen> {
               child: OutlinedButton.icon(
                 onPressed: _saveToFile,
                 icon: const Icon(Icons.download),
-                label: const Text('TXT'),
+                label: const Text('Скачать .txt'),
               ),
             ),
             const SizedBox(width: 8),
@@ -306,7 +285,7 @@ class _LogsScreenState extends State<LogsScreen> {
               child: OutlinedButton.icon(
                 onPressed: _sendToTelegram,
                 icon: const Icon(Icons.send),
-                label: const Text('Telegram'),
+                label: const Text('Телеграм'),
               ),
             ),
           ],
@@ -318,46 +297,72 @@ class _LogsScreenState extends State<LogsScreen> {
   Future<void> _copyLogs() async {
     final text = AppLogger.exportToString();
     if (text.isEmpty) {
-      _toast('Нет логов');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нет логов для копирования')),
+      );
       return;
     }
     await Clipboard.setData(ClipboardData(text: text));
-    _toast('Скопировано');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Логи скопированы в буфер обмена')),
+    );
   }
 
   Future<void> _saveToFile() async {
     final file = await AppLogger.saveToFile();
     if (!mounted) return;
     if (file == null) {
-      _toast('Ошибка сохранения');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось сохранить файл логов')),
+      );
       return;
     }
-    _toast('Файл: ${file.path}');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Файл сохранён: ${file.path}'),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   Future<void> _sendToTelegram() async {
     final text = AppLogger.exportToString();
     if (text.isEmpty) {
-      _toast('Нет логов');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нет логов для отправки')),
+      );
       return;
     }
 
-    final trimmed =
+    // Ограничим размер, чтобы не взорвать URL
+    final String trimmed =
         text.length > 3500 ? text.substring(0, 3500) : text;
-    final uri = Uri.parse(
-      'https://t.me/share/url?text=${Uri.encodeComponent(trimmed)}',
-    );
+    final encoded = Uri.encodeComponent(trimmed);
+
+    final uri = Uri.parse('https://t.me/share/url?text=$encoded');
 
     try {
-      await launchUrl(uri);
-    } catch (_) {
-      _toast('Telegram не открылся');
+      final launched = await launchUrl(uri);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Не удалось открыть Telegram, но логи в буфере'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Telegram launch error: $e');
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Ошибка открытия Telegram. Скопируйте логи вручную.'),
+        ),
+      );
     }
   }
-
-  void _toast(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text)),
-    );
-  }
 }
+
+

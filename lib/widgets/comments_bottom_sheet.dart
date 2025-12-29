@@ -49,10 +49,11 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
     final words =
         content.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
 
-    if (words.length != 100) {
+    // разрешаем истории меньше 100 слов (минимум 20 слов максимум 100 слов)
+    if (words.length < 20 || words.length > 100) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Нужно ровно 100 слов. Сейчас: ${words.length}'),
+          content: Text('Нужно от 20 до 100 слов. Сейчас: ${words.length}'),
         ),
       );
       return;

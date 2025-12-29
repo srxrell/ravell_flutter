@@ -13,6 +13,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:readreels/widgets/early_access_bottom.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // 🟢 ИСПРАВЛЕННЫЙ StoryCard с логикой выбора источника данных
 class StoryCard extends StatelessWidget {
@@ -262,14 +264,28 @@ class StoryCard extends StatelessWidget {
               // 🟢 ПОЛНЫЙ ТЕКСТ ИСТОРИИ
               Container(
                 width: double.infinity,
-                child: SelectableText(
-                  story.content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: Colors.black87,
-                  ),
-                ),
+                child: Container(
+  width: double.infinity,
+  child: MarkdownBody(
+    data: story.content,
+    styleSheet: MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        height: 1.5,
+        color: Colors.black87,
+      ),
+      h1: TextStyle(fontSize: 32 * titleFontScale, fontWeight: FontWeight.bold),
+      h2: TextStyle(fontSize: 28 * titleFontScale, fontWeight: FontWeight.bold),
+      h3: TextStyle(fontSize: 24 * titleFontScale, fontWeight: FontWeight.bold),
+    ),
+    onTapLink: (text, href, title) {
+      if (href != null) {
+        // открытие ссылок
+        launchUrl(Uri.parse(href));
+      }
+    },
+  ),
+)
               ),
 
               const SizedBox(height: 12),
@@ -283,8 +299,6 @@ class StoryCard extends StatelessWidget {
                       story.hashtags.map((hashtag) {
                         return Chip(
                           label: Text('#${hashtag.name}'),
-                          backgroundColor: Colors.black,
-                          visualDensity: VisualDensity.compact,
                         );
                       }).toList(),
                 ),

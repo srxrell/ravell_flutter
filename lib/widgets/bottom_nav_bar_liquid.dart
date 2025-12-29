@@ -124,7 +124,7 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
               route: '/home',
               activeIcon: Icons.home,
               inactiveIcon: Icons.home_outlined,
-              onTap: () => context.push('/home'),
+              onTap: () => context.go('/home'),
             ),
           ),
           _wrap(

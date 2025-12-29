@@ -62,7 +62,7 @@ class _ExpandableStoryContentState extends State<ExpandableStoryContent> {
 
   void _toggleExpanded() {
     setState(() {
-      _isExpanded = !_isExpanded;
+      _isExpanded = _isExpanded;
     });
   }
 

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:readreels/services/comment_service.dart'; // Ваш сервис для ответов
 import 'package:readreels/services/story_service.dart'
     as st; // Ваш основной сервис
+import 'package:readreels/widgets/markdown_toolbar.dart'; // Import the MarkdownToolbar
 
 class AddStoryScreen extends StatefulWidget {
   // 🔑 Опциональные параметры
@@ -107,38 +108,40 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (isReply) // Визуальное подтверждение, что это ответ
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: Text(
-                  'Вы отвечаете на историю: "${widget.parentTitle ?? 'Неизвестная история'}"',
-                  style: const TextStyle(
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey,
+      body: Expanded(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isReply) // Визуальное подтверждение, что это ответ
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Text(
+                    'Вы отвечаете на историю: "${widget.parentTitle ?? 'Неизвестная история'}"',
+                    style: const TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey,
+                    ),
                   ),
                 ),
-              ),
 
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(labelText: 'Заголовок'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _contentController,
-              decoration: const InputDecoration(
-                labelText: 'Контент (мин. 100 слов)',
+              TextField(
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: 'Заголовок'),
               ),
-              maxLines: 8,
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextField(
+                controller: _contentController,
+                decoration: const InputDecoration(
+                  labelText: 'Контент (мин. 100 слов)',
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+      bottomNavigationBar: MarkdownToolbar(controller: _contentController), // Toolbar at the bottom navigation bar
     );
   }
 }

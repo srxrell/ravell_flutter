@@ -521,14 +521,6 @@ final filteredHashtags = _availableHashtags.where((h) {
           ),
           Divider(color: theme.colorScheme.onBackground.withOpacity(0.5)),
           const SizedBox(height: 10),
-           // 🟢 MARKDOWN TOOLBAR
-          Row(
-            children: [
-              IconButton(onPressed: () => _applyFormatting('**'), icon: const Icon(Icons.format_bold)),
-              IconButton(onPressed: () => _applyFormatting('*'), icon: const Icon(Icons.format_italic)),
-            ],
-          ),
-          const SizedBox(height: 10),
           // Контент истории
           TextField(
             controller: _contentController,
@@ -564,6 +556,7 @@ final filteredHashtags = _availableHashtags.where((h) {
     final bool showLoading = _isLoading || _isSaving;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true, // Allow content to resize when keyboard appears
       appBar: AppBar(
         title: Text(
           _currentStep == CreationStep.selectHashtags
@@ -628,6 +621,9 @@ final filteredHashtags = _availableHashtags.where((h) {
             ),
         ],
       ),
+      bottomNavigationBar: _currentStep == CreationStep.enterContent
+          ? MarkdownToolbar(controller: _contentController)
+          : null,
     );
   }
 }
@@ -828,6 +824,8 @@ class _CreateStoryFromDraftScreenState extends State<CreateStoryFromDraftScreen>
     }
   }
 
+  
+
   Future<void> _saveDraft() async {
     final draft = DraftStory(
       id: widget.draft?.id ?? const Uuid().v4(),
@@ -903,6 +901,7 @@ class _CreateStoryFromDraftScreenState extends State<CreateStoryFromDraftScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true, // Allow content to resize when keyboard appears
       appBar: AppBar(
         surfaceTintColor: Colors.transparent,
         title: Text(
@@ -947,6 +946,9 @@ class _CreateStoryFromDraftScreenState extends State<CreateStoryFromDraftScreen>
            
         ],
       ),
+      bottomNavigationBar: _currentStep == CreationStep.enterContent
+          ? MarkdownToolbar(controller: _contentController)
+          : null,
     );
   }
 
@@ -1136,11 +1138,6 @@ class _CreateStoryFromDraftScreenState extends State<CreateStoryFromDraftScreen>
              buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
           ),
           Divider(color: theme.colorScheme.onBackground.withOpacity(0.5)),
-          const SizedBox(height: 10),
-           // 🟢 MARKDOWN TOOLBAR
-          MarkdownToolbar(
-            controller: _contentController,
-          ),
           const SizedBox(height: 10),
           // Контент истории
           TextField(
