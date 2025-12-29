@@ -542,7 +542,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
           ],
         ),
         body: _buildEmptyState(),
-        bottomNavigationBar: const p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+        bottomNavigationBar: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
       );
     }
 
@@ -569,7 +569,7 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
         ],
       ),
       extendBody: true,
-      bottomNavigationBar: const p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+      bottomNavigationBar: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
       body: SafeArea(
         child: PageView.builder(
           controller: _pageController,

@@ -895,6 +895,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
       ),
       extendBody: true,
       bottomNavigationBar: PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(
+        currentRoute: GoRouterState.of(context).uri.toString(),
         homeKey: _homeKey,
         addKey: _addKey,
         profileKey: _profileKey,

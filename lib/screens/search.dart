@@ -5,6 +5,7 @@ import 'package:readreels/screens/story_detail.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'package:go_router/go_router.dart'; // Added this line
 
 import '../widgets/bottom_nav_bar_liquid.dart';
 
@@ -241,7 +242,9 @@ class _SearchStoryState extends State<SearchStory> {
         ),
       ),
       body: _buildBody(),
-      bottomNavigationBar: const PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+      bottomNavigationBar: PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(
+        currentRoute: GoRouterState.of(context).uri.toString(),
+      ),
     );
   }
 

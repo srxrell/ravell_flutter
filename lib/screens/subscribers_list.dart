@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:readreels/screens/profile_screen.dart';
+import 'package:readreels/screens/profile_screen.dart'; // Added this import
+import 'package:go_router/go_router.dart';
 import 'package:readreels/services/subscription_service.dart';
-import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
+import 'package:readreels/widgets/bottom_nav_bar_liquid.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:readreels/widgets/early_access_bottom.dart';
+import 'package:readreels/screens/profile_screen.dart';
 
 class SubscriptionsSubscriberListScreen extends StatefulWidget {
   final int profileuser_id;
@@ -89,7 +92,9 @@ class _SubscriptionsSubscriberListScreenState
               ),
             ],
           ),
-          bottomNavigationBar: const p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+          bottomNavigationBar: PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(
+            currentRoute: '',
+          ),
         );
       },
     );

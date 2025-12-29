@@ -683,7 +683,7 @@ class _SearchFeedState extends State<SearchFeed> {
         ),
       ),
       extendBody: true,
-      bottomNavigationBar: const PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+      bottomNavigationBar: PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
       body: _isLoading ? _buildLoadingState() : _buildContent(),
     );
   }

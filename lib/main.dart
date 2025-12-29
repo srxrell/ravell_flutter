@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:readreels/screens/activity_screen.dart';
 import 'package:readreels/screens/add_story.dart';
+import 'package:readreels/screens/create_draft_screeen.dart';
 import 'package:readreels/screens/authentication.dart';
 import 'package:readreels/screens/credits_screen.dart';
 import 'package:readreels/screens/dart_auth_check.dart';
@@ -119,6 +120,12 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
           path: '/addStory',
           builder: (context, state) {
             return const CreateStoryScreen();
+          },
+        ),
+        GoRoute(
+          path: '/addStoryDraft',
+          builder: (context, state) {
+            return CreateStoryFromDraftScreen();
           },
         ),
         GoRoute(

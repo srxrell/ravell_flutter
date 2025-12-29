@@ -24,6 +24,7 @@ import 'package:readreels/models/story.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:readreels/models/draft_story.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final int profileUserId;
@@ -34,29 +35,33 @@ class UserProfileScreen extends StatefulWidget {
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
-class _UserProfileScreenState extends State<UserProfileScreen> {
+class _UserProfileScreenState extends State<UserProfileScreen>
+    with SingleTickerProviderStateMixin {
   final SubscriptionService _subscriptionService = SubscriptionService();
   final StoryService _storyService = StoryService();
   final AuthService _authService = AuthService();
+  final DraftService _draftService = DraftService();
+  late TabController _tabController;
   int? streakCount;
 
   int? currentUserId;
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
   String? _errorMessage;
+  List<DraftStory> _drafts = [];
+  double _currentTitleFontScale = 1.0; // New variable
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _initProfile();
   }
 
   @override
-  void didUpdateWidget(UserProfileScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.profileUserId != widget.profileUserId) {
-      _initProfile();
-    }
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _initProfile() async {
@@ -68,6 +73,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     final sp = await SharedPreferences.getInstance();
     currentUserId = sp.getInt('user_id');
+    _currentTitleFontScale = sp.getDouble('title_font_scale') ?? 1.0; // Load title font scale
     
     // Only load cached avatar if it's potentially our own profile
     if (widget.profileUserId == currentUserId) {
@@ -76,6 +82,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     
     _loadProfileData();
     _loadUserStreak(widget.profileUserId);
+    await _loadDrafts();
+  }
+
+  Future<void> _loadDrafts() async {
+    try {
+      final fetchedDrafts = await _draftService.getDrafts();
+      if (mounted) {
+        setState(() {
+          _drafts = fetchedDrafts;
+        });
+      }
+    } catch (e) {
+      print('Error loading drafts: $e');
+      // Optionally show a snackbar or error message
+    }
   }
 
   String? _cleanUrl(dynamic value) {
@@ -463,7 +484,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  Widget _buildExpandableStoryList(List<Story> stories, bool isMyProfile) {
+  Widget _buildExpandableStoryList(List<Story> stories, bool isMyProfile, double titleFontScale) {
     if (stories.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 20.0),
@@ -526,7 +547,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     story.title.isNotEmpty ? story.title : 'Без названия',
                     style: Theme.of(
                       context,
-                    ).textTheme.headlineLarge!.copyWith(fontSize: 20),
+                    ).textTheme.headlineLarge!.copyWith(fontSize: 20 * titleFontScale),
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -570,6 +591,355 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
             );
           }).toList(),
+    );
+  }
+
+  Widget _buildDraftList(List<DraftStory> drafts, double titleFontScale) {
+    if (drafts.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20.0),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.edit_note),
+              Text(
+                "У вас пока нет черновиков",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                "Начните писать новую историю!",
+                style: TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: drafts.map((draft) {
+        return GestureDetector(
+          onTap: () async {
+            // Navigate to AddStoryScreen for editing the draft
+            final result = await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => AddStoryScreen(
+                  draft: draft,
+                  onDraftSaved: () {
+                    _loadDrafts(); // Refresh drafts after saving
+                  },
+                ),
+              ),
+            );
+            if (result == true) {
+              _loadDrafts(); // Refresh drafts if something was saved/deleted
+            }
+          },
+          onLongPress: () => _showDraftOptionsDialog(draft),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black, width: 2),
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
+            ),
+            child: ListTile(
+              title: Text(
+                draft.title.isNotEmpty ? draft.title : 'Без названия',
+                style: Theme.of(context).textTheme.headlineLarge!.copyWith(fontSize: 20 * titleFontScale), // Apply titleFontScale
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 5),
+                  Text(
+                    draft.content.length > 150
+                        ? '${draft.content.substring(0, 150)}...'
+                        : draft.content,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Создан: ${draft.timestamp.toLocal().toString().split(' ')[0]}', // Display only date
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showDraftOptionsDialog(DraftStory draft) {
+    showModalBottomSheet(
+      barrierColor: const Color.fromARGB(153, 0, 0, 0),
+      elevation: 0,
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          margin: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: const Border(
+              top: BorderSide(color: neoBlack, width: 4),
+              left: BorderSide(color: neoBlack, width: 4),
+              right: BorderSide(color: neoBlack, width: 8),
+              bottom: BorderSide(color: neoBlack, width: 8),
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.black),
+                  title: const Text('Редактировать черновик'),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => AddStoryScreen(
+                          draft: draft,
+                          onDraftSaved: () {
+                            _loadDrafts();
+                          },
+                        ),
+                      ),
+                    );
+                    _loadDrafts(); // Refresh drafts after potential edit
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text(
+                    'Удалить черновик',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _showDeleteDraftConfirmationDialog(draft.id);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteDraftConfirmationDialog(String draftId) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Подтвердить удаление черновика'),
+        content: const Text('Вы уверены, что хотите удалить этот черновик?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              await _draftService.deleteDraft(draftId);
+              _showSnackbar('Черновик успешно удален.');
+              _loadDrafts(); // Refresh drafts
+            },
+            child: const Text(
+              'Удалить',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildDraftList(List<DraftStory> drafts) {
+    if (drafts.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20.0),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.edit_note),
+              Text(
+                "У вас пока нет черновиков",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                "Начните писать новую историю!",
+                style: TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: drafts.map((draft) {
+        return GestureDetector(
+          onTap: () async {
+            // Navigate to AddStoryScreen for editing the draft
+            final result = await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => AddStoryScreen(
+                  draft: draft,
+                  onDraftSaved: () {
+                    _loadDrafts(); // Refresh drafts after saving
+                  },
+                ),
+              ),
+            );
+            if (result == true) {
+              _loadDrafts(); // Refresh drafts if something was saved/deleted
+            }
+          },
+          onLongPress: () => _showDraftOptionsDialog(draft),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black, width: 2),
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
+            ),
+            child: ListTile(
+              title: Text(
+                draft.title.isNotEmpty ? draft.title : 'Без названия',
+                style: Theme.of(context).textTheme.headlineLarge!.copyWith(fontSize: 20),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 5),
+                  Text(
+                    draft.content.length > 150
+                        ? '${draft.content.substring(0, 150)}...'
+                        : draft.content,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Создан: ${draft.timestamp.toLocal().toString().split(' ')[0]}', // Display only date
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showDraftOptionsDialog(DraftStory draft) {
+    showModalBottomSheet(
+      barrierColor: const Color.fromARGB(153, 0, 0, 0),
+      elevation: 0,
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          margin: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: const Border(
+              top: BorderSide(color: neoBlack, width: 4),
+              left: BorderSide(color: neoBlack, width: 4),
+              right: BorderSide(color: neoBlack, width: 8),
+              bottom: BorderSide(color: neoBlack, width: 8),
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.black),
+                  title: const Text('Редактировать черновик'),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => AddStoryScreen(
+                          draft: draft,
+                          onDraftSaved: () {
+                            _loadDrafts();
+                          },
+                        ),
+                      ),
+                    );
+                    _loadDrafts(); // Refresh drafts after potential edit
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text(
+                    'Удалить черновик',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _showDeleteDraftConfirmationDialog(draft.id);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteDraftConfirmationDialog(String draftId) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Подтвердить удаление черновика'),
+        content: const Text('Вы уверены, что хотите удалить этот черновик?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              await _draftService.deleteDraft(draftId);
+              _showSnackbar('Черновик успешно удален.');
+              _loadDrafts(); // Refresh drafts
+            },
+            child: const Text(
+              'Удалить',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -720,6 +1090,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             userLiked: false,
             hashtags: [],
             authorAvatar: userAvatar,
+            avatarUrl: userAvatar,
           );
         }
       }).toList();
@@ -759,9 +1130,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(child: CircularProgressIndicator()),
-        bottomNavigationBar: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+        bottomNavigationBar: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
       );
     }
 
@@ -780,7 +1151,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+        bottomNavigationBar: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
       );
     }
 
@@ -1103,17 +1474,46 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                 const SizedBox(height: 10),
 
-                // ✅ Передаем флаг isMyProfile в список историй
-                _buildExpandableStoryList(userStories, isMyProfile),
+                // --- СЕКЦИЯ 3: ТАБЫ ИСТОРИЙ И ЧЕРНОВИКОВ ---
+                if (isMyProfile) // Only show tabs if it's my own profile
+                  Column(
+                    children: [
+                      TabBar(
+                        controller: _tabController,
+                        tabs: const [
+                          Tab(text: 'Статьи'),
+                          Tab(text: 'Черновики'),
+                        ],
+                        labelColor: Colors.black, // Active tab color
+                        unselectedLabelColor: Colors.grey, // Inactive tab color
+                        indicatorColor: Colors.black, // Indicator color
+                      ),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.5, // Adjust height as needed
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            // Tab 1: Published Stories
+                            _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
+                            // Tab 2: Drafts
+                            _buildDraftList(_drafts, _currentTitleFontScale),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                else // If not my profile, just show stories
+                  _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
                 const SizedBox(height: 50),
-              ],
+
+
             ),
           ),
           Positioned(
             bottom: 0,
             child: Container(
               width: MediaQuery.of(context).size.width,
-              child: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(),
+              child: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
             ),
           ),
         ],
@@ -1129,6 +1529,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const InfluencersBoard(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text("Настройки"),
+              leading: const Icon(Icons.settings),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SettingsScreen(),
                   ),
                 );
               },

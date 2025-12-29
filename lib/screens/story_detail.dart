@@ -20,6 +20,7 @@ class StoryCard extends StatelessWidget {
   final bool isReplyCard;
   final void Function()? onStoryUpdated;
   final bool useLocalData; // 🟢 НОВЫЙ ПАРАМЕТР
+  final double titleFontScale; // New parameter
 
   const StoryCard({
     super.key,
@@ -27,6 +28,7 @@ class StoryCard extends StatelessWidget {
     required this.isReplyCard,
     this.onStoryUpdated,
     this.useLocalData = false, // По умолчанию используем онлайн данные
+    this.titleFontScale = 1.0, // Default value
   });
 
   // 🟢 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРА
@@ -176,7 +178,7 @@ class StoryCard extends StatelessWidget {
               // Заголовок истории
               Text(
                 story.title,
-                style: GoogleFonts.russoOne(fontSize: 32, color: Colors.black),
+                style: GoogleFonts.russoOne(fontSize: 32 * titleFontScale, color: Colors.black),
               ),
 
               const SizedBox(height: 16),
@@ -436,13 +438,24 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   bool _hasError = false;
   int _totalWords = 0;
   int _totalRepliesWords = 0;
+  double _currentTitleFontScale = 1.0; // New variable
 
   @override
   void initState() {
     super.initState();
+    _loadSettings(); // Call a new method to load settings
     _fetchReplies();
     _calculateWordCounts();
     _makeUpdateStreak();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _currentTitleFontScale = prefs.getDouble('title_font_scale') ?? 1.0;
+      });
+    }
   }
 
   Future<void> _makeUpdateStreak() async {
@@ -549,7 +562,8 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                     onStoryUpdated: _fetchReplies,
                     useLocalData:
                         widget
-                            .fromProfile, // Используем локальные данные если из профиля
+                            .fromProfile,
+                    titleFontScale: _currentTitleFontScale, // Pass the scale
                   ),
                   const SizedBox(height: 20),
                   _buildReplyButton(),
