@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
-// Порог, после которого текст СКРЫВАЕТСЯ ПОЛНОСТЬЮ
-const int COLLAPSE_THRESHOLD = 170;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ExpandableStoryContent extends StatefulWidget {
   final String content;
@@ -14,13 +12,25 @@ class ExpandableStoryContent extends StatefulWidget {
 
 class _ExpandableStoryContentState extends State<ExpandableStoryContent> {
   bool _isExpanded = false;
-  int _totalWords = 170;
-  bool _shouldBeHidden = false;
+  bool _needsExpansion = false;
+  double _fontScale = 1.0;
 
   @override
   void initState() {
     super.initState();
-    _recalculateState();
+    _loadFontSettings();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfNeedsExpansion();
+    });
+  }
+
+  Future<void> _loadFontSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _fontScale = prefs.getDouble('story_font_scale') ?? 1.0;
+      });
+    }
   }
 
   // ✅ ИСПРАВЛЕНИЕ 1: Пересчет состояния при смене контента
@@ -30,100 +40,139 @@ class _ExpandableStoryContentState extends State<ExpandableStoryContent> {
     if (oldWidget.content != widget.content) {
       // Сбрасываем состояние развертывания при смене истории
       _isExpanded = false;
-      _recalculateState();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkIfNeedsExpansion();
+      });
     }
   }
 
-  void _recalculateState() {
-    _totalWords = widget.content.split(RegExp(r'\s+')).length;
-
-    // Если слов больше 150, мы должны ее СВЕРНУТЬ (изначально скрыть)
-    _shouldBeHidden = _totalWords > COLLAPSE_THRESHOLD;
-
-    // Если история короткая (<= 150), она должна быть ИЗНАЧАЛЬНО развернута
-    if (!_shouldBeHidden) {
-      _isExpanded = true;
+  void _checkIfNeedsExpansion() {
+    if (!mounted) return;
+    
+    // Простая проверка: если текст больше 200 символов, вероятно нужна кнопка
+    // Более точная проверка будет в LayoutBuilder
+    if (widget.content.length > 200) {
+      if (mounted) {
+        setState(() {
+          _needsExpansion = true;
+        });
+      }
     }
-    // Если история длинная, _isExpanded остается false, чтобы показать триггер
   }
 
   void _toggleExpanded() {
     setState(() {
-      _isExpanded = true;
-    });
-  }
-
-  void _toggleCollapsed() {
-    setState(() {
-      _isExpanded = false;
+      _isExpanded = !_isExpanded;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // 1. ДЛИННАЯ ИСТОРИЯ И СВЕРНУТОЕ СОСТОЯНИЕ: Показываем только триггер
-    // Правило 1: Длинная история скрывается полностью.
-    if (_shouldBeHidden && !_isExpanded) {
-      return GestureDetector(
-        onTap: _toggleExpanded,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              // обрежем до 150
-              Text(
-                widget.content.substring(0, COLLAPSE_THRESHOLD),
-                style: const TextStyle(fontSize: 18, color: Colors.black),
+    // Если текст короткий, показываем полностью
+    if (!_needsExpansion || _isExpanded) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.content,
+            style: TextStyle(
+              fontSize: 16 * _fontScale,
+              color: Colors.black,
+              height: 1.5,
+            ),
+          ),
+          if (_needsExpansion && _isExpanded)
+            GestureDetector(
+              onTap: _toggleExpanded,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Row(
+                  children: [
+                    Text(
+                      'Свернуть',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontSize: 16 * _fontScale,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.arrow_drop_up,
+                      color: Colors.blue,
+                      size: 20,
+                    ),
+                  ],
+                ),
               ),
+            ),
+        ],
+      );
+    }
+
+    // Показываем превью с кнопкой "Читать далее"
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Используем TextPainter для точного измерения
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: widget.content,
+            style: TextStyle(fontSize: 16 * _fontScale),
+          ),
+          maxLines: 5,
+          textDirection: TextDirection.ltr,
+        );
+        
+        textPainter.layout(maxWidth: constraints.maxWidth);
+        
+        // Находим позицию, где заканчивается 5-я строка
+        final position = textPainter.getPositionForOffset(
+          Offset(constraints.maxWidth, textPainter.height),
+        );
+        
+        final previewText = widget.content.substring(
+          0,
+          position.offset.clamp(0, widget.content.length),
+        );
+        
+        return GestureDetector(
+          onTap: _toggleExpanded,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                previewText,
+                style: TextStyle(
+                  fontSize: 16 * _fontScale,
+                  color: Colors.black,
+                  height: 1.5,
+                ),
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
               Row(
                 children: [
                   Text(
-                    'Читать далее ($_totalWords слов)...',
-                    style: const TextStyle(
-                      color: Colors.blue,
+                    'Читать далее',
+                    style: TextStyle(
+                      color: Colors.black,
                       fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontSize: 16 * _fontScale,
                     ),
                   ),
                   const SizedBox(width: 4),
                   const Icon(
                     Icons.arrow_right_alt,
-                    color: Colors.blue,
-                    size: 24,
+                    color: Colors.black,
+                    size: 20,
                   ),
                 ],
               ),
             ],
           ),
-        ),
-      );
-    }
-
-    // 2. КОРОТКАЯ ИСТОРИЯ ИЛИ РАЗВЕРНУТАЯ ДЛИННАЯ ИСТОРИЯ: Показываем полный текст
-    // Правило 2: Короткая история не скрывается вовсе.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Отображение текста
-        Text(
-          widget.content,
-          style: const TextStyle(fontSize: 18, color: Colors.black),
-        ),
-
-        // Опциональный триггер "Свернуть"
-        if (_shouldBeHidden && _isExpanded)
-          GestureDetector(
-            onTap: _toggleCollapsed,
-            child: const Padding(
-              padding: EdgeInsets.only(top: 8.0),
-              child: Text(
-                'Свернуть',
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            ),
-          ),
-      ],
+        );
+      },
     );
   }
 }

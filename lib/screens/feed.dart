@@ -57,42 +57,26 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   final GlobalKey _seedsKey = GlobalKey();
   final GlobalKey _branchesKey = GlobalKey();
 
-  Widget buildPreviewText(String content, {int wordLimit = 35}) {
-    final words = content.split(' ');
-    if (words.length <= wordLimit) {
-      return Text(content);
-    }
-
-    final preview = words.sublist(0, wordLimit).join(' ');
-
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: '$preview... ',
-            style: const TextStyle(
-              color: Colors.black, // обычный текст
-              fontSize: 16,
-            ),
-          ),
-          TextSpan(
-            text: 'Читать далее',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.black, // можно поменять на синий или другой
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
+  double _getFontScale() {
+    return _fontScale;
   }
 
-  // Для карусели
-  final PageController _pageController = PageController(
-    viewportFraction: 0.8, // Видимая часть карточек (80%)
-  );
-  int _currentPage = 0;
+  double _getTitleFontScale() {
+    return _titleFontScale;
+  }
+
+  Future<void> _loadFontSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _fontScale = prefs.getDouble('story_font_scale') ?? 1.0;
+        _titleFontScale = prefs.getDouble('title_font_scale') ?? 1.0;
+      });
+    }
+  }
+
+  // Сортировка
+  String _sortOption = 'random'; // 'random', 'newest', 'oldest', 'popular'
 
   // Функция для склонения слова "ответ"
   String _getReplyText(int count) {
@@ -115,16 +99,16 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     }
   }
 
+  double _fontScale = 1.0;
+  double _titleFontScale = 1.0;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabChange);
+    _loadFontSettings();
     _checkAuthStatusAndFetch();
-
-    _pageController.addListener(() {
-      setState(() {});
-    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showCaseIfNeeded();
@@ -153,7 +137,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _tabController.dispose();
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -208,7 +191,8 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
 
       if (!mounted) return;
 
-      _currentStories.shuffle(Random());
+      // Применяем сортировку
+      _applySorting();
 
       likeCounts.clear();
       likeStatuses.clear();
@@ -230,7 +214,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _currentPage = 0;
       });
     } catch (e) {
       if (!mounted) return;
@@ -253,6 +236,24 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     }
   }
 
+  void _applySorting() {
+    switch (_sortOption) {
+      case 'newest':
+        _currentStories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'oldest':
+        _currentStories.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case 'popular':
+        _currentStories.sort((a, b) => b.likesCount.compareTo(a.likesCount));
+        break;
+      case 'random':
+      default:
+        _currentStories.shuffle(Random());
+        break;
+    }
+  }
+
   Future<void> _refreshFeed() async {
     if (_isRefreshing) return;
 
@@ -263,11 +264,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     });
 
     await _fetchCurrentTabStories();
-
-    // ВАЖНО: возвращаем карусель в начало
-    if (_pageController.hasClients) {
-      _pageController.jumpToPage(0);
-    }
 
     _isRefreshing = false;
   }
@@ -322,23 +318,8 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   Widget _buildStoryCard(Story story, int index) {
     final isLiked = likeStatuses[story.id] ?? false;
     final currentLikeCount = likeCounts[story.id] ?? 0;
-    final double currentPage = _pageController.page ?? _currentPage.toDouble();
-    final double diff = (index - currentPage).abs();
-    final double scale =
-        1 - (diff * 0.1).clamp(0.0, 0.2); // Масштаб для боковых карточек
-    final double opacity =
-        1 - (diff * 0.5).clamp(0.0, 0.7); // Прозрачность для боковых карточек
-    final bool isCurrent = index == _currentPage;
 
-    return AnimatedBuilder(
-      animation: _pageController,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: scale,
-          child: Opacity(
-            opacity: opacity,
-            child: GestureDetector(
-              // В методе _buildStoryCard в Feed
+    return GestureDetector(
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -375,167 +356,156 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                           () => setState(() {
                             isHeartAnimating = false;
                           }),
-                      child: SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.6,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // ЗАГОЛОВОК (жирный и большой)
-                            Text(
-                              story.title,
-                              style: GoogleFonts.russoOne(
-                                fontSize: 26,
-                                color: Colors.black,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ЗАГОЛОВОК (жирный и большой)
+                          Text(
+                            story.title,
+                            style: GoogleFonts.russoOne(
+                              fontSize: 26 * _getTitleFontScale(),
+                              color: Colors.black,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
 
-                            const SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
-                            // РЯД: Аватар + Имя пользователя
-                            Row(
-                              children: [
-                                _wrapWithShowcase(
-                                  showcaseKey: index == 0 ? _avatarKey : null,
-                                  description:
-                                      'Нажмите на аватар, чтобы перейти в профиль автора',
-                                  child: _buildAuthorAvatar(story),
-                                ),
-
-                                const SizedBox(width: 12),
-
-                                // Имя пользователя и информация
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              story.resolvedUsername,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 18,
-                                                color: Colors.black87,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 4),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // Контент истории
-                            Expanded(
-                              child: SingleChildScrollView(
-                                physics: const BouncingScrollPhysics(),
-                                child: buildPreviewText(story.content),
-                              ),
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // Хештеги (если есть)
-                            if (story.hashtags.isNotEmpty && isCurrent)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  children:
-                                      story.hashtags.map((hashtag) {
-                                        return Chip(
-                                          label: Text(
-                                            '#${hashtag.name}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          backgroundColor: Colors.blue[50],
-                                          visualDensity: VisualDensity.compact,
-                                        );
-                                      }).toList(),
-                                ),
+                          // РЯД: Аватар + Имя пользователя
+                          Row(
+                            children: [
+                              _wrapWithShowcase(
+                                showcaseKey: index == 0 ? _avatarKey : null,
+                                description:
+                                    'Нажмите на аватар, чтобы перейти в профиль автора',
+                                child: _buildAuthorAvatar(story),
                               ),
 
-                            // Действия (кнопки лайка и ответа)
-                            if (isCurrent)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                              const SizedBox(width: 12),
+
+                              // Имя пользователя и информация
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
-                                    // Кнопка ответить
-                                    if (!story.isReply)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8.0,
-                                        ), // отступы слева и справа
-                                        child: _wrapWithShowcase(
-                                          showcaseKey:
-                                              index == 0 ? _replyKey : null,
-                                          description:
-                                              'Отвечай на историю своим развитием сюжета!',
-                                          child: SizedBox(
-                                            height: 70,
-                                            child: NeoIconButton(
-                                              onPressed: () {
-                                                if (currentUserId == null) {
-                                                  if (mounted) {
-                                                    context.go('/auth-check');
-                                                  }
-                                                  return;
-                                                }
-                                                context.push(
-                                                  '/addStory',
-                                                  extra: {
-                                                    'replyTo': story.id,
-                                                    'parentTitle': story.title,
-                                                  },
-                                                );
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            story.resolvedUsername,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 18 * _getFontScale(),
+                                              color: Colors.black87,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 4),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // Контент истории
+                          ExpandableStoryContent(
+                            content: story.content,
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // Хештеги (если есть)
+                          if (story.hashtags.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children:
+                                    story.hashtags.map((hashtag) {
+                                      return Chip(
+                                        label: Text(
+                                          '#${hashtag.name}',
+                                          style: TextStyle(
+                                            fontSize: 12 * _getFontScale(),
+                                          ),
+                                        ),
+                                        backgroundColor: Colors.blue[50],
+                                        visualDensity: VisualDensity.compact,
+                                      );
+                                    }).toList(),
+                              ),
+                            ),
+
+                          // Действия (кнопки лайка и ответа)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Кнопка ответить
+                                if (!story.isReply)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0,
+                                    ), // отступы слева и справа
+                                    child: _wrapWithShowcase(
+                                      showcaseKey:
+                                          index == 0 ? _replyKey : null,
+                                      description:
+                                          'Отвечай на историю своим развитием сюжета!',
+                                      child: SizedBox(
+                                        height: 70,
+                                        child: NeoIconButton(
+                                          onPressed: () {
+                                            if (currentUserId == null) {
+                                              if (mounted) {
+                                                context.go('/auth-check');
+                                              }
+                                              return;
+                                            }
+                                            context.push(
+                                              '/addStory',
+                                              extra: {
+                                                'replyTo': story.id,
+                                                'parentTitle': story.title,
                                               },
-                                              icon: const Icon(
-                                                Icons.reply,
-                                                size: 18,
-                                              ),
-                                              child: Text(
-                                                ' Ответить | ${_getReplyText(story.repliesCount)}',
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.reply,
+                                            size: 18,
+                                          ),
+                                          child: Text(
+                                            ' Ответить | ${_getReplyText(story.repliesCount)}',
+                                            style: TextStyle(
+                                              fontSize: 14 * _getFontScale(),
+                                              fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                         ),
                                       ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ),
-        );
-      },
-    );
+            );
   }
 
   // Вынес аватар в отдельный виджет для чистоты кода
@@ -722,33 +692,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     );
   }
 
-  bool _readyToRefresh = false;
-  double _pullOffset = 0.0;
-
-  static const double _maxPull = 140.0;
-  static const double _triggerPull = 100.0;
-
-  void _startRefresh() async {
-    setState(() {
-      _isRefreshing = true;
-    });
-
-    await _fetchCurrentTabStories();
-
-    if (_pageController.hasClients) {
-      _pageController.jumpToPage(0);
-    }
-
-    _resetPull();
-  }
-
-  void _resetPull() {
-    setState(() {
-      _pullOffset = 0;
-      _readyToRefresh = false;
-      _isRefreshing = false;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -901,91 +844,78 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
         profileKey: _profileKey,
       ),
       body: SafeArea(
-        child:
-            _isLoading
-                ? _buildLoadingState()
-                : _currentStories.isEmpty
+        child: _isLoading
+            ? _buildLoadingState()
+            : _currentStories.isEmpty
                 ? _buildEmptyState()
-                : NotificationListener(
-                  onNotification: (n) {
-                    if (_currentPage != 0 || _isRefreshing) return false;
-
-                    if (n is OverscrollNotification && n.overscroll < 0) {
-                      setState(() {
-                        _pullOffset = (_pullOffset + n.overscroll.abs()).clamp(
-                          0.0,
-                          _maxPull,
-                        );
-                        _readyToRefresh = _pullOffset >= _triggerPull;
-                      });
-
-                      if (_readyToRefresh) {
-                        HapticFeedback.lightImpact();
-                      }
-                    }
-
-                    if (n is ScrollEndNotification) {
-                      if (_readyToRefresh) {
-                        _startRefresh();
-                      } else {
-                        _resetPull();
-                      }
-                    }
-
-                    return false;
-                  },
-                  child: Stack(
-                    children: [
-                      PageView.builder(
-                        controller: _pageController,
-                        itemCount: _currentStories.length,
-                        onPageChanged: (index) {
-                          setState(() {
-                            _currentPage = index;
-                          });
-                        },
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) {
-                          return _buildStoryCard(_currentStories[index], index);
-                        },
-                      ),
-                      _buildPullCurtain(),
-                    ],
+                : RefreshIndicator(
+                    onRefresh: _refreshFeed,
+                    child: Column(
+                      children: [
+                        // Кнопка сортировки
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  setState(() {
+                                    _sortOption = value;
+                                    _applySorting();
+                                  });
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'random',
+                                    child: Text('Случайно'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'newest',
+                                    child: Text('Сначала новые'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'oldest',
+                                    child: Text('Сначала старые'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'popular',
+                                    child: Text('Популярные'),
+                                  ),
+                                ],
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.sort),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _sortOption == 'random' ? 'Случайно' :
+                                      _sortOption == 'newest' ? 'Сначала новые' :
+                                      _sortOption == 'oldest' ? 'Сначала старые' :
+                                      'Популярные',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Список историй
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _currentStories.length,
+                            itemBuilder: (context, index) {
+                              return _buildStoryCard(_currentStories[index], index);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
       ),
     );
   }
 
-  Widget _buildPullCurtain() {
-    if (_pullOffset == 0) return const SizedBox();
-
-    return Positioned(
-      left: -_maxPull + _pullOffset,
-      top: 0,
-      bottom: 0,
-      width: _maxPull,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        color: neoAccent,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _readyToRefresh ? Icons.refresh : Icons.arrow_forward_ios,
-              size: 28,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _readyToRefresh ? 'Отпусти, чтобы обновить' : 'Потяни ещё',
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _wrapWithShowcase({
     required GlobalKey? showcaseKey,

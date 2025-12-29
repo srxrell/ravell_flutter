@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import 'package:readreels/services/story_storage_service.dart';
+import 'package:readreels/services/app_logger.dart';
 import '../models/story.dart';
 import '../models/comment.dart';
 import '../models/hashtag.dart';
@@ -42,6 +43,9 @@ class StoryService {
         headers: await _getHeaders(includeAuth: false),
       );
 
+      // LOG
+      AppLogger.api('GET /stories/seeds', data: {'code': response.statusCode});
+
       print('Seeds response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -65,6 +69,9 @@ class StoryService {
         Uri.parse('$baseUrl/stories/branches'),
         headers: await _getHeaders(includeAuth: false),
       );
+
+      // LOG
+      AppLogger.api('GET /stories/branches', data: {'code': response.statusCode});
 
       print('Branches response status: ${response.statusCode}');
 
@@ -323,6 +330,7 @@ class StoryService {
         headers: await _getHeaders(includeAuth: false),
       );
 
+      AppLogger.api('GET /hashtags/', data: {'code': response.statusCode});
       print('Hashtags response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -803,6 +811,7 @@ class StoryService {
         headers: await _getHeaders(includeAuth: true),
       );
 
+      AppLogger.api('GET /feed', data: {'code': response.statusCode});
       print('Feed stories response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {

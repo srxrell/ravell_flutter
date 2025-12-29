@@ -2,16 +2,19 @@ import 'dart:convert';
 import 'dart:io' if (dart.library.html) 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:readreels/screens/achievement_screen.dart';
 import 'package:readreels/screens/story_detail.dart';
+import 'package:readreels/services/draft_service.dart';
 import 'package:readreels/screens/influencers_board.dart';
-
+import 'package:readreels/screens/settings_screen.dart';
 import 'package:readreels/screens/add_story.dart';
 import 'package:readreels/screens/streak_screen.dart';
 import 'package:readreels/screens/subscribers_list.dart';
 import 'package:readreels/screens/user_story_feed_screen.dart';
+import 'package:readreels/screens/logs_screen.dart';
 import 'package:readreels/services/auth_service.dart';
 import 'package:readreels/services/story_service.dart';
 import 'package:readreels/theme.dart';
@@ -25,6 +28,8 @@ import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:readreels/models/draft_story.dart';
+import 'package:readreels/screens/add_story.dart' as add;
+import 'package:readreels/screens/create_draft_screeen.dart' as draftScreen;
 
 class UserProfileScreen extends StatefulWidget {
   final int profileUserId;
@@ -50,6 +55,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   String? _errorMessage;
   List<DraftStory> _drafts = [];
   double _currentTitleFontScale = 1.0; // New variable
+  String _sortOption = 'newest'; // 'newest', 'oldest', 'popular'
 
   @override
   void initState() {
@@ -591,6 +597,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               ),
             );
           }).toList(),
+    
     );
   }
 
@@ -625,11 +632,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             // Navigate to AddStoryScreen for editing the draft
             final result = await Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => AddStoryScreen(
+                builder: (context) => draftScreen.CreateStoryFromDraftScreen(
                   draft: draft,
-                  onDraftSaved: () {
-                    _loadDrafts(); // Refresh drafts after saving
-                  },
                 ),
               ),
             );
@@ -639,7 +643,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           },
           onLongPress: () => _showDraftOptionsDialog(draft),
           child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
+            margin: const EdgeInsets.only(bottom: 10, top: 10),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.black, width: 2),
@@ -664,7 +668,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Создан: ${draft.timestamp.toLocal().toString().split(' ')[0]}', // Display only date
+                    'Создан: ${draft.updatedAt.toString().split(' ')[0]}', // Display only date
                     style: TextStyle(color: Colors.grey[700]),
                   ),
                 ],
@@ -708,11 +712,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                     Navigator.of(context).pop();
                     await Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => AddStoryScreen(
+                        builder: (context) => draftScreen.CreateStoryFromDraftScreen(
                           draft: draft,
-                          onDraftSaved: () {
-                            _loadDrafts();
-                          },
                         ),
                       ),
                     );
@@ -768,180 +769,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     );
   }
 
-
-  Widget _buildDraftList(List<DraftStory> drafts) {
-    if (drafts.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 20.0),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(Icons.edit_note),
-              Text(
-                "У вас пока нет черновиков",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              Text(
-                "Начните писать новую историю!",
-                style: TextStyle(fontSize: 14),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: drafts.map((draft) {
-        return GestureDetector(
-          onTap: () async {
-            // Navigate to AddStoryScreen for editing the draft
-            final result = await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => AddStoryScreen(
-                  draft: draft,
-                  onDraftSaved: () {
-                    _loadDrafts(); // Refresh drafts after saving
-                  },
-                ),
-              ),
-            );
-            if (result == true) {
-              _loadDrafts(); // Refresh drafts if something was saved/deleted
-            }
-          },
-          onLongPress: () => _showDraftOptionsDialog(draft),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.black, width: 2),
-              borderRadius: const BorderRadius.all(Radius.circular(10)),
-            ),
-            child: ListTile(
-              title: Text(
-                draft.title.isNotEmpty ? draft.title : 'Без названия',
-                style: Theme.of(context).textTheme.headlineLarge!.copyWith(fontSize: 20),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 5),
-                  Text(
-                    draft.content.length > 150
-                        ? '${draft.content.substring(0, 150)}...'
-                        : draft.content,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey[700]),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Создан: ${draft.timestamp.toLocal().toString().split(' ')[0]}', // Display only date
-                    style: TextStyle(color: Colors.grey[700]),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  void _showDraftOptionsDialog(DraftStory draft) {
-    showModalBottomSheet(
-      barrierColor: const Color.fromARGB(153, 0, 0, 0),
-      elevation: 0,
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return Container(
-          margin: const EdgeInsets.all(10),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: const Border(
-              top: BorderSide(color: neoBlack, width: 4),
-              left: BorderSide(color: neoBlack, width: 4),
-              right: BorderSide(color: neoBlack, width: 8),
-              bottom: BorderSide(color: neoBlack, width: 8),
-            ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                ListTile(
-                  leading: const Icon(Icons.edit, color: Colors.black),
-                  title: const Text('Редактировать черновик'),
-                  onTap: () async {
-                    Navigator.of(context).pop();
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => AddStoryScreen(
-                          draft: draft,
-                          onDraftSaved: () {
-                            _loadDrafts();
-                          },
-                        ),
-                      ),
-                    );
-                    _loadDrafts(); // Refresh drafts after potential edit
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text(
-                    'Удалить черновик',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _showDeleteDraftConfirmationDialog(draft.id);
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showDeleteDraftConfirmationDialog(String draftId) {
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Подтвердить удаление черновика'),
-        content: const Text('Вы уверены, что хотите удалить этот черновик?'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop(); // Close dialog
-              await _draftService.deleteDraft(draftId);
-              _showSnackbar('Черновик успешно удален.');
-              _loadDrafts(); // Refresh drafts
-            },
-            child: const Text(
-              'Удалить',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Map<String, dynamic> _getSafeUserData() {
     if (_profileData == null) return {};
@@ -1047,7 +874,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     final username = userData['username'] as String?;
 
     try {
-      return storiesData.map((json) {
+      final stories = storiesData.map((json) {
         try {
           // ДОБАВЛЯЕМ недостающие поля из user_data
           final storyJson = Map<String, dynamic>.from(json);
@@ -1094,6 +921,21 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           );
         }
       }).toList();
+      
+      // Применяем сортировку
+      switch (_sortOption) {
+        case 'newest':
+          stories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          break;
+        case 'oldest':
+          stories.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          break;
+        case 'popular':
+          stories.sort((a, b) => b.likesCount.compareTo(a.likesCount));
+          break;
+      }
+      
+      return stories;
     } catch (e) {
       print('Error converting stories: $e');
       return [];
@@ -1186,30 +1028,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       avatarImageProvider = NetworkImage(fullAvatarUrl);
     }
 
-    Future<ImageProvider> loadNetworkImage(String url) async {
-  try {
-    final uri = Uri.parse(url);
-    final response = await http.get(
-      uri,
-      headers: {
-        'User-Agent': 'FlutterApp/1.0',
-        'Accept': 'image/*',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      return MemoryImage(response.bodyBytes);
-    } else {
-      print('🔴 Failed to load avatar. Status: ${response.statusCode}');
-      return const AssetImage('assets/default_avatar.png');
-    }
-  } catch (e) {
-    print('🔴 Error loading avatar: $e');
-    return const AssetImage('assets/default_avatar.png');
-  }
-}
-
-
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -1262,27 +1080,27 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                             height: 80,
                             color: Colors.blueGrey,
                             child: isAvatarSet
-                                ? FutureBuilder<ImageProvider>(
-                                    future: loadNetworkImage(avatarUrl!),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return const CircularProgressIndicator();
-                                      }
-                                      final imageProvider =
-                                          snapshot.data ??
-                                          const AssetImage(
-                                            'assets/default_avatar.png',
-                                          );
-                                      return ClipOval(
-                                        child: Image(
-                                          image: imageProvider,
-                                          width: 80,
-                                          height: 80,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      );
+                                ? CachedNetworkImage(
+                                    imageUrl: avatarUrl!,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                    httpHeaders: const {
+                                      'User-Agent': 'FlutterApp/1.0',
+                                      'Accept': 'image/*',
                                     },
+                                    placeholder: (context, url) => const Center(
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) => const Icon(
+                                      Icons.person,
+                                      size: 40,
+                                      color: Colors.white,
+                                    ),
                                   )
                                 : const Icon(
                                     Icons.person,
@@ -1291,34 +1109,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                   ),
                           ),
                         ),
-                        if (userData['is_early'] == true ||
-                            (userData['profile'] != null &&
-                                userData['profile']['is_early'] == true))
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: GestureDetector(
-                              onTap: () => EarlyAccessSheet.show(context),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: neoWhite,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: neoBlack,
-                                      offset: Offset(1, 1),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.star,
-                                  color: Colors.amber,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                     if (fullName.isNotEmpty)
@@ -1488,13 +1278,62 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         unselectedLabelColor: Colors.grey, // Inactive tab color
                         indicatorColor: Colors.black, // Indicator color
                       ),
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.5, // Adjust height as needed
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: 300,
+                          maxHeight: MediaQuery.of(context).size.height * 0.7,
+                        ), // Adjust height as needed
                         child: TabBarView(
+                          physics: const NeverScrollableScrollPhysics(),
                           controller: _tabController,
                           children: [
                             // Tab 1: Published Stories
-                            _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
+                            Column(
+                              children: [
+                                // Кнопка сортировки
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      PopupMenuButton<String>(
+                                        onSelected: (value) {
+                                          setState(() {
+                                            _sortOption = value;
+                                          });
+                                        },
+                                        itemBuilder: (context) => [
+                                          const PopupMenuItem(
+                                            value: 'newest',
+                                            child: Text('Сначала новые'),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'oldest',
+                                            child: Text('Сначала старые'),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'popular',
+                                            child: Text('Популярные'),
+                                          ),
+                                        ],
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.sort),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _sortOption == 'newest' ? 'Сначала новые' :
+                                              _sortOption == 'oldest' ? 'Сначала старые' :
+                                              'Популярные',
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                 _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale)
+                              ],
+                            ),
                             // Tab 2: Drafts
                             _buildDraftList(_drafts, _currentTitleFontScale),
                           ],
@@ -1503,21 +1342,60 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                     ],
                   )
                 else // If not my profile, just show stories
-                  _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
+                  Column(
+                    children: [
+                      // Кнопка сортировки
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            PopupMenuButton<String>(
+                              onSelected: (value) {
+                                setState(() {
+                                  _sortOption = value;
+                                });
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'newest',
+                                  child: Text('Сначала новые'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'oldest',
+                                  child: Text('Сначала старые'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'popular',
+                                  child: Text('Популярные'),
+                                ),
+                              ],
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.sort),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _sortOption == 'newest' ? 'Сначала новые' :
+                                    _sortOption == 'oldest' ? 'Сначала старые' :
+                                    'Популярные',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
+                    ],
+                  ),
                 const SizedBox(height: 50),
 
 
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            child: Container(
-              width: MediaQuery.of(context).size.width,
-              child: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
-            ),
+        ]),
           ),
         ],
       ),
+      bottomNavigationBar: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
       endDrawer: Drawer(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
@@ -1539,11 +1417,29 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const SettingsScreen(),
+                    builder: (_) => SettingsScreen(),
                   ),
                 );
               },
             ),
+            // ListTile(
+            //   leading: const Icon(Icons.bug_report, color: Colors.black),
+            //   title: const Text(
+            //     'Backstage логи',
+            //     style: TextStyle(
+            //       fontSize: 15,
+            //       fontWeight: FontWeight.w900,
+            //       color: Colors.black,
+            //     ),
+            //   ),
+            //   onTap: () {
+            //     Navigator.of(context).push(
+            //       MaterialPageRoute(
+            //         builder: (_) => const LogsScreen(),
+            //       ),
+            //     );
+            //   },
+            // ),
             ListTile(
               leading: const Icon(Icons.info, color: Colors.black),
               title: const Text(
