@@ -21,29 +21,6 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
   void initState() {
     super.initState();
     future = _loadInfluencers();
-    _checkAdmin();
-  }
-
-  Future<void> _checkAdmin() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? username = prefs.getString('username');
-
-    if (username == null) {
-      print('Username is null, reloading user profile...');
-      await AuthService().loadAndSaveUserProfile();
-      username = prefs.getString('username');
-    }
-
-    print('================ DEBUG ADMIN CHECK ================');
-    print('Stored username: "$username"');
-    if (username == 'serellvorne' && mounted) {
-      print('User IS admin. Enabling button.');
-      setState(() {
-        _isAdmin = true;
-      });
-    } else {
-      print('User is NOT admin.');
-    }
   }
 
   Future<List<Influencer>> _loadInfluencers() async {
@@ -65,13 +42,8 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ранние участники')),
-      floatingActionButton: _isAdmin
-          ? FloatingActionButton(
-              onPressed: _showAddInfluencerDialog,
-              child: const Icon(Icons.add),
-            )
-          : null,
+      appBar: AppBar(title: const Text('Доска почета')),
+      
       body: FutureBuilder<List<Influencer>>(
         future: future,
         builder: (context, snapshot) {
@@ -172,15 +144,9 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
                             ],
                           ),
                           const SizedBox(height: 4),
-                          Text('${inf.storyCount} stories'),
+                          Text('${inf.featureDescription}'),
                         ],
                       ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        // позже
-                      },
-                      child: Text(inf.isFollowing ? 'Following' : 'Follow'),
                     ),
                   ],
                 ),

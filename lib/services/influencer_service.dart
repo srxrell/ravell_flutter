@@ -12,7 +12,6 @@ class InfluencersService {
     final response = await http.get(
       Uri.parse('$baseUrl/users/influencers/early'),
       headers: {
-        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
     );

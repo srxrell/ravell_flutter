@@ -1,10 +1,12 @@
 class Achievement {
+  final String? key; // <-- добавляем поле key
   final String title;
   final String description;
   final String iconUrl;
   final bool unlocked;
 
   Achievement({
+    required this.key,
     required this.title,
     required this.description,
     required this.iconUrl,
@@ -13,6 +15,7 @@ class Achievement {
 
   factory Achievement.fromJson(Map<String, dynamic> json) {
     return Achievement(
+      key: json['key'] ?? '', // <-- парсим ключ
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       iconUrl: json['icon_url'] ?? '',
@@ -20,6 +23,7 @@ class Achievement {
     );
   }
 }
+
 
 class UserAchievement {
   final double progress;

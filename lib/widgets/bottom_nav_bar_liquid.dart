@@ -49,7 +49,7 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getInt('guest_id') != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Требуется авторизация')));
+          const SnackBar(content: Text('Требуется авторизация'))); context.go('/auth-check'); 
       return;
     }
 
@@ -87,13 +87,13 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getInt('guest_id') != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Требуется авторизация')));
+          const SnackBar(content: Text('Требуется авторизация'))); context.go('/auth-check'); 
       return;
     }
     final userId = prefs.getInt('user_id');
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Требуется авторизация')));
+          const SnackBar(content: Text('Требуется авторизация'))); context.go('/auth-check'); 
       return;
     }
     context.push('/profile/$userId');

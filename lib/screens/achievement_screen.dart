@@ -117,92 +117,119 @@ class _AchievementScreenState extends State<AchievementScreen> {
           ),
           // --- GRID ---
           Expanded(
-            child: _isLoading
-                ? GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    itemCount: 4,
-                    itemBuilder: (_, __) => Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  )
-                : _errorMessage != null
-                    ? Center(child: Text(_errorMessage!))
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 0.85,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                        ),
-                        itemCount: _achievements.length,
-                        itemBuilder: (context, index) {
-                          final ua = _achievements[index];
-                          final ach = ua.achievement;
-                          final progress = ua.progress.clamp(0.0, 1.0);
-                          final isUnlocked = ua.unlocked;
-                          final isInstant = ach.title == "Первооткрыватель"; // моментальная ачивка
-                          final showProgress = !isInstant && progress < 1;
-
-                          return Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: isUnlocked ? neoAccent : Colors.white,
-                              border: Border.all(color: Colors.black, width: 2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  ach.title,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 8),
-                                Image.network(
-                                  ach.iconUrl,
-                                  width: 50,
-                                  height: 50,
-                                  errorBuilder: (_, __, ___) => const Icon(Icons.star),
-                                ),
-                                
-                                const SizedBox(height: 4),
-                                Text(
-                                  ach.description,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                const SizedBox(height: 6),
-                                
-                               showProgress
-                                  ? LinearProgressIndicator(
-                                      value: progress,
-                                      minHeight: 6,
-                                    )
-                                  : Text(
-                                      "Completed",
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: neoAccent,
-                                      ),
-                                    ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+  child: _isLoading
+      ? GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.85,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
           ),
+          itemCount: 4,
+          itemBuilder: (_, __) => Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        )
+      : _errorMessage != null
+          ? Center(child: Text(_errorMessage!))
+          : GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.85,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: _achievements.length,
+              itemBuilder: (context, index) {
+                final ua = _achievements[index];
+                final ach = ua.achievement;
+                final progress = ua.progress.clamp(0.0, 1.0);
+
+                // --- Логика доступности ---
+                final isInstant = ach.title == "Первооткрыватель";
+                final isUser9 = widget.userId == 9;
+
+                // Проверяем только реально разблокированные ачивки
+                bool isUnlocked = ua.unlocked || isInstant;
+
+                // Спец-кейс для ачивки influential у юзера 9
+                if (!isUnlocked && ach.key == "influential" && isUser9) {
+                  isUnlocked = true;
+                }
+
+
+                final showProgress = !isInstant && progress < 1;
+
+                // --- Прозрачность / цвет для недоступной ---
+                final cardColor = isUnlocked ? neoWhite : Colors.black.withOpacity(0.1);
+                final iconOpacity = isUnlocked ? 1.0 : 0.3;
+                final textColor = isUnlocked ? Colors.black : Colors.grey[600];
+
+                return Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    border: Border.all(color: Colors.black, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        ach.title,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Opacity(
+                        opacity: iconOpacity,
+                        child: Image.network(
+                          ach.iconUrl,
+                          width: 50,
+                          height: 50,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.star),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        ach.description,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      showProgress
+                          ? LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 6,
+                              color: neoAccent,
+                              backgroundColor: neoAccent.withOpacity(0.3),
+                            )
+                          : Text(
+                              "Completed",
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: textColor,
+                              ),
+                            ),
+                    ],
+                  ),
+                );
+              },
+            ),
+)
+
         ],
       ),
     );
