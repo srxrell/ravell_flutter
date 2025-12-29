@@ -668,27 +668,40 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   }
 
   Widget _buildReplyButton() {
-    return Container(
-      height: 75,
-      width: MediaQuery.of(context).size.width,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: NeoIconButton(
-        onPressed: () {
-          Navigator.of(context)
-              .push(
-                MaterialPageRoute(
-                  builder:
-                      (context) => AddStoryScreen(
-                        parentTitle: widget.story.title,
-                        replyToId: widget.story.id,
-                      ),
+  return Container(
+    height: 75,
+    width: MediaQuery.of(context).size.width,
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: NeoIconButton(
+      onPressed: () async {
+        final prefs = await SharedPreferences.getInstance();
+        final isGuest = prefs.getInt('guest_id') != null;
+
+        if (isGuest) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Только для зарегистрированных пользователей'),
+            ),
+          );
+          return;
+        }
+
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder: (context) => AddStoryScreen(
+                  parentTitle: widget.story.title,
+                  replyToId: widget.story.id,
                 ),
-              )
-              .then((_) => _fetchReplies());
-        },
-        icon: const Icon(Icons.reply),
-        child: const Text('Ответить'),
-      ),
-    );
-  }
+              ),
+            )
+            .then((_) => _fetchReplies());
+      },
+      icon: const Icon(Icons.reply),
+      child: const Text('Ответить'),
+    ),
+  );
+}
+
+
 }

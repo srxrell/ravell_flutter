@@ -167,7 +167,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   Future<void> _checkAuthStatusAndFetch() async {
     final prefs = await SharedPreferences.getInstance();
     currentUserId = prefs.getInt('user_id');
-    final guestId = prefs.getInt('GUEST_ID');
+    final guestId = prefs.getInt('guest_id');
 
     if (currentUserId == null && guestId == null) {
       if (mounted) {
@@ -499,33 +499,40 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                       child: SizedBox(
                                         height: 70,
                                         child: NeoIconButton(
-                                          onPressed: () {
-                                            if (currentUserId == null) {
-                                              if (mounted) {
-                                                context.go('/auth-check');
-                                              }
-                                              return;
-                                            }
-                                            context.push(
-                                              '/addStory',
-                                              extra: {
-                                                'replyTo': story.id,
-                                                'parentTitle': story.title,
-                                              },
-                                            );
-                                          },
-                                          icon: const Icon(
-                                            Icons.reply,
-                                            size: 18,
-                                          ),
-                                          child: Text(
-                                            ' Ответить | ${_getReplyText(story.repliesCount)}',
-                                            style: TextStyle(
-                                              fontSize: 14 * _getFontScale(),
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
+  onPressed: () {
+    if (currentUserId == null) {
+      // Гость: показываем сообщение вместо перехода
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Войдите, чтобы ответить'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    context.push(
+      '/addStory',
+      extra: {
+        'replyTo': story.id,
+        'parentTitle': story.title,
+      },
+    );
+  },
+  icon: const Icon(
+    Icons.reply,
+    size: 18,
+  ),
+  child: Text(
+    currentUserId == null
+        ? ' Войдите, чтобы ответить'
+        : ' Ответить | ${_getReplyText(story.repliesCount)}',
+    style: TextStyle(
+      fontSize: 14 * _getFontScale(),
+      fontWeight: FontWeight.w500,
+    ),
+  ),
+),
+
                                       ),
                                     ),
                                   ),

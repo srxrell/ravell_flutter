@@ -252,6 +252,17 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                           text: isLogin ? "Создать аккаунт" : "Назад ко входу",
                         ),
                       ),
+                      SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: NeoButton(
+                          type: NeoButtonType.general,
+                          onPressed: () async {
+                            await logInAsGuest();
+                          },
+                          text: "Войти как гость"
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -304,6 +315,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                 playerId,
               ); // Нужно реализовать на сервере и в AuthService
             }
+            await prefs.remove('guest_id');
             context.go('/home');
             return;
           } else {
@@ -351,7 +363,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     try {
       var code = math.Random().nextInt(999999);
       final sp = await SharedPreferences.getInstance();
-      sp.setInt("GUEST_ID", code);
+      sp.setInt("guest_id", code);
       if (context.mounted) context.go('/home');
     } catch (e) {
       _showSnackBar('Ошибка гостевого входа: ${e.toString()}', isError: true);

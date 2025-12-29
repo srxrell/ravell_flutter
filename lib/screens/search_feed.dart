@@ -57,7 +57,7 @@ class _SearchFeedState extends State<SearchFeed> {
   Future<void> _getUserIdAndFetchInitialData() async {
     final prefs = await SharedPreferences.getInstance();
     final storedUserId = prefs.getInt('user_id');
-    final guestId = prefs.getInt('GUEST_ID');
+    final guestId = prefs.getInt('guest_id');
 
     if (storedUserId != null) {
       currentUserId = storedUserId;
