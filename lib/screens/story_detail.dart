@@ -688,10 +688,13 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
             ),
           ),
           const SizedBox(width: 10),
-          IconButton(
-            icon: Icon(Icons.text_fields,
-                color: isDarkBg ? Colors.white : Colors.black),
-            onPressed: _openReadingSettings,
+          GestureDetector(
+            onTap: _openReadingSettings,
+            child: SvgPicture.asset(
+                  "assets/icons/settings.svg",
+                  width: 60,
+                  height: 60,
+                ),
           ),
           const SizedBox(width: 10),
         ],
