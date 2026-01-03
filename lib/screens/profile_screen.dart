@@ -490,10 +490,10 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     }
   }
 
-  Widget _buildExpandableStoryList(List<Story> stories, bool isMyProfile, double titleFontScale) {
+  Widget _buildSliverExpandableStoryList(List<Story> stories, bool isMyProfile, double titleFontScale) {
     if (stories.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 20.0),
+      return const SliverFillRemaining(
+        hasScrollBody: false,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -514,52 +514,61 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       );
     }
 
-    return Expanded(child: ListView(
-      children:
-          stories.map((story) {
+    return SliverPadding(
+      padding: const EdgeInsets.only(bottom: 100, top: 10),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final story = stories[index];
             return GestureDetector(
               onTap: () {
                 if (mounted) {
-                  // Получаем данные пользователя из профиля
                   final userData = _getSafeUserData();
                   final profileUsername = userData['username'] as String?;
                   final profileAvatar = userData['avatar'] as String?;
-
-                  // Создаем копию истории с добавленными данными пользователя
                   final enhancedStory = story.copyWith(
                     username: profileUsername ?? story.username,
                     avatarUrl: profileAvatar ?? story.avatarUrl,
                   );
-
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder:
-                          (context) => StoryDetailPage(story: enhancedStory),
+                      builder: (context) => StoryDetailPage(story: enhancedStory),
                     ),
                   );
                 }
               },
-              onLongPress:
-                  isMyProfile ? () => _showStoryOptionsDialog(story) : null,
+              onLongPress: isMyProfile ? () => _showStoryOptionsDialog(story) : null,
               child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
+                margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.black, width: 2),
                   borderRadius: const BorderRadius.all(Radius.circular(10)),
                 ),
                 child: ListTile(
-                  title: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(
-                    // show shorten title with "..."
-                    story.title.length > 30 ? '${story.title.substring(0, 30)}...' : story.title,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.headlineLarge!.copyWith(fontSize: 20 * titleFontScale),
-                  ),GestureDetector(onTap: isMyProfile ? () => _showStoryOptionsDialog(story) : null, child:Icon(Icons.more_vert))]),
+                  contentPadding: EdgeInsets.zero,
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          story.title.length > 30 ? '${story.title.substring(0, 30)}...' : story.title,
+                          style: Theme.of(context).textTheme.headlineLarge!.copyWith(
+                                fontSize: 20 * titleFontScale,
+                              ),
+                        ),
+                      ),
+                      if (isMyProfile)
+                        GestureDetector(
+                          onTap: () => _showStoryOptionsDialog(story),
+                          child: const Icon(Icons.more_vert),
+                        ),
+                    ],
+                  ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(height: 5),
+                      const SizedBox(height: 5),
                       Text(
                         story.content.length > 150
                             ? '${story.content.substring(0, 150)}...'
@@ -568,27 +577,24 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: Colors.grey[700]),
                       ),
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              if (story.hashtags.isNotEmpty)
-                                for (var x in story.hashtags)
-                                  Text(
-                                    x.name == "" ? "Text" : x.name,
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
+                          if (story.hashtags.isNotEmpty)
+                            Expanded(
+                              child: Wrap(
+                                children: story.hashtags.map((x) => Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: Text(
+                                    x.name.isEmpty ? "Text" : "#${x.name}",
                                     style: TextStyle(color: Colors.grey[700]),
                                   ),
-                            ],
-                          ),
+                                )).toList(),
+                              ),
+                            ),
                           Text(
-                            // display date in dd/mm/yyyy format
                             story.createdAt.toString().substring(0, 10),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: Colors.grey[700]),
                           ),
                         ],
@@ -598,14 +604,17 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 ),
               ),
             );
-          }).toList(),
-    ));
+          },
+          childCount: stories.length,
+        ),
+      ),
+    );
   }
 
-  Widget _buildDraftList(List<DraftStory> drafts, double titleFontScale) {
+  Widget _buildSliverDraftList(List<DraftStory> drafts, double titleFontScale) {
     if (drafts.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 20.0),
+      return const SliverFillRemaining(
+        hasScrollBody: false,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -626,58 +635,67 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       );
     }
 
-    return Column(
-      children: drafts.map((draft) {
-        return GestureDetector(
-          onTap: () async {
-            // Navigate to AddStoryScreen for editing the draft
-            final result = await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => draftScreen.CreateStoryFromDraftScreen(
-                  draft: draft,
+    return SliverPadding(
+      padding: const EdgeInsets.only(bottom: 100, top: 10),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final draft = drafts[index];
+            return GestureDetector(
+              onTap: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => draftScreen.CreateStoryFromDraftScreen(
+                      draft: draft,
+                    ),
+                  ),
+                );
+                if (result == true) {
+                  _loadDrafts();
+                }
+              },
+              onLongPress: () => _showDraftOptionsDialog(draft),
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black, width: 2),
+                  borderRadius: const BorderRadius.all(Radius.circular(10)),
+                ),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    draft.title.isNotEmpty ? draft.title : 'Без названия',
+                    style: Theme.of(context).textTheme.headlineLarge!.copyWith(
+                          fontSize: 20 * titleFontScale,
+                        ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 5),
+                      Text(
+                        draft.content.length > 150
+                            ? '${draft.content.substring(0, 150)}...'
+                            : draft.content,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Создан: ${draft.updatedAt.toString().split(' ')[0]}',
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
-            if (result == true) {
-              _loadDrafts(); // Refresh drafts if something was saved/deleted
-            }
           },
-          onLongPress: () => _showDraftOptionsDialog(draft),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12, top: 10),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.black, width: 2),
-              borderRadius: const BorderRadius.all(Radius.circular(10)),
-            ),
-            child: ListTile(
-              title: Text(
-                draft.title.isNotEmpty ? draft.title : 'Без названия',
-                style: Theme.of(context).textTheme.headlineLarge!.copyWith(fontSize: 20 * titleFontScale), // Apply titleFontScale
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 5),
-                  Text(
-                    draft.content.length > 150
-                        ? '${draft.content.substring(0, 150)}...'
-                        : draft.content,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey[700]),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Создан: ${draft.updatedAt.toString().split(' ')[0]}', // Display only date
-                    style: TextStyle(color: Colors.grey[700]),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+          childCount: drafts.length,
+        ),
+      ),
     );
   }
 
@@ -970,6 +988,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     return false;
   }
 
+  
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -1032,7 +1052,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-
         toolbarHeight: 100,
         elevation: 0,
         surfaceTintColor: neoBackground,
@@ -1060,22 +1079,16 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.only(
-              left: 16.0,
-              right: 16.0,
-              bottom: 16.0,
-              top: 20.0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- СЕКЦИЯ 1: АВАТАР, ИМЯ И СТАТИСТИКА ---
-                Column(
-                  children: [
-                    Stack(
-                      children: [
-                        ClipOval(
+          NestedScrollView(
+            headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+              return [
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- АВАТАР ---
+                      Center(
+                        child: ClipOval(
                           child: Container(
                             width: 80,
                             height: 80,
@@ -1083,21 +1096,19 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                             child: isAvatarSet
                                 ? CachedNetworkImage(
                                     imageUrl: avatarUrl!,
-                                    width: 80,
-                                    height: 80,
                                     fit: BoxFit.cover,
                                     httpHeaders: const {
                                       'User-Agent': 'FlutterApp/1.0',
                                       'Accept': 'image/*',
                                     },
-                                    placeholder: (context, url) => const Center(
+                                    placeholder: (_, __) => const Center(
                                       child: SizedBox(
                                         width: 24,
                                         height: 24,
                                         child: CircularProgressIndicator(strokeWidth: 2),
                                       ),
                                     ),
-                                    errorWidget: (context, url, error) => const Icon(
+                                    errorWidget: (_, __, ___) => const Icon(
                                       Icons.person,
                                       size: 40,
                                       color: Colors.white,
@@ -1110,296 +1121,224 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                   ),
                           ),
                         ),
-                      ],
-                    ),
-                    if (fullName.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // --- ИМЯ ---
+                      if (fullName.isNotEmpty)
+                        Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                fullName,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineLarge
+                                    ?.copyWith(fontSize: 25),
+                              ),
+                              if (userData['is_early'] == true ||
+                                  userData['profile']?['is_early'] == true) ...[
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () => EarlyAccessSheet.show(context),
+                                  child: const Icon(Icons.star, color: Colors.amber),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 4),
+
+                      // --- USERNAME ---
+                      Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              fullName,
-                              style: Theme.of(
-                                context,
-                              ).textTheme.headlineLarge?.copyWith(fontSize: 25),
+                              '@$username',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineLarge
+                                  ?.copyWith(fontSize: 16),
                             ),
-                            if (userData['is_early'] == true ||
-                                (userData['profile'] != null &&
-                                    userData['profile']['is_early'] == true)) ...[
+                            if (fullName.isEmpty &&
+                                (userData['is_early'] == true ||
+                                    userData['profile']?['is_early'] == true)) ...[
                               const SizedBox(width: 8),
                               GestureDetector(
                                 onTap: () => EarlyAccessSheet.show(context),
-                                child: const Icon(Icons.star, color: Colors.amber),
+                                child: const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                  size: 18,
+                                ),
                               ),
                             ],
                           ],
                         ),
                       ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '@$username',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.headlineLarge!.copyWith(fontSize: 16),
-                        ),
-                        if (fullName.isEmpty &&
-                            (userData['is_early'] == true ||
-                                (userData['profile'] != null &&
-                                    userData['profile']['is_early'] == true))) ...[
-                          const SizedBox(width: 8),
+                      const SizedBox(height: 10),
+
+                      // --- СТРИК + ДОСТИЖЕНИЯ ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (streakCount != null)
+                            Chip(
+                              side: const BorderSide(width: 2),
+                              label: GestureDetector(
+                                onTap: isMyProfile
+                                    ? () => Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => const StreakScreen(),
+                                          ),
+                                        )
+                                    : null,
+                                child: Row(
+                                  children: [
+                                    const Text('🔥'),
+                                    Text(
+                                      streakCount.toString(),
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          const SizedBox(width: 10),
                           GestureDetector(
-                            onTap: () => EarlyAccessSheet.show(context),
-                            child: const Icon(
-                              Icons.star,
-                              color: Colors.amber,
-                              size: 18,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => AchievementScreen(
+                                    userId: _safeParseInt(userData['id']) ?? 0,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: const Chip(
+                              side: BorderSide(width: 2),
+                              label: Text('🎯 Ваши достижения'),
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                    const SizedBox(width: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Chip(
-                          side: const BorderSide(
-                            color: Colors.black,
-                            width: 2,
-                            strokeAlign: BorderSide.strokeAlignOutside,
+                      ),
+                      const SizedBox(height: 10),
+
+                      // --- СТАТИСТИКА ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatColumn("Статей", stats['stories_count']),
+                          _buildStatColumn("Подписчиков", stats['followers_count']),
+                          _buildStatColumn("Подписок", stats['following_count']),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // --- КНОПКА ---
+                      if (isMyProfile)
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 10),
+                          child: NeoButton(
+                            onPressed: _navigateToEditProfile,
+                            text: 'Редактировать профиль',
                           ),
-                          label:
-                              streakCount != null
-                                  ? GestureDetector(
-                                    onTap: () {
-                                      if (isMyProfile) {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder:
-                                                (_) => const StreakScreen(),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    child: Row(
-                                      children: [
-                                        const Text(
-                                          '🔥',
-                                          style: TextStyle(fontSize: 16),
-                                        ),
-                                        Text(
-                                          streakCount.toString(),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                  : SizedBox.shrink(),
-                        ),
-                        SizedBox(width: 10),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => AchievementScreen(
-                                      userId: _safeParseInt(userData['id']) ?? 0,
-                                    ),
-                              ),
-                            );
-                          },
-                          child: const Chip(
-                            side: BorderSide(
-                              color: Colors.black,
-                              width: 2,
-                              strokeAlign: BorderSide.strokeAlignOutside,
-                            ),
-                            label: Text("🎯 Ваши достижения"),
+                        )
+                      else if (currentUserId != null)
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 10),
+                          child: NeoButton(
+                            onPressed: _handleFollowToggle,
+                            text: isFollowing ? 'Вы подписаны' : 'Подписаться',
                           ),
+                        )
+                      else
+                        const Center(
+                          child: Text('Авторизуйтесь, чтобы подписаться'),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatColumn("Статей", stats['stories_count']),
-                        _buildStatColumn(
-                          "Подписчиков",
-                          stats['followers_count'],
-                        ),
-                        _buildStatColumn("Подписок", stats['following_count']),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
-
-                // --- СЕКЦИЯ 2: КНОПКА ПОДПИСКИ/РЕДАКТИРОВАНИЯ ---
-                const SizedBox(height: 10),
-
                 if (isMyProfile)
-                  SizedBox(
-                    height: 75,
-                    width: double.infinity,
-                    child: NeoButton(
-                      onPressed: _navigateToEditProfile,
-                      text: 'Редактировать профиль',
-                    ),
-                  )
-                else if (currentUserId != null)
-                  SizedBox(
-                    width: double.infinity,
-                    child: NeoButton(
-                      onPressed: _handleFollowToggle,
-                      text: isFollowing ? 'Вы подписаны' : 'Подписаться',
+                  SliverOverlapAbsorber(
+                    handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                    sliver: SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _TabBarDelegate(
+                        TabBar(
+                          controller: _tabController,
+                          labelColor: Colors.black,
+                          unselectedLabelColor: Colors.grey,
+                          indicatorColor: Colors.black,
+                          tabs: const [
+                            Tab(text: 'Статьи'),
+                            Tab(text: 'Черновики'),
+                          ],
+                        ),
+                      ),
                     ),
                   )
                 else
-                  const Center(
-                    child: Text('Авторизуйтесь, чтобы подписаться.'),
+                  SliverOverlapAbsorber(
+                    handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                    sliver: const SliverToBoxAdapter(child: SizedBox.shrink()),
                   ),
-                const SizedBox(height: 10),
-
-                // --- СЕКЦИЯ 3: ТАБЫ ИСТОРИЙ И ЧЕРНОВИКОВ ---
-                if (isMyProfile) // Only show tabs if it's my own profile
-                  Column(
+              ];
+            },
+            body: isMyProfile
+                ? TabBarView(
+                    controller: _tabController,
                     children: [
-                      TabBar(
-                        controller: _tabController,
-                        tabs: const [
-                          Tab(text: 'Статьи'),
-                          Tab(text: 'Черновики'),
-                        ],
-                        labelColor: Colors.black, // Active tab color
-                        unselectedLabelColor: Colors.grey, // Inactive tab color
-                        indicatorColor: Colors.black, // Indicator color
-                      ),
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.5, // Adjust height as needed
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            // Tab 1: Published Stories
-                            Column(
-                              children: [
-                                // Кнопка сортировки
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      PopupMenuButton<String>(
-                                        onSelected: (value) {
-                                          setState(() {
-                                            _sortOption = value;
-                                          });
-                                        },
-                                        itemBuilder: (context) => [
-                                          const PopupMenuItem(
-                                            value: 'newest',
-                                            child: Text('Сначала новые'),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'oldest',
-                                            child: Text('Сначала старые'),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'popular',
-                                            child: Text('Популярные'),
-                                          ),
-                                        ],
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.sort),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              _sortOption == 'newest' ? 'Сначала новые' :
-                                              _sortOption == 'oldest' ? 'Сначала старые' :
-                                              'Популярные',
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale),
-                                
-                              ],
+                      Builder(builder: (context) {
+                        return CustomScrollView(
+                          slivers: [
+                            SliverOverlapInjector(
+                              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
                             ),
-                            // Tab 2: Drafts
-                            _buildDraftList(_drafts, _currentTitleFontScale),
+                            _buildSliverExpandableStoryList(
+                                userStories, isMyProfile, _currentTitleFontScale),
                           ],
-                        ),
-                      ),
+                        );
+                      }),
+                      Builder(builder: (context) {
+                        return CustomScrollView(
+                          slivers: [
+                            SliverOverlapInjector(
+                              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                            ),
+                            _buildSliverDraftList(_drafts, _currentTitleFontScale),
+                          ],
+                        );
+                      }),
                     ],
                   )
-                else // If not my profile, just show stories
-                  Column(
-                    children: [
-                      // Кнопка сортировки
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            PopupMenuButton<String>(
-                              onSelected: (value) {
-                                setState(() {
-                                  _sortOption = value;
-                                });
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'newest',
-                                  child: Text('Сначала новые'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'oldest',
-                                  child: Text('Сначала старые'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'popular',
-                                  child: Text('Популярные'),
-                                ),
-                              ],
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.sort),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _sortOption == 'newest' ? 'Сначала новые' :
-                                    _sortOption == 'oldest' ? 'Сначала старые' :
-                                    'Популярные',
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                : CustomScrollView(
+                    slivers: [
+                      SliverOverlapInjector(
+                        handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
                       ),
-                      _buildExpandableStoryList(userStories, isMyProfile, _currentTitleFontScale)
+                      _buildSliverExpandableStoryList(
+                          userStories, isMyProfile, _currentTitleFontScale),
                     ],
                   ),
-                const SizedBox(height: 100),
-
-
-        ]),
           ),
+
+          // ===== BOTTOM NAV =====
           Positioned(
             bottom: 0,
-            child: Container(
+            child: SizedBox(
               width: MediaQuery.of(context).size.width,
-              child: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
+              child: p.PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(
+                currentRoute: GoRouterState.of(context).uri.toString(),
+              ),
             ),
           ),
         ],
       ),
+
       endDrawer: Drawer(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
@@ -1474,6 +1413,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     );
   }
 
+  
+
   Widget _buildAchievementsButton(
     List<String> achievementIcons,
     VoidCallback onTap,
@@ -1524,4 +1465,27 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       ),
     );
   }
+}
+
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+
+  _TabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(context, shrinkOffset, overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_) => false;
 }

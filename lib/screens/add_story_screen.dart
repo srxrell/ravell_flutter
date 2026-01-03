@@ -108,67 +108,65 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
             ),
         ],
       ),
-      body: Expanded(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isReply) // Визуальное подтверждение, что это ответ
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Text(
-                    'Вы отвечаете на историю: "${widget.parentTitle ?? 'Неизвестная история'}"',
-                    style: const TextStyle(
-                      fontStyle: FontStyle.italic,
-                      color: Colors.grey,
-                    ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isReply) // Визуальное подтверждение, что это ответ
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: Text(
+                  'Вы отвечаете на историю: "${widget.parentTitle ?? 'Неизвестная история'}"',
+                  style: const TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey,
                   ),
                 ),
-              // inputs are still shown
-              // Заголовок
-TextField(
-  controller: _titleController,
-  decoration: const InputDecoration(
-    hintText: 'Заголовок',
-    fillColor: Colors.transparent,
-    border: UnderlineInputBorder(
-      borderSide: BorderSide(color: Colors.black),
-    ),
-    enabledBorder: UnderlineInputBorder(
-      borderSide: BorderSide(color: Colors.black),
-    ),
-    focusedBorder: UnderlineInputBorder(
-      borderSide: BorderSide(color: Colors.black),
-    ),
-  ),
-),
+              ),
+            // inputs are still shown
+            // Заголовок
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                hintText: 'Заголовок',
+                fillColor: Colors.transparent,
+                border: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black),
+                ),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black),
+                ),
+              ),
+            ),
 
-const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-// Контент
-TextField(
-  controller: _contentController,
-  minLines: 1,
-  maxLines: null,
-  keyboardType: TextInputType.multiline,
-  decoration: const InputDecoration(
-    hintText: 'Контент',
-    fillColor: Colors.transparent,
-    border: UnderlineInputBorder(
-      borderSide: BorderSide(color: Colors.black),
-    ),
-    enabledBorder: UnderlineInputBorder(
-      borderSide: BorderSide(color: Colors.black),
-    ),
-    focusedBorder: UnderlineInputBorder(
-      borderSide: BorderSide(color: Colors.black),
-    ),
-  ),
-),
+            // Контент
+            TextField(
+              controller: _contentController,
+              minLines: 1,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              decoration: const InputDecoration(
+                hintText: 'Контент',
+                fillColor: Colors.transparent,
+                border: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black),
+                ),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black),
+                ),
+              ),
+            ),
 
-            ],
-          ),
+          ],
         ),
       ),
       bottomNavigationBar: MarkdownToolbar(controller: _contentController), // Toolbar at the bottom navigation bar

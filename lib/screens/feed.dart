@@ -20,6 +20,8 @@ import 'package:readreels/widgets/comments_bottom_sheet.dart';
 import 'package:readreels/widgets/expandable_story_content.dart';
 import 'package:showcaseview/showcaseview.dart';
 
+import 'package:readreels/services/updateChecker.dart';
+
 enum StoryType { seeds, branches, all }
 
 class Feed extends StatefulWidget {
@@ -32,6 +34,8 @@ class Feed extends StatefulWidget {
 class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   final st.StoryService _storyService = st.StoryService();
 
+
+  final updateChecker = UpdateChecker();
   late TabController _tabController;
   StoryType _currentStoryType = StoryType.seeds;
   bool _isRefreshing = false;
@@ -127,6 +131,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showCaseIfNeeded();
+      updateChecker.checkUpdate(context);
     });
   }
 
@@ -550,9 +555,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
 
   // Вынес аватар в отдельный виджет для чистоты кода
   Widget _buildAuthorAvatar(Story story) {
-    print('🔵 FEED Avatar URL: ${story.resolvedAvatarUrl}');
-    print('🔵 FEED Username: ${story.username}');
-    print('🔵 FEED Story ID: ${story.id}');
     return GestureDetector(
       onTap: () => context.go('/profile/${story.userId}'),
       child: Container(
@@ -941,6 +943,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                         // Список историй
                         Expanded(
                           child: ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             itemCount: _currentStories.length,
                             itemBuilder: (context, index) {
