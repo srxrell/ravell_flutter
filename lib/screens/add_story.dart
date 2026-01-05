@@ -83,6 +83,7 @@ class _NewHashtagScreenState extends State<NewHashtagScreen> {
 
     setState(() => _isLoading = true);
     try {
+
       final newHashtag = await widget.storyService.createHashtag(name);
       if (mounted) Navigator.of(context).pop(newHashtag);
     } catch (e) {
@@ -116,11 +117,20 @@ class _NewHashtagScreenState extends State<NewHashtagScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _controller,
-              style: Theme.of(context).textTheme.bodyLarge,
+              // Устанавливаем четкую высоту строки
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                height: 1.5,
+              ),
+              strutStyle: const StrutStyle(
+                height: 1.4,
+                forceStrutHeight: true,
+              ),
               decoration: InputDecoration(
                 hintText: 'Например: "Старые Легенды"',
-                contentPadding: const EdgeInsets.all(16),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                filled: true,
+                fillColor: Colors.white,
+                border: InputBorder.none,
               ),
               onSubmitted: (_) => _createNewHashtag(),
             ),

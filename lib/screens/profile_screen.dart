@@ -1197,7 +1197,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                     : null,
                                 child: Row(
                                   children: [
-                                    const Text('🔥'),
+                                    const Icon(Icons.whatshot, color: Colors.orange),
                                     Text(
                                       streakCount.toString(),
                                       style: const TextStyle(fontWeight: FontWeight.bold),
@@ -1219,7 +1219,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                             },
                             child: const Chip(
                               side: BorderSide(width: 2),
-                              label: Text('🎯 Ваши достижения'),
+                              label: Row(
+                                children: [
+                                  Icon(Icons.military_tech, color: Colors.red),
+                                  Text('Ваши достижения')
+                                ],
+                              ),
                             ),
                           ),
                         ],

@@ -9,6 +9,7 @@ import 'package:readreels/services/app_logger.dart';
 import '../models/story.dart';
 import '../models/comment.dart';
 import '../models/hashtag.dart';
+import 'ai_service.dart';
 import 'auth_service.dart';
 
 class StoryService {
@@ -298,6 +299,7 @@ class StoryService {
 
   Future<Hashtag> createHashtag(String name) async {
     return _executeWithRefresh(() async {
+      await aiService.moderateTag(name);
       final response = await http.post(
         Uri.parse('$baseUrl/hashtags/'),
         headers: await _getHeaders(includeAuth: true),
@@ -358,6 +360,8 @@ class StoryService {
     }
   }
 
+  final aiService = AIService();
+
   // --------------------------------------------------------------------------
   // МЕТОДЫ СТОРИС
   // --------------------------------------------------------------------------
@@ -366,7 +370,9 @@ class StoryService {
     required String title,
     required String content,
     required List<int> hashtagIds,
+    BuildContext? context
   }) async {
+      await aiService.moderateContent(title, content, context: context);
     return _executeWithRefresh(() async {
       final response = await http.post(
         Uri.parse('$baseUrl/stories/'),
@@ -379,6 +385,7 @@ class StoryService {
       );
 
       if (response.statusCode == 201) {
+        
         final data = _safeJsonDecode(response);
         if (data is Map<String, dynamic>) {
           return Story.fromJson(data);

@@ -4,6 +4,7 @@ import 'package:readreels/models/achievement.dart';
 import 'package:readreels/services/achievement_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:readreels/theme.dart';
 
 class AchievementScreen extends StatefulWidget {
@@ -17,6 +18,8 @@ class AchievementScreen extends StatefulWidget {
 class _AchievementScreenState extends State<AchievementScreen> {
   final AchievementService _achievementService = AchievementService();
   bool _isLoading = true;
+  Set<String> _localUnlocked = {};
+
   List<UserAchievement> _achievements = [];
   String? _errorMessage;
 
@@ -29,8 +32,17 @@ class _AchievementScreenState extends State<AchievementScreen> {
   @override
   void initState() {
     super.initState();
+    _loadLocalUnlocked();
     _loadAchievements();
   }
+
+  Future<void> _loadLocalUnlocked() async {
+  final prefs = await SharedPreferences.getInstance();
+  setState(() {
+    _localUnlocked =
+        prefs.getStringList('unlocked_achievements')?.toSet() ?? {};
+  });
+}
 
   Future<void> _loadAchievements() async {
     setState(() => _isLoading = true);
@@ -155,7 +167,14 @@ class _AchievementScreenState extends State<AchievementScreen> {
                 final isUser9 = widget.userId == 9;
 
                 // Проверяем только реально разблокированные ачивки
-                bool isUnlocked = ua.unlocked || isInstant;
+                final localUnlocked = ach.key != null && _localUnlocked.contains(ach.key);
+                final isUnlocked = ua.unlocked ||
+                   localUnlocked ||
+                   isInstant ||
+                   (ua.achievement.key == 'read_5_stories' && await AchievementManager.isUnlocked('read_5_stories'));
+
+                bool isHiddenSecret = ach.key == "the_intruder" && !isUnlocked;
+
 
                 // Спец-кейс для ачивки influential у юзера 9
                 if (!isUnlocked && ach.key == "influential" && isUser9) {
@@ -166,7 +185,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
                 final showProgress = !isInstant && progress < 1;
 
                 // --- Прозрачность / цвет для недоступной ---
-                final cardColor = isUnlocked ? neoWhite : Colors.black.withOpacity(0.1);
+                final cardColor = isUnlocked ? neoWhite : Colors.black.withOpacity(0.05);
                 final iconOpacity = isUnlocked ? 1.0 : 0.3;
                 final textColor = isUnlocked ? Colors.black : Colors.grey[600];
 
@@ -181,40 +200,37 @@ class _AchievementScreenState extends State<AchievementScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        ach.title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Opacity(
-                        opacity: iconOpacity,
-                        child: Image.network(
-                          ach.iconUrl,
-                          width: 50,
-                          height: 50,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.star),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        ach.description,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: textColor,
-                        ),
-                      ),
+        isHiddenSecret ? "????" : ach.title, // Скрываем тайтл, если ачивка секретная и закрыта
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: textColor,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Opacity(
+        opacity: iconOpacity,
+        child: isHiddenSecret 
+          ? const Icon(Icons.lock, size: 50, color: Colors.grey) // Опционально: замок вместо иконки
+          : Image.network(
+              ach.iconUrl,
+              width: 50,
+              height: 50,
+              errorBuilder: (_, __, ___) => const Icon(Icons.star),
+            ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        isHiddenSecret ? "Секретная ачивка" : ach.description, // Скрываем описание
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 12,
+          color: textColor,
+        ),
+      ),
                       const SizedBox(height: 6),
                       showProgress
-                          ? LinearProgressIndicator(
-                              value: progress,
-                              minHeight: 6,
-                              color: neoAccent,
-                              backgroundColor: neoAccent.withOpacity(0.3),
-                            )
+                          ? SizedBox.shrink()
                           : Text(
                               "Completed",
                               style: GoogleFonts.poppins(

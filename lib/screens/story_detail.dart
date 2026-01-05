@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/screens/add_story_screen.dart';
 import 'package:readreels/services/auth_service.dart';
+import 'package:readreels/managers/achievement_manager.dart';
 import 'package:readreels/services/comment_service.dart';
 import 'package:readreels/services/story_service.dart' as st;
 import 'package:readreels/theme.dart';
@@ -600,10 +601,17 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     super.initState();
     _loadSettings(); // Call a new method to load settings
     _fetchReplies();
+    _incrementReadCounter();
+    
     _calculateWordCounts();
     _makeUpdateStreak();
     
   }
+
+  void _incrementReadCounter() async {
+  // Пользователь просто открыл сториз, без ответов и своих постов
+  await AchievementManager.incrementReadStories();
+}
 
   Future<void> _makeUpdateStreak() async {
     final token = await AuthService().getAccessToken();
