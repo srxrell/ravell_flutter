@@ -51,6 +51,8 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   bool _hasError = false;
   String _errorMessage = '';
+  late PageController _pageController;
+  int _currentPage = 0;
 
   // Showcase keys
   final GlobalKey _homeKey = GlobalKey();
@@ -124,6 +126,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabChange);
     _loadFontSettings();
@@ -157,6 +160,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _tabController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -190,77 +194,89 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   }
 
   Future<void> _fetchCurrentTabStories() async {
-  setState(() {
-    _isLoading = true;
-    _hasError = false;
-    _errorMessage = '';
-  });
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = '';
+    });
 
-  try {
-    // сначала пробуем загрузить из локального хранилища
-    List<Story> localStories = await _loadStoriesFromLocal(_currentStoryType);
+    try {
+      // сначала пробуем загрузить из локального хранилища
+      List<Story> localStories = await _loadStoriesFromLocal(_currentStoryType);
 
-    if (localStories.isNotEmpty) {
-      setState(() {
-        switch (_currentStoryType) {
-          case StoryType.seeds:
-            seeds = localStories;
-            break;
-          case StoryType.branches:
-            branches = localStories;
-            break;
-          case StoryType.all:
-            allStories = localStories;
-            break;
+      if (localStories.isNotEmpty && mounted) {
+        setState(() {
+          switch (_currentStoryType) {
+            case StoryType.seeds:
+              seeds = localStories;
+              break;
+            case StoryType.branches:
+              branches = localStories;
+              break;
+            case StoryType.all:
+              allStories = localStories;
+              break;
+          }
+          _isLoading = false;
+        });
+      }
+
+      // потом обновляем с сервера
+      List<Story> fetched;
+      switch (_currentStoryType) {
+        case StoryType.seeds:
+          fetched = await _storyService.getSeeds();
+          seeds = fetched;
+          break;
+        case StoryType.branches:
+          fetched = await _storyService.getBranches();
+          branches = fetched;
+          break;
+        case StoryType.all:
+          fetched = await _storyService.getStories();
+          allStories = fetched;
+          break;
+      }
+
+      // сохраняем в локальное хранилище
+      await _saveStoriesLocally(fetched, _currentStoryType);
+
+      // лайки и сортировка (не очищаем мапы, чтобы избежать моргания)
+      for (var story in _currentStories) {
+        likeCounts[story.id] = story.likesCount;
+        if (currentUserId != null) {
+          // Загружаем статус лайка асинхронно без блокировки UI
+          _storyService.isStoryLiked(story.id, currentUserId!).then((liked) {
+            if (mounted) {
+              setState(() {
+                likeStatuses[story.id] = liked;
+              });
+            }
+          });
         }
+      }
+
+      if (!mounted) return;
+      setState(() {
         _isLoading = false;
+        // Сбрасываем страницу при смене таба или полной загрузке, 
+        // если это не обновление (RefreshIndicator)
+        if (!_isRefreshing) {
+          _currentPage = 0;
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(0);
+          }
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = 'Ошибка загрузки историй';
       });
     }
-
-    // потом обновляем с сервера
-    List<Story> fetched;
-    switch (_currentStoryType) {
-      case StoryType.seeds:
-        fetched = await _storyService.getSeeds();
-        seeds = fetched;
-        break;
-      case StoryType.branches:
-        fetched = await _storyService.getBranches();
-        branches = fetched;
-        break;
-      case StoryType.all:
-        fetched = await _storyService.getStories();
-        allStories = fetched;
-        break;
-    }
-
-    // сохраняем в локальное хранилище
-    await _saveStoriesLocally(fetched, _currentStoryType);
-
-    // лайки и сортировка
-    likeCounts.clear();
-    likeStatuses.clear();
-    for (var story in _currentStories) {
-      likeCounts[story.id] = story.likesCount;
-      if (currentUserId != null) {
-        likeStatuses[story.id] =
-            await _storyService.isStoryLiked(story.id, currentUserId!);
-      }
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-    });
-  } catch (e) {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-      _hasError = true;
-      _errorMessage = 'Ошибка загрузки историй';
-    });
   }
-}
 
 
   List<Story> get _currentStories {
@@ -296,10 +312,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     if (_isRefreshing) return;
 
     _isRefreshing = true;
-
-    setState(() {
-      _isLoading = true;
-    });
 
     await _fetchCurrentTabStories();
 
@@ -358,6 +370,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     final currentLikeCount = likeCounts[story.id] ?? 0;
 
     return GestureDetector(
+      behavior: HitTestBehavior.translucent,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -370,12 +383,12 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                   ),
                 );
               },
-              onDoubleTapDown: (details) {
-                _handleLike(story, isDoubleTap: true);
-                setState(() {
-                  tapPosition = details.localPosition;
-                });
-              },
+              // onDoubleTapDown: (details) {
+              //   _handleLike(story, isDoubleTap: true);
+              //   setState(() {
+              //     tapPosition = details.localPosition;
+              //   });
+              // },
               child: Container(
                 margin: const EdgeInsets.only(top: 15, bottom: 20),
                 width: MediaQuery.of(context).size.width,
@@ -455,34 +468,47 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                           const SizedBox(height: 20),
 
                           // Контент истории
-                          ExpandableStoryContent(
-                            content: story.content,
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // Хештеги (если есть)
-                          if (story.hashtags.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                children:
-                                    story.hashtags.map((hashtag) {
-                                      return Chip(
-                                        label: Text(
-                                          '#${hashtag.name}',
-                                          style: TextStyle(
-                                            fontSize: 12 * _getFontScale(),
-                                          ),
-                                        ),
-                                        backgroundColor: Colors.blue[50],
-                                        visualDensity: VisualDensity.compact,
-                                      );
-                                    }).toList(),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ExpandableStoryContent(
+                                    content: story.content,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  // Хештеги (если есть)
+                                  if (story.hashtags.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 12,
+                                      ),
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        children:
+                                            story.hashtags.map((hashtag) {
+                                              return Chip(
+                                                label: Text(
+                                                  '#${hashtag.name}',
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        12 * _getFontScale(),
+                                                  ),
+                                                ),
+                                                backgroundColor:
+                                                    Colors.blue[50],
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                              );
+                                            }).toList(),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
+                          ),
 
                           // Действия (кнопки лайка и ответа)
                           Padding(
@@ -895,7 +921,10 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                       children: [
                         // Кнопка сортировки
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -929,10 +958,13 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                     const Icon(Icons.sort),
                                     const SizedBox(width: 4),
                                     Text(
-                                      _sortOption == 'random' ? 'Случайно' :
-                                      _sortOption == 'newest' ? 'Сначала новые' :
-                                      _sortOption == 'oldest' ? 'Сначала старые' :
-                                      'Популярные',
+                                      _sortOption == 'random'
+                                          ? 'Случайно'
+                                          : _sortOption == 'newest'
+                                          ? 'Сначала новые'
+                                          : _sortOption == 'oldest'
+                                          ? 'Сначала старые'
+                                          : 'Популярные',
                                     ),
                                   ],
                                 ),
@@ -940,14 +972,28 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                             ],
                           ),
                         ),
-                        // Список историй
+                        // Список историй (PageView)
                         Expanded(
-                          child: ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: PageView.builder(
+                            controller: _pageController,
+                            scrollDirection: Axis.vertical,
+                            physics: const AlwaysScrollableScrollPhysics(),
                             itemCount: _currentStories.length,
+                            onPageChanged: (index) {
+                              setState(() {
+                                _currentPage = index;
+                              });
+                            },
                             itemBuilder: (context, index) {
-                              return _buildStoryCard(_currentStories[index], index);
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: _buildStoryCard(
+                                  _currentStories[index],
+                                  index,
+                                ),
+                              );
                             },
                           ),
                         ),
