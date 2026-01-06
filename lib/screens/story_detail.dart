@@ -190,7 +190,7 @@ class StoryCard extends StatelessWidget {
               Text(
                 story.title,
                 style: GoogleFonts.russoOne(
-  fontSize: 32 * titleScale,
+  fontSize: isReplyCard ? 20 * titleScale : 32 * titleScale ,
   color: isDarkBackground ? Colors.white : Colors.black,
 ),
               ),

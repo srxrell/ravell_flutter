@@ -1181,6 +1181,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       const SizedBox(height: 10),
 
                       // --- СТРИК + ДОСТИЖЕНИЯ ---
+                      if(isMyProfile)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -1256,7 +1257,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           margin: const EdgeInsets.symmetric(horizontal: 10),
                           child: NeoButton(
                             onPressed: _handleFollowToggle,
-                            text: isFollowing ? 'Вы подписаны' : 'Подписаться',
+                            text: isFollowing ? 'Отписаться' : 'Подписаться',
                           ),
                         )
                       else
@@ -1320,7 +1321,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       }),
                     ],
                   )
-                : CustomScrollView(
+                : Builder(
+                  builder: (context) {
+                    return CustomScrollView(
                     slivers: [
                       SliverOverlapInjector(
                         handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
@@ -1328,7 +1331,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       _buildSliverExpandableStoryList(
                           userStories, isMyProfile, _currentTitleFontScale),
                     ],
-                  ),
+                  );
+                  }
+                ),
           ),
 
           // ===== BOTTOM NAV =====

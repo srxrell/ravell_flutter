@@ -275,4 +275,8 @@ Future<List<Story>> getRepliesForStory(int parentStoryId) async {
       'reply_count': userCounts[maxUserId],
     };
   }
+
+  Future<Story> getStoryById(int storyId) async {
+  return _getStory(storyId);
+}
 }

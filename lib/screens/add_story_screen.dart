@@ -5,7 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:readreels/services/comment_service.dart'; // Ваш сервис для ответов
 import 'package:readreels/services/story_service.dart'
     as st; // Ваш основной сервис
+import "package:readreels/managers/achievement_manager.dart";
 import 'package:readreels/widgets/markdown_toolbar.dart'; // Import the MarkdownToolbar
+import "package:readreels/services/auth_service.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 class AddStoryScreen extends StatefulWidget {
   // 🔑 Опциональные параметры
@@ -48,7 +51,38 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
           content: _contentController.text,
           hashtagIds: [], // Добавьте логику хештегов
         );
+        final sp = await SharedPreferences.getInstance();
+final currentUserId = sp.getInt("user_id");
+
+if (currentUserId != null) {
+  final replies = await _replyService.getRepliesForStory(widget.replyToId!);
+
+  // всего ответов стало ровно 5
+  if (replies.length == 5) {
+    // сортируем по дате на всякий случай
+    replies.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    final lastReply = replies.last;
+
+    // если пятый — твой
+    if (lastReply.userId == currentUserId) {
+      await AchievementManager.unlock('chain');
+    }
+  }
+}
         _showSuccess('Ответ успешно опубликован!');
+
+        final story = await _replyService.getStoryById(widget.replyToId!);
+
+      if (story.userId == currentUserId) {
+        // ищем, есть ли уже ответ автора к этой истории
+        final replies = await _replyService.getRepliesForStory(widget.replyToId!);
+        final authoredReplies = replies.where((r) => r.userId == currentUserId);
+        if (authoredReplies.length == 1) {
+          // это первый ответ автора — даём ачивку
+          await AchievementManager.unlock('wait_for_me');
+        }
+      }
       } else {
         // --- СЛУЧАЙ 2: ЭТО НОВАЯ ИСТОРИЯ (Вызван из главной) ---
         // ⚠️ ЭТО ГИПОТЕТИЧЕСКИЙ МЕТОД, ВЫ ДОЛЖНЫ РЕАЛИЗОВАТЬ ЕГО В st.StoryService
@@ -127,6 +161,13 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
             // inputs are still shown
             // Заголовок
             TextField(
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                height: 1.5,
+              ),
+              strutStyle: const StrutStyle(
+                height: 1.4,
+                forceStrutHeight: true,
+              ),
               controller: _titleController,
               decoration: const InputDecoration(
                 hintText: 'Заголовок',
@@ -146,25 +187,25 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
             const SizedBox(height: 16),
 
             // Контент
-            TextField(
-              controller: _contentController,
-              minLines: 1,
-              maxLines: null,
-              keyboardType: TextInputType.multiline,
-              decoration: const InputDecoration(
-                hintText: 'Контент',
-                fillColor: Colors.transparent,
-                border: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.black),
-                ),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.black),
-                ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.black),
-                ),
-              ),
-            ),
+TextField(
+  controller: _contentController,
+  minLines: 1,
+  maxLines: null,
+  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+    height: 1.0, // ЖЕСТКО 1.0, чтобы рамка выделения не прыгала
+    // ЭТО ГЛАВНЫЙ ФИКС: распределяет высоту шрифта равномерно
+    leadingDistribution: TextLeadingDistribution.even, 
+  ),
+  decoration: const InputDecoration(
+    hintText: 'Контент',
+    fillColor: Colors.transparent,
+    // Делаем отступы здесь, а не через высоту строки
+    contentPadding: EdgeInsets.symmetric(vertical: 12), 
+    border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black)),
+    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black)),
+    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black)),
+  ),
+),
 
           ],
         ),
