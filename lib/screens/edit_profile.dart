@@ -1,4 +1,5 @@
-import 'dart:io' if (dart.library.html) 'dart:typed_data';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,14 +9,13 @@ import 'package:readreels/screens/subscribers_list.dart';
 import 'package:readreels/screens/user_story_feed_screen.dart';
 import 'package:readreels/services/auth_service.dart';
 import 'package:readreels/services/story_service.dart';
+import 'package:readreels/services/subscription_service.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/neowidgets.dart';
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:readreels/services/subscription_service.dart';
-import 'edit_profile.dart';
-import 'package:readreels/models/story.dart';
-import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -166,7 +166,8 @@ final profileAvatar =
       }
     } catch (e) {
       print('❌ IMAGE PICKER ERROR: $e');
-      _showErrorSnackbar('Не удалось открыть галерею: ${e.toString()}');
+      final settings = Provider.of<SettingsManager>(context, listen: false);
+      _showErrorSnackbar('${settings.translate('error')}: ${e.toString()}');
     }
   }
 
@@ -195,7 +196,10 @@ final profileAvatar =
     if (accessToken == null) {
       await AuthService().refreshToken();
       accessToken = await AuthService().getAccessToken();
-      if (accessToken == null) throw Exception('Не удалось получить токен');
+      if (accessToken == null) {
+        final settings = Provider.of<SettingsManager>(context, listen: false);
+        throw Exception(settings.translate('error'));
+      }
     }
 
     final response = await _subscriptionService.updateProfileWithImage(
@@ -208,8 +212,9 @@ final profileAvatar =
       accessToken: accessToken,
     );
 
+    final settings = Provider.of<SettingsManager>(context, listen: false);
     if (response.containsKey('error')) {
-      _showErrorSnackbar('Ошибка обновления: ${response['error']}');
+      _showErrorSnackbar('${settings.translate('error')}: ${response['error']}');
     } else {
       // обновляем профиль в родителе
       widget.onProfileUpdated(response);
@@ -223,10 +228,11 @@ final profileAvatar =
       }
 
       if (mounted) Navigator.of(context).pop();
-      _showSuccessSnackbar("Профиль успешно обновлен!");
+      _showSuccessSnackbar(settings.translate('profile_updated'));
     }
   } catch (e) {
-    _showErrorSnackbar('Ошибка обновления: ${e.toString()}');
+    final settings = Provider.of<SettingsManager>(context, listen: false);
+    _showErrorSnackbar('${settings.translate('error')}: ${e.toString()}');
   } finally {
     if (mounted) setState(() => _isSaving = false);
   }
@@ -234,6 +240,7 @@ final profileAvatar =
 
 
   Widget _buildAvatarSection() {
+    final settings = Provider.of<SettingsManager>(context);
     ImageProvider? imageProvider;
 
     if (_avatarXFile != null) {
@@ -243,9 +250,9 @@ final profileAvatar =
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               imageProvider = MemoryImage(snapshot.data!);
-              return _buildAvatarWidget(imageProvider, false);
+              return _buildAvatarWidget(imageProvider, false, settings);
             }
-            return _buildAvatarWidget(null, true);
+            return _buildAvatarWidget(null, true, settings);
           },
         );
       } else {
@@ -256,11 +263,10 @@ final profileAvatar =
       imageProvider = _avatarImageProvider;
     }
 
-    return _buildAvatarWidget(imageProvider, imageProvider == null);
+    return _buildAvatarWidget(imageProvider, imageProvider == null, settings);
   }
 
-
-  Widget _buildAvatarWidget(ImageProvider? imageProvider, bool isPlaceholder) {
+  Widget _buildAvatarWidget(ImageProvider? imageProvider, bool isPlaceholder, SettingsManager settings) {
     return Column(
       children: [
         const SizedBox(height: 10),
@@ -269,9 +275,9 @@ final profileAvatar =
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Аватар", style: Theme.of(context).textTheme.headlineLarge),
+              Text(settings.translate('nav_profile'), style: Theme.of(context).textTheme.headlineLarge),
               Text(
-                "Выберите новый или оставьте текущий",
+                settings.translate('edit_profile'),
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             ],
@@ -348,8 +354,8 @@ final profileAvatar =
                             const SizedBox(height: 10),
                             Text(
                               _initialAvatarUrl != null
-                                  ? "Текущий аватар"
-                                  : "Добавить аватар",
+                                  ? settings.translate('nav_profile')
+                                  : settings.translate('nav_add'),
                               style: const TextStyle(fontSize: 14),
                             ),
                           ],
@@ -399,6 +405,7 @@ final profileAvatar =
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     return Scaffold(
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(
@@ -467,7 +474,7 @@ final profileAvatar =
                   }
                 },
                 type: NeoButtonType.login,
-                text: _isSaving ? 'Сохранение...' : 'Сохранить изменения',
+                text: _isSaving ? settings.translate('loading') : settings.translate('save'),
               ),
             ],
           ),

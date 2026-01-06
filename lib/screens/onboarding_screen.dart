@@ -5,6 +5,9 @@ import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/neowidgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:provider/provider.dart';
+import 'package:readreels/managers/settings_manager.dart';
+
 class OnBoardingScreen extends StatefulWidget {
   const OnBoardingScreen({super.key});
 
@@ -18,6 +21,8 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
+
     return Scaffold(
       body: Column(
         children: [
@@ -27,22 +32,20 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
               onPageChanged: (index) {
                 setState(() => _currentPage = index);
               },
-              children: const [
+              children: [
                 _OnboardingPage(
-                  title: 'Делитесь короткими историями',
-                  subtitle: 'Ровно 100 слов. Ни больше, ни меньше.',
+                  title: settings.translate('onboarding_title_1'),
+                  subtitle: settings.translate('onboarding_subtitle_1'),
                   icon: Icons.view_agenda,
                 ),
                 _OnboardingPage(
-                  title: 'Создавайте эмоции',
-                  subtitle:
-                      'Похожая ситуация? Есть что добавить? Отвечайте историей на историю',
+                  title: settings.translate('onboarding_title_2'),
+                  subtitle: settings.translate('onboarding_subtitle_2'),
                   icon: Icons.forum_outlined,
                 ),
                 _OnboardingPage(
-                  title: 'Находите друзей',
-                  subtitle:
-                      'Твой текст — чъе-то вдохновение. Подписывайтесь и будьте тем, на кого подпиываются.',
+                  title: settings.translate('onboarding_title_3'),
+                  subtitle: settings.translate('onboarding_subtitle_3'),
                   icon: Icons.edit,
                 ),
               ],
@@ -63,7 +66,7 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
                           margin: const EdgeInsets.symmetric(horizontal: 20),
                           child: NeoButton(
                             key: const ValueKey('neo'),
-                            text: 'Начать',
+                            text: settings.translate('start'),
                             type: NeoButtonType.general,
                             onPressed: () async {
                               final prefs =

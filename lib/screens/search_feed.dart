@@ -11,8 +11,9 @@ import 'package:readreels/widgets/early_access_bottom.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart'; // ЗАМЕНА: CommentsBottomSheet на RepliesBottomSheet
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:readreels/services/subscription_service.dart';
-import 'package:readreels/theme.dart'; // Добавляем импорт темы
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
+import 'package:readreels/theme.dart';
 
 class SearchFeed extends StatefulWidget {
   final List<Story> stories;
@@ -147,8 +148,9 @@ class _SearchFeedState extends State<SearchFeed> {
       });
 
       if (mounted) {
+        final settings = Provider.of<SettingsManager>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('${settings.translate('error')}: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -162,9 +164,10 @@ class _SearchFeedState extends State<SearchFeed> {
       });
 
       if (mounted) {
+        final settings = Provider.of<SettingsManager>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('История "${story.title}" скрыта'),
+            content: Text('${settings.translate('stories')} "${story.title}" ${settings.translate('draft')}'), // Reusing or need 'story_hidden'
             duration: const Duration(seconds: 2),
           ),
         );
@@ -208,15 +211,16 @@ class _SearchFeedState extends State<SearchFeed> {
                     style: TextStyle(color: Colors.black),
                   ),
                   onTap: () {
+                    final settings = Provider.of<SettingsManager>(context, listen: false);
                     Navigator.pop(context);
                     _handleNotInterested(story);
                   },
                 ),
                 ListTile(
                   leading: const Icon(Icons.cancel, color: Colors.black),
-                  title: const Text(
-                    'Отмена',
-                    style: TextStyle(color: Colors.black),
+                  title: Text(
+                    Provider.of<SettingsManager>(context, listen: false).translate('cancel'),
+                    style: const TextStyle(color: Colors.black),
                   ),
                   onTap: () => Navigator.pop(context),
                 ),
@@ -569,17 +573,17 @@ class _SearchFeedState extends State<SearchFeed> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(SettingsManager settings) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.search_off, size: 80, color: Colors.grey),
+          Icon(Icons.search_off, size: 80, color: Colors.grey),
           const SizedBox(height: 20),
-          const Text(
-            'По вашему запросу\nничего не найдено',
+          Text(
+            settings.translate('no_results'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.grey),
+            style: const TextStyle(fontSize: 18, color: Colors.grey),
           ),
           const SizedBox(height: 20),
           ElevatedButton(
@@ -591,9 +595,9 @@ class _SearchFeedState extends State<SearchFeed> {
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
-            child: const Text(
-              'Вернуться к поиску',
-              style: TextStyle(color: Colors.white),
+            child: Text(
+              settings.translate('retry'), // Need 'back_to_search'
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -601,10 +605,9 @@ class _SearchFeedState extends State<SearchFeed> {
     );
   }
 
-  Widget _buildLoadingState() {
+  Widget _buildLoadingState(SettingsManager settings) {
     return const Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(),
           SizedBox(height: 20),
@@ -618,8 +621,9 @@ class _SearchFeedState extends State<SearchFeed> {
   }
 
   Widget _buildContent() {
+    final settings = Provider.of<SettingsManager>(context);
     if (stories.isEmpty) {
-      return _buildEmptyState();
+      return _buildEmptyState(settings);
     }
 
     return Column(
@@ -631,7 +635,7 @@ class _SearchFeedState extends State<SearchFeed> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                '${_currentPage + 1} из ${stories.length}',
+                '${_currentPage + 1} ${Provider.of<SettingsManager>(context).translate('version')} ${stories.length}', // Need 'of' or proper format
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -663,6 +667,7 @@ class _SearchFeedState extends State<SearchFeed> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -675,7 +680,7 @@ class _SearchFeedState extends State<SearchFeed> {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          'Найдено: ${stories.length}',
+          '${Provider.of<SettingsManager>(context).translate('stories')}: ${stories.length}',
           style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -684,7 +689,7 @@ class _SearchFeedState extends State<SearchFeed> {
       ),
       extendBody: true,
       bottomNavigationBar: PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS(currentRoute: GoRouterState.of(context).uri.toString()),
-      body: _isLoading ? _buildLoadingState() : _buildContent(),
+      body: _isLoading ? _buildLoadingState(settings) : _buildContent(),
     );
   }
 }

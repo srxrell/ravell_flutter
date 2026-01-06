@@ -6,6 +6,8 @@ import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/screens/story_detail.dart';
 import 'package:readreels/widgets/heart_animation.dart';
@@ -64,23 +66,12 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   final GlobalKey _seedsKey = GlobalKey();
   final GlobalKey _branchesKey = GlobalKey();
 
-  double _getFontScale() {
-    return _fontScale;
-  }
+  double _getFontScale(BuildContext context) =>
+      Provider.of<SettingsManager>(context, listen: false).fontScale;
 
-  double _getTitleFontScale() {
-    return _titleFontScale;
-  }
+  double _getTitleFontScale(BuildContext context) =>
+      Provider.of<SettingsManager>(context, listen: false).titleFontScale;
 
-  Future<void> _loadFontSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _fontScale = prefs.getDouble('story_font_scale') ?? 1.0;
-        _titleFontScale = prefs.getDouble('title_font_scale') ?? 1.0;
-      });
-    }
-  }
 
   // Сортировка
   String _sortOption = 'random'; // 'random', 'newest', 'oldest', 'popular'
@@ -106,8 +97,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     }
   }
 
-  double _fontScale = 1.0;
-  double _titleFontScale = 1.0;
 
   Future<void> _saveStoriesLocally(List<Story> stories, StoryType type) async {
     final prefs = await SharedPreferences.getInstance();
@@ -129,7 +118,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     _pageController = PageController();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabChange);
-    _loadFontSettings();
     _checkAuthStatusAndFetch();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -259,7 +247,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        // Сбрасываем страницу при смене таба или полной загрузке, 
+        // Сбрасываем страницу при смене таба или полной загрузке,
         // если это не обновление (RefreshIndicator)
         if (!_isRefreshing) {
           _currentPage = 0;
@@ -366,6 +354,8 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildStoryCard(Story story, int index) {
+    final settings = Provider.of<SettingsManager>(context);
+    final isDarkBg = false; // Themes removed
     final isLiked = likeStatuses[story.id] ?? false;
     final currentLikeCount = likeCounts[story.id] ?? 0;
 
@@ -414,8 +404,8 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                           Text(
                             story.title,
                             style: GoogleFonts.russoOne(
-                              fontSize: 26 * _getTitleFontScale(),
-                              color: Colors.black,
+                              fontSize: 24 * settings.titleFontScale,
+                              color: isDarkBg ? Colors.white : Colors.black,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -448,7 +438,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                             story.resolvedUsername,
                                             style: TextStyle(
                                               fontWeight: FontWeight.w600,
-                                              fontSize: 18 * _getFontScale(),
+                                              fontSize: 18 * settings.fontScale,
                                               color: Colors.black87,
                                             ),
                                             maxLines: 1,
@@ -456,6 +446,13 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                           ),
                                         ),
                                       ],
+                                    ),
+                                    Text(
+                                      _formatDate(story.createdAt),
+                                      style: TextStyle(
+                                        color: isDarkBg ? Colors.white70 : Colors.grey[600],
+                                        fontSize: 14,
+                                      ),
                                     ),
 
                                     const SizedBox(height: 4),
@@ -476,6 +473,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                 children: [
                                   ExpandableStoryContent(
                                     content: story.content,
+                                    isDarkBackground: isDarkBg,
                                   ),
                                   const SizedBox(height: 20),
                                   // Хештеги (если есть)
@@ -494,7 +492,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                                   '#${hashtag.name}',
                                                   style: TextStyle(
                                                     fontSize:
-                                                        12 * _getFontScale(),
+                                                        12 * settings.fontScale,
                                                   ),
                                                 ),
                                                 backgroundColor:
@@ -534,9 +532,9 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     if (currentUserId == null) {
       // Гость: показываем сообщение вместо перехода
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Войдите, чтобы ответить'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(settings.translate('only_for_registered')),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -555,10 +553,10 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   ),
   child: Text(
     currentUserId == null
-        ? ' Войдите, чтобы ответить'
-        : ' Ответить | ${_getReplyText(story.repliesCount)}',
+        ? ' ${settings.translate('only_for_registered')}'
+        : ' ${settings.translate('reply')} | ${_getReplyText(story.repliesCount)}',
     style: TextStyle(
-      fontSize: 14 * _getFontScale(),
+      fontSize: 14 * settings.fontScale,
       fontWeight: FontWeight.w500,
     ),
   ),
@@ -759,18 +757,23 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     );
   }
 
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     return Scaffold(
+      backgroundColor: neoBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
 
         toolbarHeight: 100,
         elevation: 0,
-        surfaceTintColor: neoBackground,
+        surfaceTintColor: Colors.transparent,
         centerTitle: false,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: neoBackground,
         title: SvgPicture.asset("assets/icons/logo.svg", width: 60, height: 60),
         actions: [
           Showcase(
@@ -832,7 +835,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                           ),
                           child: Center(
                             child: Text(
-                              'Семена',
+                              settings.translate('seeds'),
                               style: TextStyle(
                                 color:
                                     _tabController.index == 0
@@ -882,7 +885,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                           ),
                           child: Center(
                             child: Text(
-                              'Ветки',
+                              settings.translate('branches'),
                               style: TextStyle(
                                 color:
                                     _tabController.index == 1
@@ -936,21 +939,21 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                   });
                                 },
                                 itemBuilder: (context) => [
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'random',
-                                    child: Text('Случайно'),
+                                    child: Text(settings.translate('random')),
                                   ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'newest',
-                                    child: Text('Сначала новые'),
+                                    child: Text(settings.translate('newest')),
                                   ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'oldest',
-                                    child: Text('Сначала старые'),
+                                    child: Text(settings.translate('oldest')),
                                   ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'popular',
-                                    child: Text('Популярные'),
+                                    child: Text(settings.translate('popular')),
                                   ),
                                 ],
                                 child: Row(
@@ -959,12 +962,12 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                                     const SizedBox(width: 4),
                                     Text(
                                       _sortOption == 'random'
-                                          ? 'Случайно'
+                                          ? settings.translate('random')
                                           : _sortOption == 'newest'
-                                          ? 'Сначала новые'
+                                          ? settings.translate('newest')
                                           : _sortOption == 'oldest'
-                                          ? 'Сначала старые'
-                                          : 'Популярные',
+                                          ? settings.translate('oldest')
+                                          : settings.translate('popular'),
                                     ),
                                   ],
                                 ),

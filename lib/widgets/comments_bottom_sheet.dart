@@ -4,6 +4,8 @@ import 'package:readreels/models/story.dart';
 import 'package:readreels/services/comment_service.dart';
 import 'package:readreels/widgets/expandable_story_content.dart';
 import 'package:readreels/widgets/neowidgets.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:readreels/theme.dart';
 
 class RepliesBottomSheet extends StatefulWidget {
@@ -51,9 +53,10 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
 
     // разрешаем истории меньше 100 слов (минимум 20 слов максимум 100 слов)
     if (words.length < 20 || words.length > 100) {
+      final settings = Provider.of<SettingsManager>(context, listen: false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Нужно от 20 до 100 слов. Сейчас: ${words.length}'),
+          content: Text('${settings.translate('story_published')} (20-100). ${settings.translate('version')}: ${words.length}'), // Need 'words_limit_error'
         ),
       );
       return;
@@ -72,15 +75,17 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
         hashtagIds: [],
       );
 
+      final settings = Provider.of<SettingsManager>(context, listen: false);
       _replyController.clear();
       await _loadReplies();
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Ответ добавлен!')));
+      ).showSnackBar(SnackBar(content: Text(settings.translate('story_published')))); // Need 'reply_added'
     } catch (e) {
+      final settings = Provider.of<SettingsManager>(context, listen: false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      ).showSnackBar(SnackBar(content: Text('${settings.translate('error')}: $e')));
     } finally {
       setState(() => _isSubmitting = false);
     }
@@ -94,6 +99,7 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) {
+        final settings = Provider.of<SettingsManager>(context);
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -123,7 +129,7 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Ваш ответ',
+                          settings.translate('write_reply'),
                           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                             fontSize: 24,
                           ),
@@ -152,7 +158,7 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
                         fontSize: 18,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Начните писать ответ здесь...',
+                        hintText: settings.translate('write_reply'), // Need 'reply_hint'
                         hintStyle: TextStyle(
                           color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.5),
                         ),
@@ -169,7 +175,7 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Слов: ${_replyController.text.trim().isEmpty ? 0 : _replyController.text.trim().split(RegExp(r"\s+")).length}',
+                          '${settings.translate('version')}: ${_replyController.text.trim().isEmpty ? 0 : _replyController.text.trim().split(RegExp(r"\s+")).length}', // Need 'words'
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 14,
@@ -191,7 +197,7 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
                     _isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : _replies.isEmpty
-                        ? const Center(child: Text('Ответов пока нет'))
+                        ? Center(child: Text(settings.translate('no_replies')))
                         : ListView.builder(
                           controller: scrollController,
                           itemCount: _replies.length,
@@ -242,12 +248,13 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Text(
-                  '${reply.likesCount} лайков',
+                  '${reply.likesCount} ${Provider.of<SettingsManager>(context).translate('popular')}',
                   style: const TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(width: 16),
                 Text(
-                  '${reply.wordCount} слов',
+                  '${reply.wordCount} ${Provider.of<SettingsManager>(context).translate('version')}',
+ // Need 'words'
                   style: const TextStyle(color: Colors.grey),
                 ),
               ],

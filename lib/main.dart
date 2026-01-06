@@ -24,7 +24,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 // import 'services/ws_service.dart' as p;
 import "package:dart_openai/dart_openai.dart";
 // import 'services/subscription_service.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:showcaseview/showcaseview.dart';
+
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -32,11 +35,21 @@ void main() async {
   // await Firebase.initializeApp();
 
   runZonedGuarded(
-    () {
+    () async {
       WidgetsFlutterBinding.ensureInitialized();
       OpenAI.showLogs = true;
       OpenAI.apiKey = "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";
-      runApp(const ReadReelsApp()); // UI стартует сразу
+      
+      final settingsManager = SettingsManager();
+      
+      runApp(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: settingsManager),
+          ],
+          child: const ReadReelsApp(),
+        ),
+      ); 
       initServices(); // Асинхронная инициализация фоново
     },
     (error, stackTrace) {

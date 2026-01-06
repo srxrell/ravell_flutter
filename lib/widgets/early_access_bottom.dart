@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'package:readreels/theme.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:readreels/widgets/neowidgets.dart';
+import 'package:readreels/theme.dart';
 
 class EarlyAccessSheet {
   static void show(BuildContext context) {
@@ -10,9 +12,10 @@ class EarlyAccessSheet {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) {
+        final settings = Provider.of<SettingsManager>(context);
         return Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
             color: neoWhite,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
@@ -21,36 +24,36 @@ class EarlyAccessSheet {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(child: StarInteractive()),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Center(
                 child: Text(
-                  "Это информация о функциях раннего доступа!",
+                  settings.translate('early_access_info'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               ListTile(
-                leading: Icon(Icons.workspace_premium),
-                title: Text("Статус 'Первооткрыватель'"),
+                leading: const Icon(Icons.workspace_premium),
+                title: Text(settings.translate('pioneer_status')),
                 subtitle: Text(
-                  "Получите уникальный бейджик с возможностью кастомизации себе в профиль",
+                  settings.translate('pioneer_subtitle'),
                 ),
               ),
               ListTile(
-                leading: Icon(Icons.diamond),
-                title: Text("Ваше слово - успех!"),
+                leading: const Icon(Icons.diamond),
+                title: Text(settings.translate('success_word')),
                 subtitle: Text(
-                  "Лучшие идеи, которые положительно повлияют на развитие проекта будут отображены в специальной 'доске почета'",
+                  settings.translate('success_subtitle'),
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               NeoButton(
-                text: "Понятно",
+                text: settings.translate('got_it'),
                 onPressed: () => Navigator.pop(context),
                 type: NeoButtonType.general,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
             ],
           ),
         );

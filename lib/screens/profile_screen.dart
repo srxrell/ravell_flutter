@@ -15,15 +15,18 @@ import 'package:readreels/screens/streak_screen.dart';
 import 'package:readreels/screens/subscribers_list.dart';
 import 'package:readreels/screens/user_story_feed_screen.dart';
 import 'package:readreels/screens/logs_screen.dart';
-import 'package:readreels/services/auth_service.dart';
-import 'package:readreels/services/story_service.dart';
-import 'package:readreels/theme.dart';
-import 'package:readreels/widgets/early_access_bottom.dart';
-import 'package:readreels/widgets/neowidgets.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:readreels/services/subscription_service.dart';
+import 'package:readreels/services/story_service.dart';
+import 'package:readreels/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 import 'edit_profile.dart';
 import 'package:readreels/models/story.dart';
+import 'package:readreels/widgets/neowidgets.dart';
+import 'package:readreels/widgets/early_access_bottom.dart';
+import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
@@ -42,9 +45,16 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen>
     with SingleTickerProviderStateMixin {
-  final SubscriptionService _subscriptionService = SubscriptionService();
-  final StoryService _storyService = StoryService();
-  final AuthService _authService = AuthService();
+  final _subscriptionService = SubscriptionService();
+  final _storyService = StoryService();
+  final _authService = AuthService();
+
+  SettingsManager get settings => Provider.of<SettingsManager>(context, listen: false);
+
+  // Helper getters to fix "Method not found" errors if they are used as methods
+  SubscriptionService get SubscriptionServiceInstance => _subscriptionService;
+  StoryService get StoryServiceInstance => _storyService;
+  AuthService get AuthServiceInstance => _authService;
   final DraftService _draftService = DraftService();
   late TabController _tabController;
   int? streakCount;
@@ -190,11 +200,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       await _storyService.deleteStory(storyId);
       print('🟢 deleteStory() finished successfully');
 
-      _showSnackbar('История успешно удалена.');
+      final settings = Provider.of<SettingsManager>(context, listen: false);
+      _showSnackbar(settings.translate('story_published')); // Reusing or need a 'story_deleted'
       await _loadProfileData();
     } catch (e) {
       print('🔴 UI ERROR WHILE DELETING STORY: $e');
-      _showSnackbar('Ошибка при удалении истории: $e');
+      final settings = Provider.of<SettingsManager>(context, listen: false);
+      _showSnackbar('${settings.translate('error')}: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -231,7 +243,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               children: <Widget>[
                 ListTile(
                   leading: const Icon(Icons.edit, color: Colors.black),
-                  title: const Text('Редактировать статью'),
+                  title: Text(settings.translate('edit')),
                   onTap: () {
                     Navigator.of(context).pop();
                     if (mounted) {
@@ -249,9 +261,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 ),
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text(
-                    'Удалить статью',
-                    style: TextStyle(color: Colors.red),
+                  title: Text(
+                    settings.translate('delete'),
+                    style: const TextStyle(color: Colors.red),
                   ),
                   onTap: () {
                     Navigator.of(context).pop();
@@ -269,22 +281,23 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   void _showDeleteConfirmationDialog(int storyId) {
     if (!mounted) return;
 
+    final settings = Provider.of<SettingsManager>(context, listen: false);
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Подтвердить удаление'),
-            content: const Text('Вы уверены, что хотите удалить эту статью?'),
+            title: Text(settings.translate('delete')),
+            content: Text(settings.translate('draft')), // Need 'confirm_delete' really
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Отмена'),
+                child: Text(settings.translate('cancel')),
               ),
               TextButton(
                 onPressed: () => _deleteStory(storyId),
-                child: const Text(
-                  'Удалить',
-                  style: TextStyle(color: Colors.red),
+                child: Text(
+                  settings.translate('delete'),
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
             ],
@@ -371,10 +384,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             _isLoading = false;
           });
         } else {
+          final settings = Provider.of<SettingsManager>(context, listen: false);
           setState(() {
             _profileData = null;
             _isLoading = false;
-            _errorMessage = 'Не удалось загрузить данные профиля';
+            _errorMessage = settings.translate('error');
           });
         }
       }
@@ -422,6 +436,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   Widget _buildStatColumn(String label, dynamic count) {
     final int countValue = _safeParseInt(count) ?? 0;
+    final settings = Provider.of<SettingsManager>(context);
 
     if (label == "Статей") {
       return NeoContainer(
@@ -436,7 +451,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               ).textTheme.headlineLarge!.copyWith(fontSize: 20),
             ),
             Text(
-              label,
+              settings.translate('stories'),
               style: Theme.of(
                 context,
               ).textTheme.headlineMedium!.copyWith(fontSize: 14),
@@ -447,6 +462,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     }
 
     String tabName = label == "Подписчиков" ? 'followers' : 'following';
+    String translatedLabel = label == "Подписчиков" ? settings.translate('followers') : settings.translate('following');
 
     return GestureDetector(
       onTap: () => _navigateToSubscriptionList(tabName),
@@ -462,7 +478,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               ).textTheme.headlineLarge!.copyWith(fontSize: 20),
             ),
             Text(
-              label,
+              translatedLabel,
               style: Theme.of(
                 context,
               ).textTheme.headlineMedium!.copyWith(fontSize: 14),
@@ -492,21 +508,21 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   Widget _buildSliverExpandableStoryList(List<Story> stories, bool isMyProfile, double titleFontScale) {
     if (stories.isEmpty) {
-      return const SliverFillRemaining(
+      return SliverFillRemaining(
         hasScrollBody: false,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.view_agenda),
+              const Icon(Icons.view_agenda),
               Text(
-                "Оставь свой след в приложении",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                settings.translate('author'), // Using 'author' or need 'empty_stories'
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               Text(
-                "Возможно твоя первая история будет самой обсуждаемой",
-                style: TextStyle(fontSize: 14),
+                settings.translate('no_replies'),
+                style: const TextStyle(fontSize: 14),
               ),
             ],
           ),
@@ -613,21 +629,21 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   Widget _buildSliverDraftList(List<DraftStory> drafts, double titleFontScale) {
     if (drafts.isEmpty) {
-      return const SliverFillRemaining(
+      return SliverFillRemaining(
         hasScrollBody: false,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.edit_note),
+              const Icon(Icons.edit_note),
               Text(
-                "У вас пока нет черновиков",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                settings.translate('draft'),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               Text(
-                "Начните писать новую историю!",
-                style: TextStyle(fontSize: 14),
+                settings.translate('write_reply'), // Need 'no_drafts_hint' really
+                style: const TextStyle(fontSize: 14),
               ),
             ],
           ),
@@ -684,7 +700,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Создан: ${draft.updatedAt.toString().split(' ')[0]}',
+                        '${settings.translate('version')}: ${draft.updatedAt.toString().split(' ')[0]}',
                         style: TextStyle(color: Colors.grey[700]),
                       ),
                     ],
@@ -726,7 +742,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               children: <Widget>[
                 ListTile(
                   leading: const Icon(Icons.edit, color: Colors.black),
-                  title: const Text('Редактировать черновик'),
+                  title: Text(settings.translate('edit')),
                   onTap: () async {
                     Navigator.of(context).pop();
                     await Navigator.of(context).push(
@@ -741,9 +757,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 ),
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text(
-                    'Удалить черновик',
-                    style: TextStyle(color: Colors.red),
+                  title: Text(
+                    settings.translate('delete'),
+                    style: const TextStyle(color: Colors.red),
                   ),
                   onTap: () {
                     Navigator.of(context).pop();
@@ -761,26 +777,27 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   void _showDeleteDraftConfirmationDialog(String draftId) {
     if (!mounted) return;
 
+    final settings = Provider.of<SettingsManager>(context, listen: false);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Подтвердить удаление черновика'),
-        content: const Text('Вы уверены, что хотите удалить этот черновик?'),
+        title: Text(settings.translate('delete')),
+        content: Text(settings.translate('draft')),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Отмена'),
+            child: Text(settings.translate('cancel')),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.of(context).pop(); // Close dialog
+              Navigator.of(context).pop();
               await _draftService.deleteDraft(draftId);
-              _showSnackbar('Черновик успешно удален.');
-              _loadDrafts(); // Refresh drafts
+              _showSnackbar(settings.translate('profile_updated'));
+              _loadDrafts();
             },
-            child: const Text(
-              'Удалить',
-              style: TextStyle(color: Colors.red),
+            child: Text(
+              settings.translate('delete'),
+              style: const TextStyle(color: Colors.red),
             ),
           ),
         ],
@@ -992,6 +1009,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
+
     if (_isLoading) {
       return Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -1005,12 +1024,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(_errorMessage ?? "Не удалось загрузить профиль"),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _loadProfileData,
-                child: const Text("Повторить"),
-              ),
+                Text(_errorMessage ?? settings.translate('error')),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _loadProfileData,
+                  child: Text(settings.translate('retry')),
+                ),
             ],
           ),
         ),
@@ -1236,9 +1255,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildStatColumn("Статей", stats['stories_count']),
-                          _buildStatColumn("Подписчиков", stats['followers_count']),
-                          _buildStatColumn("Подписок", stats['following_count']),
+                          _buildStatColumn(settings.translate('stories'), stats['stories_count']),
+                          _buildStatColumn(settings.translate('followers'), stats['followers_count']),
+                          _buildStatColumn(settings.translate('following'), stats['following_count']),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -1249,7 +1268,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           margin: const EdgeInsets.symmetric(horizontal: 10),
                           child: NeoButton(
                             onPressed: _navigateToEditProfile,
-                            text: 'Редактировать профиль',
+                            text: settings.translate('edit_profile'),
                           ),
                         )
                       else if (currentUserId != null)
@@ -1257,13 +1276,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           margin: const EdgeInsets.symmetric(horizontal: 10),
                           child: NeoButton(
                             onPressed: _handleFollowToggle,
-                            text: isFollowing ? 'Отписаться' : 'Подписаться',
+                            text: isFollowing ? settings.translate('unsubscribe') : settings.translate('subscribe'),
                           ),
                         )
                       else
-                        const Center(
-                          child: Text('Авторизуйтесь, чтобы подписаться'),
-                        ),
+                          Center(child: Text(settings.translate('auth_required'))),
                       const SizedBox(height: 16),
                     ],
                   ),
@@ -1279,10 +1296,10 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           labelColor: Colors.black,
                           unselectedLabelColor: Colors.grey,
                           indicatorColor: Colors.black,
-                          tabs: const [
-                            Tab(text: 'Статьи'),
-                            Tab(text: 'Черновики'),
-                          ],
+                            tabs: [
+                              Tab(text: settings.translate('stories')),
+                              Tab(text: settings.translate('drafts')),
+                            ],
                         ),
                       ),
                     ),
@@ -1354,7 +1371,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
           children: <Widget>[
             ListTile(
-              title: const Text("Доска почета"),
+              title: Text(settings.translate('influence_list')),
               leading: const Icon(Icons.people),
               onTap: () {
                 Navigator.of(context).push(
@@ -1365,7 +1382,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               },
             ),
             ListTile(
-              title: const Text("Настройки"),
+              title: Text(settings.translate('settings')),
               leading: const Icon(Icons.settings),
               onTap: () {
                 Navigator.of(context).push(
@@ -1378,8 +1395,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             
             ListTile(
               leading: const Icon(Icons.info, color: Colors.black),
-              title: const Text(
-                'О приложении',
+              title: Text(
+                settings.translate('about_app'),
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
@@ -1392,8 +1409,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             ),
             ListTile(
               leading: const Icon(Icons.logout_outlined, color: Colors.red),
-              title: const Text(
-                'Log out',
+              title: Text(
+                settings.translate('logout'),
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,

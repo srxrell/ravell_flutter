@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 
 class MarkdownToolbar extends StatelessWidget {
   final TextEditingController controller;
@@ -100,6 +103,7 @@ class MarkdownToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -107,57 +111,57 @@ class MarkdownToolbar extends StatelessWidget {
           IconButton(
             onPressed: () => _applyFormatting('**'),
             icon: const Icon(Icons.format_bold),
-            tooltip: 'Жирный',
+            tooltip: settings.translate('bold'),
           ),
           IconButton(
             onPressed: () => _applyFormatting('*'),
             icon: const Icon(Icons.format_italic),
-            tooltip: 'Курсив',
+            tooltip: settings.translate('italic'),
           ),
           IconButton(
             onPressed: () => _applyFormatting('~~'),
             icon: const Icon(Icons.strikethrough_s),
-            tooltip: 'Зачеркнутый',
+            tooltip: settings.translate('strikethrough'),
           ),
           IconButton(
              onPressed: () => _applyFormatting('`'),
              icon: const Icon(Icons.code),
-             tooltip: 'Код',
+             tooltip: settings.translate('code'),
            ),
            IconButton(
              onPressed: () => _applyFormatting('```'),
              icon: const Icon(Icons.terminal),
-             tooltip: 'Блок кода',
+             tooltip: settings.translate('code_block'),
            ),
           IconButton(
             onPressed: () => _applyFormatting('# ', isLineStart: true),
             icon: const Icon(Icons.title),
-            tooltip: 'Заголовок 1',
+            tooltip: settings.translate('h1'),
           ),
           IconButton(
             onPressed: () => _applyFormatting('## ', isLineStart: true),
             icon: const Icon(Icons.text_fields),
-             tooltip: 'Заголовок 2',
+             tooltip: settings.translate('h2'),
           ),
           IconButton(
             onPressed: () => _applyFormatting('> ', isLineStart: true),
             icon: const Icon(Icons.format_quote),
-            tooltip: 'Цитата',
+            tooltip: settings.translate('quote'),
           ),
           IconButton(
             onPressed: () => _applyFormatting('- ', isLineStart: true),
             icon: const Icon(Icons.list),
-            tooltip: 'Список',
+            tooltip: settings.translate('list'),
           ),
           IconButton(
             onPressed: _applyLink,
             icon: const Icon(Icons.link),
-            tooltip: 'Ссылка',
+            tooltip: settings.translate('link'),
           ),
           IconButton(
             onPressed: _applyHorizontalRule,
             icon: const Icon(Icons.horizontal_rule),
-            tooltip: 'Разделитель',
+            tooltip: settings.translate('divider'),
           ),
         ],
       ),

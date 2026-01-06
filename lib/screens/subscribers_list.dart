@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:readreels/services/subscription_service.dart';
 import 'package:readreels/widgets/bottom_nav_bar_liquid.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:readreels/widgets/early_access_bottom.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:readreels/screens/profile_screen.dart';
+import 'package:readreels/widgets/early_access_bottom.dart';
 
 class SubscriptionsSubscriberListScreen extends StatefulWidget {
   final int profileuser_id;
@@ -57,6 +59,7 @@ class _SubscriptionsSubscriberListScreenState
       builder: (context, currentuser_idSnapshot) {
         final currentuser_id = currentuser_idSnapshot.data;
 
+        final settings = Provider.of<SettingsManager>(context);
         return Scaffold(
           appBar: AppBar(
             automaticallyImplyLeading: false,
@@ -64,7 +67,10 @@ class _SubscriptionsSubscriberListScreenState
             title: Text(widget.profileUsername),
             bottom: TabBar(
               controller: _tabController,
-              tabs: const [Tab(text: 'Подписчики'), Tab(text: 'Подписки')],
+              tabs: [
+                Tab(text: settings.translate('followers')),
+                Tab(text: settings.translate('following')),
+              ],
             ),
           ),
           body: TabBarView(
@@ -187,8 +193,9 @@ class _UserListWidgetState extends State<_UserListWidget> {
 
   Future<void> _handleFollowToggle(int userIdToToggle) async {
     if (widget.currentuser_id == null || widget.currentuser_id == 0) {
+      final settings = Provider.of<SettingsManager>(context, listen: false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Для подписки требуется авторизация.')),
+        SnackBar(content: Text(settings.translate('auth_required'))),
       );
       return;
     }
@@ -226,10 +233,10 @@ class _UserListWidgetState extends State<_UserListWidget> {
           return Center(child: Text("Ошибка загрузки: ${snapshot.error}"));
         }
 
+        final settings = Provider.of<SettingsManager>(context);
         final users = snapshot.data ?? [];
-
         if (users.isEmpty) {
-          return const Center(child: Text("Список пуст."));
+          return Center(child: Text(settings.translate('list_empty')));
         }
 
         return ListView.builder(
@@ -331,7 +338,7 @@ class _UserListWidgetState extends State<_UserListWidget> {
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                         ),
                         child: Text(
-                          isFollowing ? 'Отписаться' : 'Подписаться',
+                          isFollowing ? settings.translate('unsubscribe') : settings.translate('subscribe'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,

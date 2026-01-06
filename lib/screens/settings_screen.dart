@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'package:readreels/managers/settings_manager.dart';
 import 'package:readreels/widgets/neowidgets.dart';
 import 'package:readreels/services/updateChecker.dart';
+import 'package:readreels/theme.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,116 +14,193 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  double _fontScale = 1.0;
-  double _titleFontScale = 1.0;
-  bool _isLoading = true;
-
   final _updateChecker = UpdateChecker();
 
   @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _fontScale = prefs.getDouble('story_font_scale') ?? 1.0;
-      _titleFontScale = prefs.getDouble('title_font_scale') ?? 1.0;
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _saveFontScale(double value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('story_font_scale', value);
-    setState(() => _fontScale = value);
-  }
-
-  Future<void> _saveTitleFontScale(double value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('title_font_scale', value);
-    setState(() => _titleFontScale = value);
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Настройки'),
+        title: Text(settings.translate('settings')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            settings.translate('reading_settings'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          _buildSettingsContainer(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Внешний вид',
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-
-                /// ---- UI BLOCK ----
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Размер шрифта в историях',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 16)),
-                      Slider(
-                        value: _fontScale,
-                        min: 0.8,
-                        max: 1.5,
-                        divisions: 7,
-                        onChanged: _saveFontScale,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text('Размер шрифта заголовков',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 16)),
-                      Slider(
-                        value: _titleFontScale,
-                        min: 0.8,
-                        max: 1.5,
-                        divisions: 7,
-                        onChanged: _saveTitleFontScale,
-                      ),
-                    ],
-                  ),
+                _buildSlider(
+                  label: settings.translate('text_size'),
+                  value: settings.fontScale,
+                  min: 0.8,
+                  max: 1.6,
+                  divisions: 8,
+                  onChanged: settings.setFontScale,
                 ),
-
-                const SizedBox(height: 24),
-                const Text('Приложение',
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ListTile(
-                    title: const Text('Проверить обновления'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      _updateChecker.checkUpdate(context);
-                    },
-                  )
+                _buildSlider(
+                  label: settings.translate('title_size'),
+                  value: settings.titleFontScale,
+                  min: 0.8,
+                  max: 1.6,
+                  divisions: 8,
+                  onChanged: settings.setTitleFontScale,
+                ),
+                _buildSlider(
+                  label: settings.translate('line_height'),
+                  value: settings.lineHeight,
+                  min: 1.2,
+                  max: 2.0,
+                  divisions: 8,
+                  onChanged: settings.setLineHeight,
                 ),
               ],
             ),
+          ),
+
+          const SizedBox(height: 32),
+          Text(
+            settings.translate('language'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+              value: settings.locale,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(20),
+              ),
+              icon: const Icon(Icons.language, color: Colors.black),
+              isExpanded: true,
+              dropdownColor: Colors.white,
+              items: [
+                DropdownMenuItem(
+                  value: 'ru',
+                  child: Text(settings.translate('russian'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                DropdownMenuItem(
+                  value: 'en',
+                  child: Text(settings.translate('english'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+              onChanged: (val) {
+                if (val != null) settings.setLocale(val);
+              },
+            ),
+
+          const SizedBox(height: 32),
+          Text(
+            settings.translate('app'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          _buildSettingsContainer(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                settings.translate('check_updates'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.black),
+              onTap: () => _updateChecker.checkUpdate(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildSettingsContainer(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                settings.translate('about_app'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text('${settings.translate('version')} 1.0'),
+              trailing: const Icon(Icons.info_outline, color: Colors.black),
+              onTap: () {
+                showAboutDialog(
+                  context: context,
+                  applicationName: 'Ravell',
+                  applicationVersion: '1.0',
+                  applicationIcon: SvgPicture.asset('assets/icons/logo.svg', width: 50, height: 50),
+                  children: [
+                    Text(settings.translate('app_description')),
+                    Text('${settings.translate('author')}: Serell Vorne'),
+                    const Text('Email: serrelvorne@gmail.com'),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Language button removed as it's replaced by dropdown
+
+  Widget _buildSettingsContainer({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.black, width: 2),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black,
+            offset: Offset(4, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildSlider({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required Function(double) onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: neoAccent,
+            inactiveTrackColor: Colors.grey[200],
+            thumbColor: Colors.black,
+            overlayColor: neoAccent.withOpacity(0.2),
+          ),
+          child: Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
     );
   }
 }

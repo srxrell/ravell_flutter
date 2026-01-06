@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 
 class UpdateChecker {
   final String updateUrl =
@@ -39,15 +41,16 @@ class UpdateChecker {
   }
 
   void _showDialog(BuildContext context, String version, String url) {
+    final settings = Provider.of<SettingsManager>(context, listen: false);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Доступно обновление'),
-        content: Text('Новая версия: $version'),
+        title: Text(settings.translate('update_available')),
+        content: Text('${settings.translate('new_version')}: $version'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Позже'),
+            child: Text(settings.translate('later')),
           ),
           TextButton(
             onPressed: () async {
@@ -58,7 +61,7 @@ class UpdateChecker {
                     mode: LaunchMode.externalApplication);
               }
             },
-            child: const Text('Скачать'),
+            child: Text(settings.translate('download')),
           ),
         ],
       ),

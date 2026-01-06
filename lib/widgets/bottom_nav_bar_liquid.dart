@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
+
 class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
   final String currentRoute;
   final GlobalKey? homeKey;
@@ -46,10 +49,11 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
   }
 
   Future<void> _goToAddStory(BuildContext context) async {
+    final settings = Provider.of<SettingsManager>(context, listen: false);
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getInt('guest_id') != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Требуется авторизация'))); context.go('/auth-check'); 
+          SnackBar(content: Text(settings.translate('only_for_registered')))); context.go('/auth-check'); 
       return;
     }
 
@@ -84,16 +88,17 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
   }
 
   Future<void> _goToProfile(BuildContext context) async {
+    final settings = Provider.of<SettingsManager>(context, listen: false);
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getInt('guest_id') != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Требуется авторизация'))); context.go('/auth-check'); 
+          SnackBar(content: Text(settings.translate('only_for_registered')))); context.go('/auth-check'); 
       return;
     }
     final userId = prefs.getInt('user_id');
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Требуется авторизация'))); context.go('/auth-check'); 
+          SnackBar(content: Text(settings.translate('only_for_registered')))); context.go('/auth-check'); 
       return;
     }
     context.push('/profile/$userId');
@@ -101,6 +106,7 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       height: 85,
@@ -119,7 +125,7 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
         children: [
           _wrap(
             homeKey,
-            'Главная лента историй',
+            settings.translate('nav_home'),
             _buildNavItem(
               route: '/home',
               activeIcon: Icons.home,
@@ -129,7 +135,7 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
           ),
           _wrap(
             addKey,
-            'Создать историю',
+            settings.translate('nav_add'),
             _buildNavItem(
               route: '/addStory',
               activeIcon: Icons.add_box,
@@ -139,7 +145,7 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
           ),
           _wrap(
             profileKey,
-            'Ваш профиль',
+            settings.translate('nav_profile'),
             _buildNavItem(
               route: '/profile',
               activeIcon: Icons.person,

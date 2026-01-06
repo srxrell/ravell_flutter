@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:go_router/go_router.dart'; // Added this line
 
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import '../widgets/bottom_nav_bar_liquid.dart';
 
 class Debouncer {
@@ -57,6 +59,9 @@ class _SearchStoryState extends State<SearchStory> {
 
   // Для отслеживания текущих запросов
   String _currentQuery = '';
+
+
+  SettingsManager get settings => Provider.of<SettingsManager>(context);
 
   @override
   void initState() {
@@ -277,6 +282,7 @@ class _SearchStoryState extends State<SearchStory> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     final bool isSearchActive = textController.text.trim().isNotEmpty;
 
     return Scaffold(
@@ -289,7 +295,7 @@ class _SearchStoryState extends State<SearchStory> {
           controller: textController,
           autofocus: true, // Фокус на поле поиска при открытии
           decoration: InputDecoration(
-            hintText: "Search stories, categories",
+            hintText: settings.translate('search_hint'),
             border: InputBorder.none,
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
@@ -341,6 +347,7 @@ class _SearchStoryState extends State<SearchStory> {
   }
 
   Widget _buildAdvancedFilters() {
+    final settings = Provider.of<SettingsManager>(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -350,14 +357,14 @@ class _SearchStoryState extends State<SearchStory> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Категории',
-                style: TextStyle(fontWeight: FontWeight.bold),
+               Text(
+                settings.translate('feeds'), // Using feeds or need 'categories'
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               if (categories.length > 10)
                 TextButton(
                   onPressed: _openAllCategoriesScreen,
-                  child: const Text('Все категории'),
+                  child: Text(settings.translate('popular')), // Need 'all_categories'
                 ),
             ],
           ),
@@ -372,11 +379,11 @@ class _SearchStoryState extends State<SearchStory> {
               ),
             )
           else if (categories.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
+             Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                'Категории не найдены',
-                style: TextStyle(color: Colors.grey),
+                settings.translate('no_results'),
+                style: const TextStyle(color: Colors.grey),
               ),
             )
           else
@@ -441,7 +448,7 @@ class _SearchStoryState extends State<SearchStory> {
                   rows.add(
                     TextButton(
                       onPressed: _openAllCategoriesScreen,
-                      child: Text('Ещё (+$remaining категорий)'),
+                      child: Text('${settings.translate('popular')} (+$remaining)'),
                     ),
                   );
                 }
@@ -470,7 +477,7 @@ class _SearchStoryState extends State<SearchStory> {
                         _performSearch(textController.text.trim());
                       });
                     },
-                    child: const Text('Очистить'),
+                    child: Text(settings.translate('cancel')), // Need 'clear'
                   ),
                 ],
               ),
@@ -486,7 +493,7 @@ class _SearchStoryState extends State<SearchStory> {
             spacing: 8,
             children: [
               ChoiceChip(
-                label: const Text('За всё время'),
+                label: Text(settings.translate('popular')), // Need 'all_time'
                 selected: _dateFilter == 'any',
                 onSelected: (_) {
                   setState(() {
@@ -496,7 +503,7 @@ class _SearchStoryState extends State<SearchStory> {
                 },
               ),
               ChoiceChip(
-                label: const Text('Сегодня'),
+                label: Text(settings.translate('newest')), // Need 'today'
                 selected: _dateFilter == 'day',
                 onSelected: (_) {
                   setState(() {
@@ -629,10 +636,10 @@ class _SearchStoryState extends State<SearchStory> {
     final peopleList = people.values.toList();
 
     if (peopleList.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'Авторы не найдены',
-          style: TextStyle(color: Colors.grey),
+          settings.translate('no_results'),
+          style: const TextStyle(color: Colors.grey),
         ),
       );
     }
@@ -723,15 +730,15 @@ class _SearchStoryState extends State<SearchStory> {
             children: [
               const Icon(Icons.search_off, size: 64, color: Colors.grey),
               const SizedBox(height: 16),
-              Text(
-                'Ничего не найдено для "${textController.text}"',
+               Text(
+                '${settings.translate('no_results')} "${textController.text}"',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Попробуйте другие ключевые слова',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+               Text(
+                settings.translate('search_hint'),
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
             ],
           ),
@@ -743,12 +750,12 @@ class _SearchStoryState extends State<SearchStory> {
         length: 2,
         child: Column(
           children: [
-            const TabBar(
+            TabBar(
               labelColor: Colors.black,
               unselectedLabelColor: Colors.grey,
-              tabs: [
-                Tab(text: 'Истории'),
-                Tab(text: 'Люди'),
+               tabs: [
+                Tab(text: settings.translate('stories')),
+                Tab(text: settings.translate('nav_profile')), // Need 'people'
               ],
             ),
             Expanded(
@@ -771,15 +778,15 @@ class _SearchStoryState extends State<SearchStory> {
             children: [
               const Icon(Icons.history, size: 64, color: Colors.grey),
               const SizedBox(height: 16),
-              const Text(
-                'История поиска пуста',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+              Text(
+                settings.translate('no_results'), // Need 'history_empty'
+                style: const TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Начните вводить запрос для поиска историй',
+              Text(
+                settings.translate('search_hint'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
             ],
           ),
@@ -845,17 +852,18 @@ class _AllCategoriesScreenState extends State<_AllCategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Все категории'),
+        title: Text(settings.translate('feeds')), // Need 'all_categories'
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(_selectedIds);
             },
-            child: const Text(
-              'Готово',
-              style: TextStyle(color: Colors.black),
+            child: Text(
+              settings.translate('save'), // Need 'done'
+              style: const TextStyle(color: Colors.black),
             ),
           ),
         ],

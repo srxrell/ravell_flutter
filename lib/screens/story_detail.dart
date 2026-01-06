@@ -8,10 +8,13 @@ import 'package:readreels/services/auth_service.dart';
 import 'package:readreels/managers/achievement_manager.dart';
 import 'package:readreels/services/comment_service.dart';
 import 'package:readreels/services/story_service.dart' as st;
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:readreels/screens/settings_screen.dart';
 import 'package:readreels/theme.dart';
 import 'package:readreels/widgets/neowidgets.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:readreels/widgets/early_access_bottom.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -23,11 +26,6 @@ class StoryCard extends StatelessWidget {
   final bool isReplyCard;
   final void Function()? onStoryUpdated;
   final bool useLocalData; // 🟢 НОВЫЙ ПАРАМЕТР
-  final double titleFontScale; // New parameter
-  final double fontScale;
-  final double titleScale;
-  final double lineHeight;
-  final bool isDarkBackground;
 
   const StoryCard({
     super.key,
@@ -35,11 +33,6 @@ class StoryCard extends StatelessWidget {
     required this.isReplyCard,
     this.onStoryUpdated,
     this.useLocalData = false, // По умолчанию используем онлайн данные
-    this.titleFontScale = 1.0, // Default value
-    this.fontScale = 1.0,
-  this.titleScale = 1.0,
-  this.lineHeight = 1.5,
-  this.isDarkBackground = false,
   });
 
   // 🟢 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРА
@@ -145,6 +138,9 @@ class StoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
+    final isDarkBg = false;
+
     return FutureBuilder(
       future: Future.wait([_getAvatarUrl(), _getUsername()]),
       builder: (context, snapshot) {
@@ -158,8 +154,8 @@ class StoryCard extends StatelessWidget {
                 Text(
                   story.title,
                   style: GoogleFonts.russoOne(
-                    fontSize: 32,
-                    color: Colors.black,
+                    fontSize: 32 * settings.titleFontScale,
+                    color: isDarkBg ? Colors.white : Colors.black,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -190,8 +186,8 @@ class StoryCard extends StatelessWidget {
               Text(
                 story.title,
                 style: GoogleFonts.russoOne(
-  fontSize: isReplyCard ? 20 * titleScale : 32 * titleScale ,
-  color: isDarkBackground ? Colors.white : Colors.black,
+  fontSize: isReplyCard ? 20 * settings.titleFontScale : 32 * settings.titleFontScale ,
+  color: isDarkBg ? Colors.white : Colors.black,
 ),
               ),
 
@@ -254,8 +250,8 @@ class StoryCard extends StatelessWidget {
                             username,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              fontSize: 18,
-                              color: isDarkBackground ? Colors.white : Colors.black,
+                               fontSize: 18,
+                               color: isDarkBg ? Colors.white : Colors.black,
 
                             ),
                           ),
@@ -284,13 +280,13 @@ class StoryCard extends StatelessWidget {
     data: story.content,
     styleSheet: MarkdownStyleSheet(
   p: TextStyle(
-    fontSize: 16 * fontScale,
-    height: lineHeight,
-    color: isDarkBackground ? Colors.white70 : Colors.black87,
+    fontSize: 16 * settings.fontScale,
+    height: settings.lineHeight,
+    color: isDarkBg ? Colors.white70 : Colors.black87,
   ),
-  h1: TextStyle(fontSize: 32 * titleScale),
-  h2: TextStyle(fontSize: 28 * titleScale),
-  h3: TextStyle(fontSize: 24 * titleScale),
+  h1: TextStyle(fontSize: 32 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
+  h2: TextStyle(fontSize: 28 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
+  h3: TextStyle(fontSize: 24 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
 ),
     onTapLink: (text, href, title) {
       if (href != null) {
@@ -361,7 +357,7 @@ class StoryCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: neoAccent,
+        color: Colors.blue, // Placeholder color, adjust as needed
       ),
       child: Center(
         child: Text(
@@ -469,137 +465,21 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   bool _hasError = false;
   int _totalWords = 0;
   int _totalRepliesWords = 0;
-  double _currentTitleFontScale = 1.0; // New variable
-   double _fontScale = 1.0;
-  double _titleScale = 1.0;
-  double _lineHeight = 1.5;
-  int _backgroundIndex = 0;
-
-  final List<Color> _backgrounds = [
-    const Color(0xFFFFFFFF), // светлый
-    const Color(0xFFF4ECD8), // сепия
-    const Color(0xFF121212), // тёмный
-  ];
 
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _fontScale = prefs.getDouble('story_font_scale') ?? 1.0;
-      _titleScale = prefs.getDouble('title_font_scale') ?? 1.0;
-      _lineHeight = prefs.getDouble('story_line_height') ?? 1.5;
-      _backgroundIndex = prefs.getInt('story_background') ?? 0;
-    });
-  }
-
-  Future<void> _saveSetting(String key, dynamic value) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (value is double) await prefs.setDouble(key, value);
-    if (value is int) await prefs.setInt(key, value);
-    setState(() {});
-  }
 
   void _openReadingSettings() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModal) {
-            return Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Настройки чтения',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-
-                  const Text('Размер текста'),
-                  Slider(
-                    value: _fontScale,
-                    min: 0.8,
-                    max: 1.6,
-                    divisions: 8,
-                    onChanged: (v) async {
-                      await _saveSetting('story_font_scale', v);
-                      setModal(() => _fontScale = v);
-                    },
-                  ),
-
-                  const Text('Размер заголовков'),
-                  Slider(
-                    value: _titleScale,
-                    min: 0.8,
-                    max: 1.6,
-                    divisions: 8,
-                    onChanged: (v) async {
-                      await _saveSetting('title_font_scale', v);
-                      setModal(() => _titleScale = v);
-                    },
-                  ),
-
-                  const Text('Межстрочный интервал'),
-                  Slider(
-                    value: _lineHeight,
-                    min: 1.2,
-                    max: 2.0,
-                    divisions: 8,
-                    onChanged: (v) async {
-                      await _saveSetting('story_line_height', v);
-                      setModal(() => _lineHeight = v);
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-                  const Text('Фон'),
-
-                  Row(
-                    children: List.generate(_backgrounds.length, (i) {
-                      return GestureDetector(
-                        onTap: () async {
-                          await _saveSetting('story_background', i);
-                          setModal(() => _backgroundIndex = i);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 12, top: 8),
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: _backgrounds[i],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: i == _backgroundIndex
-                                  ? Colors.black
-                                  : Colors.grey,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-
-                  const SizedBox(height: 16),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      backgroundColor: Colors.transparent,
+      builder: (context) => const SettingsScreen(),
     );
   }
 
   @override
   void initState() {
     super.initState();
-    _loadSettings(); // Call a new method to load settings
     _fetchReplies();
     _incrementReadCounter();
     
@@ -672,19 +552,16 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bgColor = _backgrounds[_backgroundIndex];
-    final isDarkBg = bgColor.computeLuminance() < 0.3;
+    final settings = Provider.of<SettingsManager>(context);
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: neoBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-
         toolbarHeight: 100,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
-        backgroundColor: bgColor,
+        backgroundColor: neoBackground,
         title: SvgPicture.asset("assets/icons/logo.svg", width: 60, height: 60),
         actions: [
           GestureDetector(
@@ -712,8 +589,8 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   }
 
   Widget _buildBody() {
-    final bgColor = _backgrounds[_backgroundIndex];
-final isDarkBg = bgColor.computeLuminance() < 0.3;
+    final settings = Provider.of<SettingsManager>(context);
+    final isDarkBg = false;
     return RefreshIndicator(
       onRefresh: _fetchReplies,
       child: CustomScrollView(
@@ -727,15 +604,11 @@ final isDarkBg = bgColor.computeLuminance() < 0.3;
                 children: [
                   // 🟢 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Передаем fromProfile в StoryCard
                   StoryCard(
-  story: widget.story,
-  isReplyCard: false,
-  onStoryUpdated: _fetchReplies,
-  useLocalData: widget.fromProfile,
-  fontScale: _fontScale,
-  titleScale: _titleScale,
-  lineHeight: _lineHeight,
-  isDarkBackground: isDarkBg,
-),
+                    story: widget.story,
+                    isReplyCard: false,
+                    onStoryUpdated: _fetchReplies,
+                    useLocalData: widget.fromProfile,
+                  ),
                   const SizedBox(height: 20),
                   _buildReplyButton(),
                 ],
@@ -752,7 +625,7 @@ final isDarkBg = bgColor.computeLuminance() < 0.3;
                   vertical: 8.0,
                 ),
                 child: Text(
-                  'Ответы (${_replies.length})',
+                  '${settings.translate('replies')} (${_replies.length})',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -792,11 +665,11 @@ final isDarkBg = bgColor.computeLuminance() < 0.3;
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('Не удалось загрузить ответы'),
+                    Text(settings.translate('error_loading_replies')),
                     const SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: _fetchReplies,
-                      child: const Text('Повторить'),
+                      child: Text(settings.translate('retry')),
                     ),
                   ],
                 ),
@@ -814,7 +687,7 @@ final isDarkBg = bgColor.computeLuminance() < 0.3;
                       color: isDarkBg ? Colors.white : Colors.black,
                     ),
                     const SizedBox(height: 16),
-                    Text('Пока нет ответов', style: TextStyle(color: isDarkBg ? Colors.white : Colors.black,)),
+                    Text(settings.translate('no_replies')),
                   ],
                 ),
               ),
@@ -825,40 +698,41 @@ final isDarkBg = bgColor.computeLuminance() < 0.3;
   }
 
   Widget _buildReplyButton() {
-  return Container(
-    height: 75,
-    width: MediaQuery.of(context).size.width,
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    child: NeoIconButton(
-      onPressed: () async {
-        final prefs = await SharedPreferences.getInstance();
-        final isGuest = prefs.getInt('guest_id') != null;
+    final settings = Provider.of<SettingsManager>(context);
+    return Container(
+      height: 75,
+      width: MediaQuery.of(context).size.width,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: NeoIconButton(
+        onPressed: () async {
+          final prefs = await SharedPreferences.getInstance();
+          final isGuest = prefs.getInt('guest_id') != null;
 
-        if (isGuest) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Только для зарегистрированных пользователей'),
-            ),
-          );
-          return;
-        }
-
-        Navigator.of(context)
-            .push(
-              MaterialPageRoute(
-                builder: (context) => AddStoryScreen(
-                  parentTitle: widget.story.title,
-                  replyToId: widget.story.id,
-                ),
+          if (isGuest) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(settings.translate('only_for_registered')),
               ),
-            )
-            .then((_) => _fetchReplies());
-      },
-      icon: const Icon(Icons.reply),
-      child: const Text('Ответить'),
-    ),
-  );
-}
+            );
+            return;
+          }
+
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  builder: (context) => AddStoryScreen(
+                    parentTitle: widget.story.title,
+                    replyToId: widget.story.id,
+                  ),
+                ),
+              )
+              .then((_) => _fetchReplies());
+        },
+        icon: const Icon(Icons.reply),
+        child: Text(settings.translate('reply')),
+      ),
+    );
+  }
 
 
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:readreels/widgets/neowidgets.dart'; // Убедитесь, что путь верный
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'dart:async';
@@ -37,9 +39,14 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
   void _showSnackBar(String message, {bool isError = false}) {
     if (context.mounted) {
+      final settings = Provider.of<SettingsManager>(context, listen: false);
+      String translatedMessage = message;
+      if (message.contains('Error') || message.contains('Ошибка')) {
+         translatedMessage = '${settings.translate('error')}: ${message.split(':').last.trim()}';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(translatedMessage),
           backgroundColor: isError ? Colors.red : null,
         ),
       );
@@ -81,6 +88,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
@@ -100,14 +108,14 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isLogin ? "С возвращением!" : "Станьте популярным",
+                        isLogin ? settings.translate('welcome_back') : settings.translate('become_popular'),
                         style: Theme.of(context).textTheme.headlineLarge,
                       ),
                       const SizedBox(height: 8),
                       Text(
                         isLogin
-                            ? "Войдите, чтобы делиться своими историями"
-                            : "Поделитесь своими историями с другими",
+                            ? settings.translate('login_subtitle')
+                            : settings.translate('signup_subtitle'),
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
                     ],
@@ -122,8 +130,8 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                     children: [
                       TextField(
                         controller: usernameController,
-                        decoration: const InputDecoration(
-                          hintText: "Введите ваше имя пользователя",
+                        decoration: InputDecoration(
+                          hintText: settings.translate('username_hint'),
                           border: InputBorder.none,
                         ),
                       ),
@@ -134,8 +142,8 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                             const SizedBox(height: 10),
                             TextField(
                               controller: emailController,
-                              decoration: const InputDecoration(
-                                hintText: "Введите ваш email",
+                              decoration: InputDecoration(
+                                hintText: settings.translate('email_hint'),
                                 border: InputBorder.none,
                               ),
                             ),
@@ -147,8 +155,8 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                       TextField(
                         controller: passwordController,
                         obscureText: true,
-                        decoration: const InputDecoration(
-                          hintText: "Введите ваш пароль",
+                        decoration: InputDecoration(
+                          hintText: settings.translate('password_hint'),
                           border: InputBorder.none,
                         ),
                       ),
@@ -167,7 +175,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  "Подождите, не выходите. Приложение работает, но интернет может быть медленным...",
+                                  settings.translate('slow_connection'),
                                   style: TextStyle(
                                     color: Colors.amber[800],
                                     fontSize: 14,
@@ -195,10 +203,10 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                           },
                           text:
                               _isLoading
-                                  ? 'Загрузка...'
+                                  ? settings.translate('loading')
                                   : isLogin
-                                  ? "Войти"
-                                  : "Зарегистрироваться",
+                                  ? settings.translate('login')
+                                  : settings.translate('register'),
                         ),
                       ),
 
@@ -216,7 +224,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                           const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8.0),
                             child: Text(
-                              "ИЛИ",
+                              "OR", // Reusing or need OR
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -249,7 +257,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                               isLogin = !isLogin;
                             });
                           },
-                          text: isLogin ? "Создать аккаунт" : "Назад ко входу",
+                          text: isLogin ? settings.translate('save') : settings.translate('nav_profile'), // Need 'create_account' and 'back_to_login'
                         ),
                       ),
                       SizedBox(height: 10),
@@ -260,7 +268,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                           onPressed: () async {
                             await logInAsGuest();
                           },
-                          text: "Войти как гость"
+                          text: settings.translate('nav_profile'), // Need 'login_as_guest'
                         ),
                       ),
                     ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:readreels/models/story.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 
 class UserStoryList extends StatelessWidget {
   final List<Story> stories;
@@ -9,13 +11,14 @@ class UserStoryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     if (stories.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 30.0),
+          padding: const EdgeInsets.symmetric(vertical: 30.0),
           child: Text(
-            "Пользователь еще не опубликовал ни одной истории.",
-            style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+            settings.translate('no_stories'),
+            style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
           ),
         ),
       );
@@ -51,9 +54,10 @@ class UserStoryList extends StatelessWidget {
             // Маршрут: /story/:storyId?authorId=:authorId
             context.push('/story/${story.id}?authorId=$authorId');
           } else {
+            final settings = Provider.of<SettingsManager>(context, listen: false);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Ошибка: Недостаточно данных для навигации."),
+              SnackBar(
+                content: Text(settings.translate('nav_error')),
               ),
             );
           }
@@ -98,8 +102,8 @@ class UserStoryList extends StatelessWidget {
                   ),
                   Text(
                     story.createdAt != null
-                        ? 'Дата: ${story.createdAt!}'
-                        : 'Неизвестно',
+                        ? '${settings.translate('date_label')}: ${story.createdAt!}'
+                        : settings.translate('unknown'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
