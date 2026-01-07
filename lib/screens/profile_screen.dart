@@ -1237,12 +1237,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                 ),
                               );
                             },
-                            child: const Chip(
-                              side: BorderSide(width: 2),
+                            child: Chip(
+                              side: const BorderSide(width: 2),
                               label: Row(
                                 children: [
                                   Icon(Icons.military_tech, color: Colors.red),
-                                  Text('Ваши достижения')
+                                  Text(settings.translate('achievements'))
                                 ],
                               ),
                             ),

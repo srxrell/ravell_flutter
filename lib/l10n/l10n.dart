@@ -81,6 +81,7 @@ class L10n {
     // Stories
     'publish': 'Опубликовать',
     'draft': 'Черновик',
+    'drafts': 'Черновики',
     'title': 'Заголовок',
     'content': 'Содержание',
     'story_published': 'История опубликована!',
@@ -128,6 +129,7 @@ class L10n {
     'success_word': 'Ваше слово - успех!',
     'success_subtitle': "Лучшие идеи, которые положительно повлияют на развитие проекта будут отображены в специальной 'доске почета'",
     'got_it': 'Понятно',
+    'achievements': 'Достижения',
     'unsubscribe': 'Отписаться',
     'subscribe': 'Подписаться',
     'auth_required': 'Для подписки требуется авторизация.',
@@ -150,7 +152,9 @@ class L10n {
 
   static const Map<String, String> _en = {
     // Common
+    'drafts': 'Drafts',
     'settings': 'Settings',
+    'achievements': 'Achievements',
     'reading_settings': 'Reading Settings',
     'text_size': 'Text Size',
     'title_size': 'Title Size',
