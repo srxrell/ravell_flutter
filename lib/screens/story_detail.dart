@@ -457,6 +457,8 @@ class StoryDetailPage extends StatefulWidget {
   State<StoryDetailPage> createState() => _StoryDetailPageState();
 }
 
+
+
 class _StoryDetailPageState extends State<StoryDetailPage> {
   final st.StoryService _storyService = st.StoryService();
   final StoryReplyService _replyService = StoryReplyService();
@@ -469,13 +471,110 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
 
 
   void _openReadingSettings() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const SettingsScreen(),
-    );
-  }
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Consumer<SettingsManager>(
+        builder: (context, settings, child) {
+          return Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Настройки чтения", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+
+                // Размер заголовка
+                _buildSettingSlider(
+                  label: "Размер заголовка",
+                  value: settings.titleFontScale,
+                  min: 0.8, max: 2.0,
+                  onChanged: (v) => settings.setTitleFontScale(v),
+                ),
+                
+                // Размер текста
+                _buildSettingSlider(
+                  label: "Размер текста",
+                  value: settings.fontScale,
+                  min: 0.8, max: 2.0,
+                  onChanged: (v) => settings.setFontScale(v),
+                ),
+
+                // Межстрочный интервал
+                _buildSettingSlider(
+                  label: "Интервал строк",
+                  value: settings.lineHeight,
+                  min: 1.0, max: 2.5,
+                  onChanged: (v) => settings.setLineHeight(v),
+                ),
+
+                const SizedBox(height: 10),
+                const Text("Цвет фона", style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                
+                // Выбор цвета фона
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _colorOption(settings, const Color(0xFFF5F5F5), "Light"),
+                    _colorOption(settings, const Color(0xFFF5E6D3), "Sepia"),
+                    _colorOption(settings, const Color(0xFF1A1A1A), "Dark"),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+Widget _buildSettingSlider({required String label, required double value, required double min, required double max, required Function(double) onChanged}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label),
+      Slider(
+        value: value,
+        min: min,
+        max: max,
+        activeColor: Colors.black,
+        onChanged: onChanged,
+      ),
+    ],
+  );
+}
+
+Widget _colorOption(SettingsManager settings, Color color, String name) {
+  bool isSelected = settings.readerBackground == color;
+  return GestureDetector(
+    onTap: () {
+      setState(() {
+        settings.setReaderBackground(color);
+      });
+    },
+    child: Column(
+      children: [
+        Container(
+          width: 50, height: 50,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: isSelected ? Colors.blue : Colors.grey, width: isSelected ? 3 : 1),
+          ),
+        ),
+        Text(name, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal))
+      ],
+    ),
+  );
+}
 
   @override
   void initState() {
@@ -553,15 +652,16 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsManager>(context);
+    final bool isDark = ThemeData.estimateBrightnessForColor(Color(settings.backgroundColor)) == Brightness.dark;
     return Scaffold(
-      backgroundColor: neoBackground,
+     backgroundColor: Color(settings.backgroundColor),
       appBar: AppBar(
+        backgroundColor: Color(settings.backgroundColor),
         automaticallyImplyLeading: false,
         toolbarHeight: 100,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
-        backgroundColor: neoBackground,
         title: SvgPicture.asset("assets/icons/logo.svg", width: 60, height: 60),
         actions: [
           GestureDetector(

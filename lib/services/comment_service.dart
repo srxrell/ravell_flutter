@@ -77,6 +77,8 @@ Future<List<Story>> getRepliesForStory(int parentStoryId) async {
   }
 }
 
+
+
   // --- 2. POST Add Reply as Story (Вместо комментария) ---
   Future<Story> addReplyToStory({
     required int parentStoryId,
@@ -118,6 +120,20 @@ Future<List<Story>> getRepliesForStory(int parentStoryId) async {
       );
     }
   }
+
+  Future<Story> addComment({
+  required int storyId,
+  required String content,
+}) async {
+  // Мы просто вызываем существующий метод создания истории-ответа,
+  // генерируя технический заголовок, так как бэкенд требует поле title.
+  return await addReplyToStory(
+    parentStoryId: storyId,
+    title: "Комментарий", // Технический заголовок для комментов
+    content: content,
+    hashtagIds: [],
+  );
+}
 
   // --- 3. GET Full Thread (История с ответами) ---
   Future<List<Story>> getStoryThread(int storyId) async {

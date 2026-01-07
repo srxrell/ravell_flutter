@@ -7,11 +7,13 @@ class SettingsManager extends ChangeNotifier {
   double _titleFontScale = 1.0;
   double _lineHeight = 1.5;
   String _locale = 'ru';
+  int readerBackground = 0xFFF5F5F5;
 
   double get fontScale => _fontScale;
   double get titleFontScale => _titleFontScale;
   double get lineHeight => _lineHeight;
   String get locale => _locale;
+  int get backgroundColor => readerBackground;
 
   String translate(String key) => L10n.get(key, _locale);
 
@@ -25,6 +27,14 @@ class SettingsManager extends ChangeNotifier {
     _titleFontScale = prefs.getDouble('title_font_scale') ?? 1.0;
     _lineHeight = prefs.getDouble('story_line_height') ?? 1.5;
     _locale = prefs.getString('app_locale') ?? 'ru';
+    readerBackground = prefs.getInt('reader_bg_color') ?? 0xFFF5F5F5;
+    notifyListeners();
+  }
+
+  Future<void> setReaderBackground(Color color) async {
+    readerBackground = color.value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('reader_bg_color', color.value);
     notifyListeners();
   }
 

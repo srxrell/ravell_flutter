@@ -38,7 +38,11 @@ void main() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
       OpenAI.showLogs = true;
-      OpenAI.apiKey = "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";
+      const String apiKey = String.fromEnvironment(
+        'OPENAI_KEY', 
+        defaultValue: '',
+      );
+      OpenAI.apikey = apiKey;
       
       final settingsManager = SettingsManager();
       
