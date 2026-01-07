@@ -900,83 +900,56 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   }
 
   List<Story> _getSafeStories() {
-    if (_profileData == null) return [];
+  if (_profileData == null) return [];
 
-    final storiesData = _profileData!['stories'] ?? [];
-    if (storiesData is! List) return [];
+  final storiesData = _profileData!['stories'] ?? [];
+  if (storiesData is! List) return [];
 
-    final userData = _getSafeUserData(); // Получаем данные пользователя
-    final userAvatar = userData['avatar'] as String?;
-    final username = userData['username'] as String?;
+  final userData = _getSafeUserData(); 
+  final userAvatar = userData['avatar'] as String?;
+  final username = userData['username'] as String?;
 
-    try {
-      final stories = storiesData.map((json) {
-        try {
-          // ДОБАВЛЯЕМ недостающие поля из user_data
-          final storyJson = Map<String, dynamic>.from(json);
+  try {
+    return storiesData.map((json) {
+      try {
+        final storyJson = Map<String, dynamic>.from(json);
 
-          // 🟢 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Добавляем полный объект user
-          if (!storyJson.containsKey('user')) {
-            storyJson['user'] = {
-              'id': userData['id'],
-              'username': username,
-              'first_name': userData['first_name'],
-              'last_name': userData['last_name'],
-              'profile': {
-                'avatar': userAvatar,
-                'is_verified': userData['is_verified'] ?? false,
-              },
-            };
-          }
-
-          // Если в story нет username, добавляем из user_data
-          if (!storyJson.containsKey('username') && username != null) {
-            storyJson['username'] = username;
-          }
-
-          // Если в story нет avatar, добавляем из user_data
-          if (!storyJson.containsKey('avatar') && userAvatar != null) {
-            storyJson['avatar'] = userAvatar;
-          }
-
-          return Story.fromJson(storyJson);
-        } catch (e) {
-          print('Error parsing story: $e');
-          return Story(
-            id: 0,
-            title: 'Ошибка загрузки',
-            content: 'Не удалось загрузить историю',
-            userId: 0,
-            createdAt: DateTime.now(),
-            likesCount: 0,
-            commentsCount: 0,
-            userLiked: false,
-            hashtags: [],
-            authorAvatar: userAvatar,
-            avatarUrl: userAvatar,
-          );
+        if (!storyJson.containsKey('user')) {
+          storyJson['user'] = {
+            'id': userData['id'],
+            'username': username,
+            'first_name': userData['first_name'],
+            'last_name': userData['last_name'],
+            'profile': {
+              'avatar': userAvatar,
+              'is_verified': userData['is_verified'] ?? false,
+            },
+          };
         }
-      }).toList();
-      
-      // Применяем сортировку
-      switch (_sortOption) {
-        case 'newest':
-          stories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          break;
-        case 'oldest':
-          stories.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-          break;
-        case 'popular':
-          stories.sort((a, b) => b.likesCount.compareTo(a.likesCount));
-          break;
+
+        if (!storyJson.containsKey('username') && username != null) {
+          storyJson['username'] = username;
+        }
+
+        if (!storyJson.containsKey('avatar') && userAvatar != null) {
+          storyJson['avatar'] = userAvatar;
+        }
+
+        return Story.fromJson(storyJson);
+      } catch (e) {
+        print('❌ Ошибка парсинга отдельной истории: $e');
+        return null;
       }
-      
-      return stories;
-    } catch (e) {
-      print('Error converting stories: $e');
-      return [];
-    }
+    })
+    .whereType<Story>() // Убираем null, если парсинг не удался
+    // 👇 ВОТ ЭТА СТРОЧКА ФИЛЬТРУЕТ КОММЕНТАРИИ
+    .where((story) => story.title != "Комментарий") 
+    .toList();
+  } catch (e) {
+    print('❌ Ошибка в _getSafeStories: $e');
+    return [];
   }
+}
 
   bool _getSafeIsFollowing() {
     if (_profileData == null) return false;

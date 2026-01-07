@@ -319,11 +319,10 @@ final profileAvatar =
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    Icons.error_outline,
+                                    Icons.person,
                                     size: 60,
-                                    color: Colors.red,
                                   ),
-                                  Text("Ошибка загрузки"),
+                                  Text("Нажмите, чтобы изменить ваш аватар", textAlign: TextAlign.center),
                                 ],
                               );
                             },
