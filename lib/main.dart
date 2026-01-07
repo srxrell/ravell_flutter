@@ -42,7 +42,7 @@ void main() async {
         'OPENAI_KEY', 
         defaultValue: '',
       );
-      OpenAI.apikey = apiKey;
+      OpenAI.apiKey = apiKey;
       
       final settingsManager = SettingsManager();
       

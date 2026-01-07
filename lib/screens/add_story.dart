@@ -116,6 +116,7 @@ class _NewHashtagScreenState extends State<NewHashtagScreen> {
             Text('Название категории', style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: 8),
             TextField(
+              
               controller: _controller,
               // Устанавливаем четкую высоту строки
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -318,6 +319,7 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
           ),
           const SizedBox(height: 10),
           TextField(
+            
             controller: _titleController,
             style: theme.textTheme.headlineMedium,
             decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(vertical: 8)),
@@ -327,6 +329,7 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
           Divider(color: theme.colorScheme.onBackground.withOpacity(0.5)),
           const SizedBox(height: 10),
           TextField(
+            
             controller: _contentController,
             style: theme.textTheme.bodyLarge!.copyWith(height: 1.5),
             decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.zero),
@@ -507,6 +510,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: TextField(
+              
+              
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Поиск категории',
@@ -557,10 +562,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           ),
           const SizedBox(height: 10),
           TextField(
+            
             controller: _titleController,
             style: theme.textTheme.headlineMedium,
             textCapitalization: TextCapitalization.sentences, // 🟢 AUTO-CAPS
             decoration: InputDecoration(
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
               hintText: 'Заголовок истории',
               hintStyle: theme.textTheme.headlineMedium!.copyWith(
                 color: theme.textTheme.headlineMedium!.color!.withOpacity(0.5),
@@ -570,7 +577,6 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               focusedBorder: InputBorder.none,
               errorBorder: InputBorder.none,
               isDense: true,
-              contentPadding: EdgeInsets.zero,
               fillColor: Colors.transparent,
             ),
             maxLength: 100,
@@ -580,6 +586,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           const SizedBox(height: 10),
           // Контент истории
           TextField(
+            
             controller: _contentController,
              // 🟢 FIXED: Removed generic height: 1.5 to fix jitter in some cases, or set strutStyle
             // Using cursorHeight to match font size approx
@@ -587,6 +594,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             cursorHeight: 24.0, 
             textCapitalization: TextCapitalization.sentences, // 🟢 AUTO-CAPS
             decoration: InputDecoration(
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
               hintText: 'Начните писать свою историю здесь...',
               hintStyle: theme.textTheme.bodyLarge!.copyWith(
                 color: theme.textTheme.bodyLarge!.color!.withOpacity(0.5),
@@ -596,7 +604,6 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               focusedBorder: InputBorder.none,
               errorBorder: InputBorder.none,
               isDense: true,
-               contentPadding: EdgeInsets.symmetric(vertical: 8), // Add padding here instad
               fillColor: Colors.transparent,
             ),
             maxLines: null,
