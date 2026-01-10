@@ -22,6 +22,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        surfaceTintColor: Colors.transparent,
         title: Text(settings.translate('settings')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
