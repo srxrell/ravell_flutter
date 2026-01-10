@@ -31,7 +31,12 @@ class StoryService {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? accessToken = prefs.getString('access_token');
       if (accessToken != null) {
+        print('🔑 DEBUG: Token found (length: ${accessToken.length})');
+        print('📡 TOKEN START: ${accessToken.substring(0, accessToken.length > 20 ? 10 : accessToken.length)}...');
+        print('📡 TOKEN END: ...${accessToken.substring(accessToken.length > 10 ? accessToken.length - 10 : 0)}');
         headers['Authorization'] = 'Bearer $accessToken';
+      } else {
+        print('⚠️ DEBUG: No token found in SharedPreferences!');
       }
     }
     return headers;
@@ -216,82 +221,7 @@ class StoryService {
   // МЕТОДЫ ЛАЙКОВ И СТАТУСА
   // --------------------------------------------------------------------------
 
-  Future<Map<String, dynamic>> _executeLikeRequest(int storyId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/stories/$storyId/like'),
-      headers: await _getHeaders(includeAuth: true),
-    );
 
-    final responseData = _safeJsonDecode(response);
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      if (responseData is Map<String, dynamic>) {
-        return responseData;
-      }
-      throw const FormatException('Invalid JSON format for like response');
-    } else if (response.statusCode == 401) {
-      throw Exception('Unauthorized');
-    } else {
-      throw Exception(
-        'Failed to like story. Status code: ${response.statusCode}, body: ${responseData['error'] ?? response.body}',
-      );
-    }
-  }
-
-  Future<int> likeStory(int storyId, int user_id) async {
-    try {
-      final responseData = await _executeLikeRequest(storyId);
-      final likesCount = responseData['likes_count'];
-      if (likesCount is int) {
-        return likesCount;
-      } else if (likesCount is num) {
-        return likesCount.toInt();
-      }
-      throw const FormatException(
-        'Missing or invalid likes_count in response.',
-      );
-    } on Exception catch (e) {
-      if (e.toString().contains('Unauthorized')) {
-        await _authService.refreshToken();
-        final responseData = await _executeLikeRequest(storyId);
-        final likesCount = responseData['likes_count'];
-        if (likesCount is int) {
-          return likesCount;
-        } else if (likesCount is num) {
-          return likesCount.toInt();
-        }
-        throw const FormatException(
-          'Missing or invalid likes_count after refresh.',
-        );
-      } else {
-        rethrow;
-      }
-    }
-  }
-
-  Future<bool> isStoryLiked(int storyId, int user_id) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/stories/$storyId'),
-        headers: await _getHeaders(includeAuth: true),
-      );
-
-      if (response.statusCode == 200) {
-        final data = _safeJsonDecode(response);
-        // 🛑 FIX: Проверяем, что data является Map
-        if (data is Map<String, dynamic>) {
-          // Заметка: Ваш Go Backend должен возвращать 'is_liked' в GetStory
-          return data['is_liked'] ?? false;
-        }
-        return false;
-      } else {
-        return false;
-      }
-    } catch (e) {
-      debugPrint('Error checking like status: $e');
-      return false;
-    }
-  }
 
   // --------------------------------------------------------------------------
   // МЕТОДЫ ХЕШТЕГОВ
@@ -528,23 +458,33 @@ class StoryService {
   }
 
   Future<Story> getStory(int id) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/stories/$id'),
-      headers: await _getHeaders(includeAuth: true),
-    );
-
-    if (response.statusCode == 200) {
-      final data = _safeJsonDecode(response);
-      if (data is Map<String, dynamic>) {
-        return Story.fromJson(data);
+    return _executeWithRefresh(() async {
+      final headers = await _getHeaders(includeAuth: true);
+      print('🌐 Requesting story $id with headers: ${headers.keys.join(", ")}');
+      if (headers.containsKey('Authorization')) {
+        print('📡 Auth Header length: ${headers['Authorization']?.length}');
       }
-      throw const FormatException('Invalid response format for single story');
-    } else {
-      final errorBody = _safeJsonDecode(response);
-      throw Exception(
-        'Failed to get story: ${response.statusCode}. Error: ${errorBody['error'] ?? response.body}',
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/stories/$id'),
+        headers: headers,
       );
-    }
+
+      if (response.statusCode == 200) {
+        final data = _safeJsonDecode(response);
+        if (data is Map<String, dynamic>) {
+          return Story.fromJson(data);
+        }
+        throw const FormatException('Invalid response format for single story');
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized');
+      } else {
+        final errorBody = _safeJsonDecode(response);
+        throw Exception(
+          'Failed to get story: ${response.statusCode}. Error: ${errorBody['error'] ?? response.body}',
+        );
+      }
+    });
   }
 
   Future<Story> updateStory({
@@ -577,7 +517,24 @@ class StoryService {
     }
   }
 
+  Future<void> shareStory(int id) async {
+    await _executeWithRefresh(() async {
+      final response = await http.post(
+        Uri.parse('$baseUrl/stories/$id/share'),
+        headers: await _getHeaders(includeAuth: true),
+      );
+
+      if (response.statusCode != 200) {
+        final errorBody = _safeJsonDecode(response);
+        throw Exception(
+          'Failed to share story: ${response.statusCode}. Error: ${errorBody['error'] ?? response.body}',
+        );
+      }
+    });
+  }
+
   Future<void> deleteStory(int id) async {
+
     final response = await http.delete(
       Uri.parse('$baseUrl/stories/$id'),
       headers: await _getHeaders(includeAuth: true),
@@ -772,7 +729,7 @@ class StoryService {
           }
         }
 
-        return body.map((dynamic item) {
+        return body.map<Story>((dynamic item) {
           try {
             // Создаем копию JSON с добавленными данными пользователя
             final storyJson = Map<String, dynamic>.from(item);
@@ -791,9 +748,9 @@ class StoryService {
               content: item['content'] ?? 'Не удалось загрузить историю',
               userId: item['user_id'] ?? 0,
               createdAt: DateTime.now(),
-              likesCount: item['likes_count'] ?? 0,
               commentsCount: item['comments_count'] ?? 0,
-              userLiked: false,
+              views: item['views'] ?? 0,
+              shares: item['shares'] ?? 0,
               hashtags: [],
             );
           }

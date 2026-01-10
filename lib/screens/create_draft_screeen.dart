@@ -568,29 +568,34 @@ final filteredHashtags = _availableHashtags.where((h) {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          if (!showLoading)
-            IconButton(
-              icon: Icon(
-                _currentStep == CreationStep.selectHashtags
-                    ? Icons.arrow_forward
-                    : Icons.check,
-                color: neoBlack,
-              ),
-              onPressed:
-                  _currentStep == CreationStep.selectHashtags
-                      ? _goToNextStep
-                      : _updateStory,
-            ),
-          if (showLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-        ],
+  if (showLoading)
+    const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+    )
+  else ...[
+    // Если мы на этапе выбора хештегов — показываем стрелочку "вперед"
+    if (_currentStep == CreationStep.selectHashtags)
+      IconButton(
+        icon: const Icon(Icons.arrow_forward, color: neoBlack),
+        onPressed: _goToNextStep,
+      )
+    // Если мы на этапе ввода контента — показываем кнопку публикации
+    else if (_currentStep == CreationStep.enterContent)
+      IconButton(
+        icon: const Icon(Icons.send, color: neoBlack), // или Icons.check
+        onPressed: _updateStory, 
+      )
+    // Запасной вариант для других этапов (на всякий случай)
+    else
+      IconButton(
+        icon: const Icon(Icons.check, color: neoBlack),
+        onPressed: _updateStory,
+      ),
+  ],
+],
       ),
       body: Stack(
         children: [
@@ -931,9 +936,14 @@ class _CreateStoryFromDraftScreenState extends State<CreateStoryFromDraftScreen>
   ],
   if (_currentStep == CreationStep.enterContent) ...[
     IconButton(
-      icon: const Icon(Icons.check),
+        icon: const Icon(Icons.rocket_launch, color: neoBlack),
+        onPressed: _publishStory,
+        tooltip: 'Опубликовать',
+      ),
+    IconButton(
+      icon: const Icon(Icons.drive_file_rename_outline),
       onPressed: _saveDraft,
-      tooltip: 'Опубликовать',
+      tooltip: 'Сохранить как черновик',
     ),
   ],
 ],

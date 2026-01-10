@@ -44,7 +44,7 @@ class L10n {
     'cancel': 'Отмена',
     'delete': 'Удалить',
     'edit': 'Изменить',
-    
+
     // Bottom Nav
     'nav_home': 'Главная',
     'nav_search': 'Поиск',
@@ -97,13 +97,17 @@ class L10n {
     'username_hint': 'Введите ваше имя пользователя',
     'email_hint': 'Введите ваш email',
     'password_hint': 'Введите ваш пароль',
-    'slow_connection': 'Подождите, не выходите. Приложение работает, но интернет может быть медленным...',
+    'slow_connection':
+        'Подождите, не выходите. Приложение работает, но интернет может быть медленным...',
     'create_account': 'Создать аккаунт',
     'back_to_login': 'Назад ко входу',
     'login_as_guest': 'Войти как гость',
     'all_categories': 'Все категории',
     'done': 'Готово',
     'clear': 'Очистить',
+    'anarchy': 'Анархия',
+    'moderate': 'Модерация',
+    'strict': 'Строгий',
     'all_time': 'За все время',
     'today': 'Сегодня',
     'week': 'За неделю',
@@ -123,17 +127,22 @@ class L10n {
     'list': 'Список',
     'link': 'Ссылка',
     'divider': 'Разделитель',
+    'moderation_level': 'Уровень модерации',
+    'moderation_level_description': 'Уровень модерации',
     'early_access_info': 'Это информация о функциях раннего доступа!',
     'pioneer_status': "Статус 'Первооткрыватель'",
-    'pioneer_subtitle': "Получите уникальный бейджик с возможностью кастомизации себе в профиль",
+    'pioneer_subtitle':
+        "Получите уникальный бейджик с возможностью кастомизации себе в профиль",
     'success_word': 'Ваше слово - успех!',
-    'success_subtitle': "Лучшие идеи, которые положительно повлияют на развитие проекта будут отображены в специальной 'доске почета'",
+    'success_subtitle':
+        "Лучшие идеи, которые положительно повлияют на развитие проекта будут отображены в специальной 'доске почета'",
     'got_it': 'Понятно',
     'achievements': 'Достижения',
     'unsubscribe': 'Отписаться',
     'subscribe': 'Подписаться',
     'auth_required': 'Для подписки требуется авторизация.',
     'list_empty': 'Список пуст.',
+    'sort': 'Сортировать',
     'view_more': 'Свернуть',
     'read_more': 'Читать далее',
     'no_stories': 'Пользователь еще не опубликовал ни одной истории.',
@@ -145,9 +154,11 @@ class L10n {
     'onboarding_title_1': 'Делитесь короткими историями',
     'onboarding_subtitle_1': 'Ровно 100 слов. Ни больше, ни меньше.',
     'onboarding_title_2': 'Создавайте эмоции',
-    'onboarding_subtitle_2': 'Похожая ситуация? Есть что добавить? Отвечайте историей на историю',
+    'onboarding_subtitle_2':
+        'Похожая ситуация? Есть что добавить? Отвечайте историей на историю',
     'onboarding_title_3': 'Находите друзей',
-    'onboarding_subtitle_3': 'Твой текст — чъе-то вдохновение. Подписывайтесь и будьте тем, на кого подпиываются.',
+    'onboarding_subtitle_3':
+        'Твой текст — чъе-то вдохновение. Подписывайтесь и будьте тем, на кого подпиываются.',
   };
 
   static const Map<String, String> _en = {
@@ -166,6 +177,15 @@ class L10n {
     'language': 'Language',
     'russian': 'Russian',
     'english': 'English',
+    'subscribers': 'Subscribers',
+    'subscriptions': 'Subscriptions',
+    'stories': 'Stories',
+    'edit_profile': 'Edit Profile',
+    'logout': 'Logout',
+    'bio': 'Bio',
+    'username': 'Username',
+    'website': 'Website',
+    'profile_updated': 'Profile updated',
     'author': 'Author',
     'app_description': 'Ravell - book reading application',
     'search': 'Search',
@@ -176,6 +196,11 @@ class L10n {
     'no_replies': 'No replies yet',
     'write_reply': 'Write your reply...',
     'reply': 'Reply',
+    'moderation_level': 'Moderation level',
+    'moderation_level_description': 'Moderation level',
+    'anarchy': 'Anarchy',
+    'moderate': 'Moderate',
+    'strict': 'Strict',
     'popular': 'Popular',
     'newest': 'Newest first',
     'oldest': 'Oldest first',
@@ -201,14 +226,7 @@ class L10n {
     // Profile
     'followers': 'Followers',
     'following': 'Following',
-    'stories': 'Stories',
-    'edit_profile': 'Edit Profile',
-    'logout': 'Logout',
-    'bio': 'Bio',
-    'username': 'Username',
-    'website': 'Website',
-    'profile_updated': 'Profile updated',
-
+    
     // Authentication
     'login': 'Login',
     'register': 'Register',
@@ -242,7 +260,8 @@ class L10n {
     'username_hint': 'Enter your username',
     'email_hint': 'Enter your email',
     'password_hint': 'Enter your password',
-    'slow_connection': 'Please wait, don\'t leave. The app is working, but your internet may be slow...',
+    'slow_connection':
+        'Please wait, don\'t leave. The app is working, but your internet may be slow...',
     'create_account': 'Create account',
     'back_to_login': 'Back to login',
     'login_as_guest': 'Log in as guest',
@@ -272,9 +291,11 @@ class L10n {
     'pioneer_status': "Pioneer Status",
     'pioneer_subtitle': "Get a unique customizable badge for your profile",
     'success_word': 'Your word is success!',
-    'success_subtitle': "The best ideas that help the project will be displayed on a special 'honor board'",
+    'success_subtitle':
+        "The best ideas that help the project will be displayed on a special 'honor board'",
     'got_it': 'Got it',
     'unsubscribe': 'Unsubscribe',
+    'sort': 'Sort',
     'subscribe': 'Subscribe',
     'auth_required': 'Authorization required to subscribe.',
     'list_empty': 'List is empty.',
@@ -289,8 +310,10 @@ class L10n {
     'onboarding_title_1': 'Share short stories',
     'onboarding_subtitle_1': 'Exactly 100 words. No more, no less.',
     'onboarding_title_2': 'Create emotions',
-    'onboarding_subtitle_2': 'Similar situation? Something to add? Respond with a story to a story',
+    'onboarding_subtitle_2':
+        'Similar situation? Something to add? Respond with a story to a story',
     'onboarding_title_3': 'Find friends',
-    'onboarding_subtitle_3': 'Your text is someone\'s inspiration. Follow and be followed.',
+    'onboarding_subtitle_3':
+        'Your text is someone\'s inspiration. Follow and be followed.',
   };
 }

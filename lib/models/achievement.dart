@@ -1,11 +1,13 @@
-class Achievement {
-  final String? key; // <-- добавляем поле key
+import 'package:equatable/equatable.dart';
+
+class Achievement extends Equatable {
+  final String? key;
   final String title;
   final String description;
   final String iconUrl;
   final bool unlocked;
 
-  Achievement({
+  const Achievement({
     required this.key,
     required this.title,
     required this.description,
@@ -15,22 +17,32 @@ class Achievement {
 
   factory Achievement.fromJson(Map<String, dynamic> json) {
     return Achievement(
-      key: json['key'] ?? '', // <-- парсим ключ
+      key: json['key'] ?? '',
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       iconUrl: json['icon_url'] ?? '',
       unlocked: json['unlocked'] ?? false,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'key': key,
+        'title': title,
+        'description': description,
+        'icon_url': iconUrl,
+        'unlocked': unlocked,
+      };
+
+  @override
+  List<Object?> get props => [key, title, description, iconUrl, unlocked];
 }
 
-
-class UserAchievement {
+class UserAchievement extends Equatable {
   final double progress;
   final bool unlocked;
   final Achievement achievement;
 
-  UserAchievement({
+  const UserAchievement({
     required this.progress,
     required this.unlocked,
     required this.achievement,
@@ -43,4 +55,13 @@ class UserAchievement {
       achievement: Achievement.fromJson(json['achievement']),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'progress': progress,
+        'unlocked': unlocked,
+        'achievement': achievement.toJson(),
+      };
+
+  @override
+  List<Object?> get props => [progress, unlocked, achievement];
 }

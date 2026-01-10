@@ -2,6 +2,7 @@ import 'dart:async';
 // import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:readreels/screens/activity_screen.dart';
 import 'package:readreels/screens/add_story.dart';
@@ -28,33 +29,36 @@ import 'package:readreels/managers/settings_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:showcaseview/showcaseview.dart';
 
+// ✅ NEW IMPORTS FOR BLOC ARCHITECTURE
+import 'package:readreels/core/di/injection.dart';
+import 'package:readreels/blocs/auth/auth_bloc.dart';
+import 'package:readreels/blocs/auth/auth_event.dart';
+
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  // await Firebase.initializeApp();
-
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Initialize OpenAI
       OpenAI.showLogs = true;
       const String apiKey = String.fromEnvironment(
-        'OPENAI_KEY', 
+        'OPENAI_KEY',
         defaultValue: '',
       );
       OpenAI.apiKey = apiKey;
-      
-      final settingsManager = SettingsManager();
-      
-      runApp(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider.value(value: settingsManager),
-          ],
-          child: const ReadReelsApp(),
-        ),
-      ); 
-      initServices(); // Асинхронная инициализация фоново
+
+      // ✅ CRITICAL: Initialize all dependencies (Hive, HydratedBloc, GetIt)
+      print('🚀 Initializing dependencies...');
+      await setupDependencies();
+      print('✅ Dependencies initialized successfully');
+
+      // Initialize notifications in background
+      initServices();
+
+      runApp(const ReadReelsApp());
     },
     (error, stackTrace) {
       print('🚨 CRASH: $error');
@@ -63,13 +67,10 @@ void main() async {
   );
 }
 
-/// Асинхронная инициализация сервисов
+/// Asynchronous service initialization
 Future<void> initServices() async {
   final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   await initNotifications(flutterLocalNotificationsPlugin);
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('access_token');
-  final userId = prefs.getInt('user_id');
   // PushService.init();
 }
 
@@ -97,6 +98,10 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
   @override
   void initState() {
     super.initState();
+
+    // ✅ Check authentication status on app start
+    getIt<AuthBloc>().add(const AuthCheckRequested());
+
     _router = GoRouter(
       navigatorKey: navigatorKey,
       routes: [
@@ -160,13 +165,6 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
             final authorId =
                 authorIdStr != null ? int.tryParse(authorIdStr) : null;
 
-            if (authorId == null) {
-              return const Scaffold(
-                body: Center(
-                  child: Text('Ошибка: Не удалось найти ID автора.'),
-                ),
-              );
-            }
             return UserStoryFeedLoaderScreen(
               initialStoryId: storyId,
               authorId: authorId,
@@ -179,12 +177,29 @@ class _ReadReelsAppState extends State<ReadReelsApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ShowCaseWidget(
-      builder: (context) => MaterialApp.router(
-        title: "ReadReels App",
-        routerConfig: _router,
-        theme: fullNeoBrutalismTheme,
-        debugShowCheckedModeBanner: false,
+    final settingsManager = SettingsManager();
+
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: settingsManager),
+      ],
+      child: MultiBlocProvider(
+        providers: [
+          // ✅ Provide AuthBloc as singleton (shared across app)
+          BlocProvider<AuthBloc>.value(
+            value: getIt<AuthBloc>(),
+          ),
+          // Note: Other BLoCs (Story, Profile, etc.) are provided
+          // locally in their respective screens as needed
+        ],
+        child: ShowCaseWidget(
+          builder: (context) => MaterialApp.router(
+            title: "ReadReels App",
+            routerConfig: _router,
+            theme: fullNeoBrutalismTheme,
+            debugShowCheckedModeBanner: false,
+          ),
+        ),
       ),
     );
   }

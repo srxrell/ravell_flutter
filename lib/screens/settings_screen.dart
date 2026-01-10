@@ -99,6 +99,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
 
+
+            SizedBox(height: 10),
+
+            Text(
+            settings.translate('moderation_level'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          
+          _buildSettingsContainer(
+  child: ListTile(
+    contentPadding: EdgeInsets.zero,
+    title: Text(
+      settings.translate('moderation_level'),
+      style: const TextStyle(fontWeight: FontWeight.bold),
+    ),
+    trailing: DropdownButton<String>(
+      value: settings.moderationLevel,
+      underline: const SizedBox(),
+      onChanged: (val) {
+        if (val != null) settings.setModerationLevel(val);
+      },
+      items: [
+        DropdownMenuItem(
+          value: 'anarchy', 
+          child: Text(settings.translate('anarchy'), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+        ),
+        DropdownMenuItem(
+          value: 'moderate', 
+          child: Text(settings.translate('moderate'))
+        ),
+        DropdownMenuItem(
+          value: 'strict', 
+          child: Text(settings.translate('strict'))
+        ),
+      ],
+    ),
+  ),
+),
+
           const SizedBox(height: 32),
           Text(
             settings.translate('app'),

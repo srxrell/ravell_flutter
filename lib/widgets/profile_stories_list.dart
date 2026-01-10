@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/services/subscription_service.dart'; // Для получения профиля
+import 'package:readreels/services/story_service.dart' as st;
 import 'package:readreels/screens/search_feed.dart'; // Ваш существующий Feed для прокрутки
 
 class UserStoryFeedLoaderScreen extends StatefulWidget {
   final int initialStoryId;
-  final int authorId; // <<< ID АВТОРА ИСТОРИИ
+  final int? authorId; // <<< Сделали опциональным
 
   const UserStoryFeedLoaderScreen({
     super.key,
     required this.initialStoryId,
-    required this.authorId,
+    this.authorId,
   });
 
   @override
@@ -30,11 +31,21 @@ class _UserStoryFeedLoaderScreenState extends State<UserStoryFeedLoaderScreen> {
     _loadAuthorStories();
   }
 
+  final st.StoryService _storyService = st.StoryService();
+
   Future<void> _loadAuthorStories() async {
     try {
-      // 1. Загружаем данные профиля автора (которые содержат список его историй)
+      int? authorId = widget.authorId;
+
+      // 1. Если ID автора нет, сначала загружаем саму историю
+      if (authorId == null) {
+        final story = await _storyService.getStory(widget.initialStoryId);
+        authorId = story.userId;
+      }
+
+      // 2. Загружаем данные профиля автора (которые содержат список его историй)
       final profileData = await _subscriptionService.fetchUserProfile(
-        widget.authorId,
+        authorId,
       );
 
       if (profileData == null || !profileData.containsKey('stories')) {

@@ -74,85 +74,7 @@ class _SearchFeedState extends State<SearchFeed> {
     if (mounted) {
       setState(() => _isLoading = true);
 
-      // Инициализируем счетчики лайков
-      for (var story in stories) {
-        likeCounts[story.id] = story.likesCount;
-      }
-
-      // Загружаем статусы лайков
-      await _fetchLikeStatuses();
-
       setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _fetchLikeStatuses() async {
-    if (currentUserId == null) return;
-
-    final Map<int, bool> newLikeStatuses = {};
-    for (var story in stories) {
-      try {
-        final isLiked = await _storyService.isStoryLiked(
-          story.id,
-          currentUserId!,
-        );
-        newLikeStatuses[story.id] = isLiked;
-      } catch (e) {
-        debugPrint('Error fetching like status for story ${story.id}: $e');
-        newLikeStatuses[story.id] = false;
-      }
-    }
-
-    if (mounted) {
-      setState(() => likeStatuses = newLikeStatuses);
-    }
-  }
-
-  Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
-    if (currentUserId == null) {
-      if (mounted) {
-        context.go('/auth-check');
-      }
-      return;
-    }
-
-    try {
-      final bool wasLiked = likeStatuses[story.id] ?? false;
-      final int oldLikeCount = likeCounts[story.id] ?? 0;
-
-      // Оптимистичное обновление UI
-      setState(() {
-        likeStatuses[story.id] = !wasLiked;
-        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
-        if (isDoubleTap && !wasLiked) {
-          isHeartAnimating = true;
-        }
-      });
-
-      // Вызов API
-      final newCount = await _storyService.likeStory(story.id, currentUserId!);
-
-      // Синхронизация с серверным ответом
-      setState(() {
-        likeCounts[story.id] = newCount;
-      });
-    } catch (e) {
-      debugPrint('Error liking story: $e');
-      // Откат при ошибке
-      final bool wasLiked = likeStatuses[story.id] ?? false;
-      final int oldLikeCount = likeCounts[story.id] ?? 0;
-      setState(() {
-        likeStatuses[story.id] = !wasLiked;
-        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
-        isHeartAnimating = false;
-      });
-
-      if (mounted) {
-        final settings = Provider.of<SettingsManager>(context, listen: false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${settings.translate('error')}: $e'), backgroundColor: Colors.red),
-        );
-      }
     }
   }
 
@@ -330,12 +252,8 @@ class _SearchFeedState extends State<SearchFeed> {
   }
 
   Widget _buildStoryContent(Story story, int index) {
-    final isLiked = likeStatuses[story.id] ?? false;
-    final currentLikeCount = likeCounts[story.id] ?? 0;
-
     return GestureDetector(
       onDoubleTapDown: (details) {
-        _handleLike(story, isDoubleTap: true);
         setState(() {
           tapPosition = details.localPosition;
         });
@@ -494,16 +412,6 @@ class _SearchFeedState extends State<SearchFeed> {
                   children: [
                     _buildAuthorInfo(story),
                     const SizedBox(height: 20),
-                    _buildActionButton(
-                      icon: Icon(
-                        isLiked ? Icons.favorite : Icons.favorite_border,
-                        color: isLiked ? Colors.red : Colors.black,
-                        size: 30,
-                      ),
-                      count: currentLikeCount,
-                      onPressed: () => _handleLike(story),
-                      isLiked: isLiked,
-                    ),
                     const SizedBox(height: 20),
                     _buildActionButton(
                       icon: const Icon(

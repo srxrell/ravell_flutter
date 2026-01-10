@@ -1,49 +1,46 @@
+import 'package:equatable/equatable.dart';
 import 'package:readreels/models/hashtag.dart';
 
-class Story {
+class Story extends Equatable {
   final int id;
   final int userId;
   final String title;
   final String content;
   final DateTime createdAt;
-  final int likesCount;
+  final int views;
+  final int shares;
   final int commentsCount;
   final String? authorAvatar;
-  final bool userLiked;
   final List<Hashtag> hashtags;
-  final Map<String, dynamic>? user; // Может содержать данные пользователя
+  final Map<String, dynamic>? user;
 
-  // ✅ НОВЫЕ ПОЛЯ ДЛЯ RAVELL
-  final int wordCount; // Всегда 100
-  final int? replyTo; // ID родительской истории
-  final int replyCount; // Количество ответов
-  final DateTime? lastReplyAt; // Время последнего ответа
+  // Story reply fields
+  final int wordCount;
+  final int? replyTo;
+  final int replyCount;
+  final DateTime? lastReplyAt;
 
-  // ✅ ДОБАВЬТЕ ЭТИ ПОЛЯ
-  final String? username; // Имя пользователя
-  final String? avatarUrl; // URL аватара
-  final bool isEarly; // Флаг раннего доступа
+  // User display fields
+  final String? username;
+  final String? avatarUrl;
+  final bool isEarly;
 
-  Story({
+  const Story({
     required this.id,
     required this.userId,
     required this.title,
     required this.content,
     required this.createdAt,
-    required this.likesCount,
     required this.commentsCount,
     this.authorAvatar,
-    required this.userLiked,
     required this.hashtags,
     this.user,
-
-    // Инициализация новых полей
+    required this.views,
+    required this.shares,
     this.wordCount = 0,
     this.replyTo,
     this.replyCount = 0,
     this.lastReplyAt,
-
-    // ✅ ДОБАВЬТЕ ЭТИ ПАРАМЕТРЫ
     this.username,
     this.avatarUrl,
     this.isEarly = false,
@@ -57,6 +54,12 @@ class Story {
   }
 
   factory Story.fromJson(Map<String, dynamic> json) {
+    if (json.containsKey('views')) {
+      print('🔍 DEBUG STORY [ID: ${json['id']}]: views = ${json['views']}');
+    } else {
+      print('🔍 DEBUG STORY [ID: ${json['id']}]: NO views field in JSON!');
+    }
+
     final List<dynamic>? hashtagList = json['hashtags'] as List<dynamic>?;
     final parsedHashtags =
         hashtagList != null
@@ -104,24 +107,20 @@ class Story {
       userId: json['user_id'] ?? 0,
       title: json['title'] ?? '',
       content: json['content'] ?? '',
+      views: json['views'] ?? 0,
       createdAt:
           json['created_at'] != null
               ? DateTime.parse(json['created_at'])
               : DateTime.now(),
-      likesCount: json['likes_count'] ?? 0,
       commentsCount: json['comments_count'] ?? 0,
       authorAvatar: json['author_avatar'] as String?,
-      userLiked: json['user_liked'] ?? false,
       hashtags: parsedHashtags,
       user: userData,
-
-      // Новые поля
       wordCount: json['word_count'] ?? 0,
       replyTo: replyTo != null ? int.tryParse(replyTo.toString()) : null,
       replyCount: json['reply_count'] ?? 0,
       lastReplyAt: lastReplyAt != null ? DateTime.parse(lastReplyAt) : null,
-
-      // ✅ ИНИЦИАЛИЗИРУЕМ ДОБАВЛЕННЫЕ ПОЛЯ
+      shares: json['shares'] ?? 0,
       username: username,
       avatarUrl: avatarUrl,
       isEarly: isEarly ?? json['is_early'] == true,
@@ -134,40 +133,40 @@ class Story {
     int? userId,
     String? title,
     String? content,
+    int? shares,
     DateTime? createdAt,
-    int? likesCount,
     int? commentsCount,
     String? authorAvatar,
-    bool? userLiked,
     List<Hashtag>? hashtags,
     Map<String, dynamic>? user,
+    int? views,
     int? wordCount,
     int? replyTo,
     int? replyCount,
     DateTime? lastReplyAt,
-    String? username, // ✅ ДОБАВЬТЕ
-    String? avatarUrl, // ✅ ДОБАВЬТЕ
-    bool? isEarly, // ✅ ДОБАВЬТЕ
+    String? username,
+    String? avatarUrl,
+    bool? isEarly,
   }) {
     return Story(
       id: id ?? this.id,
       userId: userId ?? this.userId,
       title: title ?? this.title,
       content: content ?? this.content,
+      shares: shares ?? this.shares,
       createdAt: createdAt ?? this.createdAt,
-      likesCount: likesCount ?? this.likesCount,
       commentsCount: commentsCount ?? this.commentsCount,
       authorAvatar: authorAvatar ?? this.authorAvatar,
-      userLiked: userLiked ?? this.userLiked,
       hashtags: hashtags ?? this.hashtags,
       user: user ?? this.user,
+      views: views ?? this.views,
       wordCount: wordCount ?? this.wordCount,
       replyTo: replyTo ?? this.replyTo,
       replyCount: replyCount ?? this.replyCount,
       lastReplyAt: lastReplyAt ?? this.lastReplyAt,
-      username: username ?? this.username, // ✅ ДОБАВЬТЕ
-      avatarUrl: avatarUrl ?? this.avatarUrl, // ✅ ДОБАВЬТЕ
-      isEarly: isEarly ?? this.isEarly, // ✅ ДОБАВЬТЕ
+      username: username ?? this.username,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      isEarly: isEarly ?? this.isEarly,
     );
   }
 
@@ -178,21 +177,43 @@ class Story {
       'title': title,
       'content': content,
       'created_at': createdAt.toIso8601String(),
-      'likes_count': likesCount,
+      'shares': shares,
       'comments_count': commentsCount,
+      'views': views,
       'author_avatar': authorAvatar,
-      'user_liked': userLiked,
       'hashtags': hashtags.map((h) => h.toJson()).toList(),
       'user': user,
       'word_count': wordCount,
       'reply_to': replyTo,
       'reply_count': replyCount,
       'last_reply_at': lastReplyAt?.toIso8601String(),
-      'username': username, // ✅ ДОБАВЬТЕ
-      'avatar': avatarUrl, // ✅ ДОБАВЬТЕ
-      'is_early': isEarly, // ✅ ДОБАВЬТЕ
+      'username': username,
+      'avatar': avatarUrl,
+      'is_early': isEarly,
     };
   }
+
+  @override
+  List<Object?> get props => [
+        id,
+        userId,
+        title,
+        content,
+        createdAt,
+        views,
+        shares,
+        commentsCount,
+        authorAvatar,
+        hashtags,
+        user,
+        wordCount,
+        replyTo,
+        replyCount,
+        lastReplyAt,
+        username,
+        avatarUrl,
+        isEarly,
+      ];
 
   // ✅ Проверка типа истории
   bool get isSeed => replyTo == null && replyCount == 0;

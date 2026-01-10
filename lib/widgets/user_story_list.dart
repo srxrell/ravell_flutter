@@ -41,6 +41,7 @@ class UserStoryList extends StatelessWidget {
   Widget _buildStoryCard(BuildContext context, Story story) {
     // Получаем ID автора из истории для навигации
     final authorId = story.userId;
+    final settings = Provider.of<SettingsManager>(context, listen: false);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 15.0),
@@ -50,11 +51,10 @@ class UserStoryList extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         onTap: () {
           // Навигация к ленте историй пользователя, начиная с этой истории
-          if (story.id != null && authorId != null) {
+          if (story.id != 0 && authorId != 0) {
             // Маршрут: /story/:storyId?authorId=:authorId
             context.push('/story/${story.id}?authorId=$authorId');
           } else {
-            final settings = Provider.of<SettingsManager>(context, listen: false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(settings.translate('nav_error')),
@@ -94,16 +94,14 @@ class UserStoryList extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '❤️ ${story.likesCount ?? 0} | 💬 ${story.commentsCount ?? 0}',
+                    '💬 ${story.commentsCount} | 👁️ ${story.views}',
                     style: const TextStyle(
                       fontSize: 14,
                       color: Colors.blueGrey,
                     ),
                   ),
                   Text(
-                    story.createdAt != null
-                        ? '${settings.translate('date_label')}: ${story.createdAt!}'
-                        : settings.translate('unknown'),
+                    '${settings.translate('date_label')}: ${story.createdAt.day.toString().padLeft(2, '0')}.${story.createdAt.month.toString().padLeft(2, '0')}.${story.createdAt.year}',
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],

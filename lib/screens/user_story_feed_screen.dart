@@ -13,6 +13,7 @@ import 'package:readreels/widgets/bottom_nav_bar_liquid.dart' as p;
 import 'package:go_router/go_router.dart';
 import 'package:readreels/widgets/neowidgets.dart';
 import 'package:readreels/widgets/early_access_bottom.dart';
+import 'package:share_plus/share_plus.dart';
 
 class UserStoryFeedScreen extends StatefulWidget {
   final List<Story> stories;
@@ -63,74 +64,43 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
     final prefs = await SharedPreferences.getInstance();
     currentUserId = prefs.getInt('user_id');
 
-    // Инициализируем likeCounts из данных историй
-    likeCounts.clear();
-    for (var story in widget.stories) {
-      likeCounts[story.id] = story.likesCount;
-      // Проверяем лайк пользователя
-      if (currentUserId != null) {
-        final isLiked = await _storyService.isStoryLiked(
-          story.id,
-          currentUserId!,
-        );
-        likeStatuses[story.id] = isLiked;
-      }
-    }
-
     if (mounted) {
       setState(() {});
     }
   }
 
-  Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
-    if (currentUserId == null) {
-      if (mounted) {
-        context.go('/auth-check');
-      }
-      return;
-    }
+  
 
+  // Функция для склонения слова "ответ"
+  Future<void> _handleShare(Story story) async {
+    final String shareUrl = 'https://ravell.wasmer.app/story/${story.id}';
+    
+    // 1. Сначала открываем нативный диалог шаринга
+    Share.share(
+      '${story.title}\n\nЧитай продолжение в ReadReels: $shareUrl',
+      subject: story.title,
+    );
+
+    // 2. В фоне уведомляем бэкенд
     try {
-      final bool wasLiked = likeStatuses[story.id] ?? false;
-      final int oldLikeCount = likeCounts[story.id] ?? 0;
-
-      // Оптимистичное обновление UI
+      debugPrint('📡 Notifying backend about share (UserFeed) for story ${story.id}...');
+      await _storyService.shareStory(story.id);
+      debugPrint('✅ Backend notified about share (UserFeed).');
+      
+      // Локально обновляем счетчик для мгновенного отклика
       setState(() {
-        likeStatuses[story.id] = !wasLiked;
-        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
-        if (isDoubleTap && !wasLiked) {
-          isHeartAnimating = true;
+        final index = widget.stories.indexWhere((s) => s.id == story.id);
+        if (index != -1) {
+          // Обновляем UI
         }
       });
-
-      // Вызов API
-      final newCount = await _storyService.likeStory(story.id, currentUserId!);
-
-      // Синхронизация с серверным ответом
-      setState(() {
-        likeCounts[story.id] = newCount;
-      });
     } catch (e) {
-      debugPrint('Error liking story: $e');
-      // Откат при ошибке
-      final bool wasLiked = likeStatuses[story.id] ?? false;
-      final int oldLikeCount = likeCounts[story.id] ?? 0;
-      setState(() {
-        likeStatuses[story.id] = !wasLiked;
-        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
-        isHeartAnimating = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
-        );
-      }
+      debugPrint('⚠️ Error sharing story (UserFeed): $e');
     }
   }
 
-  // Функция для склонения слова "ответ"
   String _getReplyText(int count) {
+
     if (count == 0) return '0 ответов';
 
     // Исключения для чисел 11-14
@@ -249,6 +219,30 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                                           ),
                                       ],
                                     ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.remove_red_eye_outlined, size: 14, color: Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${story.views}',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        const Icon(Icons.share_outlined, size: 14, color: Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${story.shares}',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ),
@@ -298,32 +292,53 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   // Кнопка ответить - ТОЧЬ В ТОЧЬ КАК В FEED
-                                  Container(
-                                    width: 400,
-                                    height: 80,
-                                    child: NeoIconButton(
-                                      onPressed: () {
-                                        if (currentUserId == null) {
-                                          if (mounted) {
-                                            context.go('/auth-check');
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                    child: SizedBox(
+                                      height: 80,
+                                      child: NeoIconButton(
+                                        onPressed: () {
+                                          if (currentUserId == null) {
+                                            if (mounted) {
+                                              context.go('/auth-check');
+                                            }
+                                            return;
                                           }
-                                          return;
-                                        }
 
-                                        context.push(
-                                          '/addStory',
-                                          extra: {
-                                            'replyTo': story.id,
-                                            'parentTitle': story.title,
-                                          },
-                                        );
-                                      },
-                                      icon: const Icon(Icons.reply, size: 18),
-                                      child: Text(
-                                        'Ответить | ${_getReplyText(story.commentsCount)}',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
+                                          context.push(
+                                            '/addStory',
+                                            extra: {
+                                              'replyTo': story.id,
+                                              'parentTitle': story.title,
+                                            },
+                                          );
+                                        },
+                                        icon: const Icon(Icons.reply, size: 18),
+                                        child: Text(
+                                          'Ответить | ${_getReplyText(story.commentsCount)} | 👁️ ${story.views}',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  
+                                  // Кнопка поделиться
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                    child: SizedBox(
+                                      height: 80,
+                                      child: NeoIconButton(
+                                        onPressed: () => _handleShare(story),
+                                        icon: const Icon(Icons.share, size: 18),
+                                        child: Text(
+                                          ' ↪️ ${story.shares} ',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -589,7 +604,6 @@ class _UserStoryFeedScreenState extends State<UserStoryFeedScreen> {
                   }
                   return;
                 }
-                _handleLike(widget.stories[index], isDoubleTap: true);
                 setState(() {
                   tapPosition = details.localPosition;
                 });

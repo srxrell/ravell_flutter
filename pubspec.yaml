@@ -19,7 +19,7 @@ dependencies:
   smooth_page_indicator: ^1.2.1
   flutter_svg: 2.0.17
   cached_network_image: 3.4.1
-  path_provider: 2.1.5
+  path_provider: ^2.1.5
   pinput: 6.0.1
   flutter_carousel_slider: ^1.1.0
   onesignal_flutter: ^5.3.4
@@ -34,6 +34,15 @@ dependencies:
   package_info_plus: 8.0.2
   google_generative_ai: ^0.4.7
   dart_openai: ^6.1.1
+  share_plus: ^10.1.4
+  app_links: ^6.3.2
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.8
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  dio: ^5.9.0
+  get_it: ^9.2.0
+  hydrated_bloc: ^10.1.1
 
 dev_dependencies:
   flutter_test:
@@ -55,3 +64,4 @@ flutter:
     - assets/icons/bigbig.png
     - assets/icons/jacky.svg
     - assets/icons/medal.svg
+    - assets/icons/share.svg

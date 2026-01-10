@@ -248,11 +248,6 @@ class _RepliesBottomSheetState extends State<RepliesBottomSheet> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Text(
-                  '${reply.likesCount} ${Provider.of<SettingsManager>(context).translate('popular')}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(width: 16),
-                Text(
                   '${reply.wordCount} ${Provider.of<SettingsManager>(context).translate('version')}',
  // Need 'words'
                   style: const TextStyle(color: Colors.grey),

@@ -434,60 +434,68 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     }
   }
 
-  Widget _buildStatColumn(String label, dynamic count) {
-    final int countValue = _safeParseInt(count) ?? 0;
-    final settings = Provider.of<SettingsManager>(context);
+  Widget _buildStatColumn(String key, dynamic count) {
+  final int countValue = _safeParseInt(count) ?? 0;
+  final settings = Provider.of<SettingsManager>(context);
+  
+  // Переводим текст прямо здесь, используя переданный ключ
+  final String labelText = settings.translate(key);
 
-    if (label == "Статей") {
-      return NeoContainer(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              countValue.toString(),
-              style: Theme.of(
-                context,
-              ).textTheme.headlineLarge!.copyWith(fontSize: 20),
-            ),
-            Text(
-              settings.translate('stories'),
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium!.copyWith(fontSize: 14),
-            ),
-          ],
-        ),
-      );
-    }
-
-    String tabName = label == "Подписчиков" ? 'followers' : 'following';
-    String translatedLabel = label == "Подписчиков" ? settings.translate('followers') : settings.translate('following');
-
-    return GestureDetector(
-      onTap: () => _navigateToSubscriptionList(tabName),
-      child: NeoContainer(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              countValue.toString(),
-              style: Theme.of(
-                context,
-              ).textTheme.headlineLarge!.copyWith(fontSize: 20),
-            ),
-            Text(
-              translatedLabel,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium!.copyWith(fontSize: 14),
-            ),
-          ],
-        ),
+  // Логика для "Статей" (Stories) - они обычно не кликабельны или ведут просто вниз
+  if (key == 'stories') {
+    return NeoContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            countValue.toString(),
+            style: Theme.of(context)
+                .textTheme
+                .headlineLarge!
+                .copyWith(fontSize: 20),
+          ),
+          Text(
+            labelText, // Используем полученный перевод
+            style: Theme.of(context)
+                .textTheme
+                .headlineMedium!
+                .copyWith(fontSize: 14),
+          ),
+        ],
       ),
     );
   }
+
+  // Логика для Подписчиков/Подписок
+  // Так как мы передаем 'followers' или 'following', можно использовать key напрямую
+  return GestureDetector(
+    onTap: () => _navigateToSubscriptionList(key),
+    child: NeoContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            countValue.toString(),
+            style: Theme.of(context)
+                .textTheme
+                .headlineLarge!
+                .copyWith(fontSize: 20),
+          ),
+          Text(
+            labelText, // Правильный перевод ('followers' или 'following')
+            style: Theme.of(context)
+                .textTheme
+                .headlineMedium!
+                .copyWith(fontSize: 14),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 
   int? _safeParseInt(dynamic value) {
     if (value == null) return 0;
@@ -609,9 +617,20 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                 )).toList(),
                               ),
                             ),
-                          Text(
-                            story.createdAt.toString().substring(0, 10),
-                            style: TextStyle(color: Colors.grey[700]),
+                          Row(
+                            children: [
+                              const Icon(Icons.visibility_outlined, size: 14, color: Colors.grey),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${story.views}',
+                                style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                story.createdAt.toString().substring(0, 10),
+                                style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -1225,12 +1244,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       const SizedBox(height: 10),
 
                       // --- СТАТИСТИКА ---
-                      Row(
+                     Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildStatColumn(settings.translate('stories'), stats['stories_count']),
-                          _buildStatColumn(settings.translate('followers'), stats['followers_count']),
-                          _buildStatColumn(settings.translate('following'), stats['following_count']),
+                          _buildStatColumn('stories', stats['stories_count']),
+                          _buildStatColumn('followers', stats['followers_count']),
+                          _buildStatColumn('following', stats['following_count']),
                         ],
                       ),
                       const SizedBox(height: 12),

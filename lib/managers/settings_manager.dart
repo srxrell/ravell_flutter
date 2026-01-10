@@ -14,6 +14,8 @@ class SettingsManager extends ChangeNotifier {
   double get lineHeight => _lineHeight;
   String get locale => _locale;
   int get backgroundColor => readerBackground;
+  String _moderationLevel = 'moderate';
+String get moderationLevel => _moderationLevel;
 
   String translate(String key) => L10n.get(key, _locale);
 
@@ -28,6 +30,14 @@ class SettingsManager extends ChangeNotifier {
     _lineHeight = prefs.getDouble('story_line_height') ?? 1.5;
     _locale = prefs.getString('app_locale') ?? 'ru';
     readerBackground = prefs.getInt('reader_bg_color') ?? 0xFFF5F5F5;
+    _moderationLevel = prefs.getString('moderation_level') ?? 'moderate';
+    notifyListeners();
+  }
+
+  void setModerationLevel(String level) async {
+    _moderationLevel = level;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('moderation_level', level);
     notifyListeners();
   }
 

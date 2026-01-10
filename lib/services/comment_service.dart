@@ -15,11 +15,11 @@ Future<List<Story>> getRepliesForStory(int parentStoryId) async {
   String? accessToken = prefs.getString('access_token');
 
   print('🔄 Fetching replies for story ID: $parentStoryId');
-  print('🌐 URL: $baseUrl/stories/?reply_to=$parentStoryId');
+  print('🌐 URL: $baseUrl/stories/$parentStoryId/replies');
 
   try {
     final response = await http.get(
-      Uri.parse('$baseUrl/stories/?reply_to=$parentStoryId'),
+      Uri.parse('$baseUrl/stories/$parentStoryId/replies'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         if (accessToken != null) 'Authorization': 'Bearer $accessToken',
@@ -34,26 +34,17 @@ Future<List<Story>> getRepliesForStory(int parentStoryId) async {
       
       final data = jsonDecode(bodyString);
       
-      // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Правильно фильтруем ответы
-      List<dynamic> allStories = [];
+      List<dynamic> replies = [];
       
-      if (data is Map<String, dynamic> && data.containsKey('stories')) {
-        allStories = data['stories'];
-        print('📊 Total stories from API: ${allStories.length}');
+      if (data is Map<String, dynamic> && data.containsKey('replies')) {
+        replies = data['replies'];
+        print('📊 Total replies from API: ${replies.length}');
       } else {
-        print('⚠️ Response does not contain "stories" key or is not a Map');
+        print('⚠️ Response does not contain "replies" key or is not a Map');
         return [];
       }
       
-      // ✅ ФИЛЬТРУЕМ: берем только те истории, где reply_to == parentStoryId
-      final replies = allStories.where((story) {
-        final replyTo = story['reply_to'];
-        return replyTo != null && replyTo == parentStoryId;
-      }).toList();
-      
-      print('✅ Found ${replies.length} actual replies (filtered by reply_to == $parentStoryId)');
-      
-      // Парсим только отфильтрованные ответы
+      // Парсим ответы
       final List<Story> parsedReplies = [];
       for (var item in replies) {
         try {

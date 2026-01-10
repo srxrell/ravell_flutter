@@ -19,6 +19,7 @@ import 'package:http/http.dart' as http;
 import 'package:readreels/widgets/early_access_bottom.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
 // 🟢 ИСПРАВЛЕННЫЙ StoryCard с логикой выбора источника данных
 class StoryCard extends StatelessWidget {
@@ -138,14 +139,21 @@ class StoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsManager>(context);
-    final isDarkBg = false;
+    final settings = context.watch<SettingsManager>();
+    final isDarkBg = Theme.of(context).brightness == Brightness.dark;
 
-    return FutureBuilder(
+    return FutureBuilder<List<dynamic>>(
       future: Future.wait([_getAvatarUrl(), _getUsername()]),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return Container(
+            decoration:
+                isReplyCard
+                    ? BoxDecoration(
+                      border: Border.all(color: Colors.black, width: 2.0),
+                      borderRadius: BorderRadius.circular(16.0),
+                    )
+                    : null,
             padding: isReplyCard ? const EdgeInsets.all(16.0) : EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,9 +194,9 @@ class StoryCard extends StatelessWidget {
               Text(
                 story.title,
                 style: GoogleFonts.russoOne(
-  fontSize: isReplyCard ? 20 * settings.titleFontScale : 32 * settings.titleFontScale ,
-  color: isDarkBg ? Colors.white : Colors.black,
-),
+                  fontSize: isReplyCard ? 20 * settings.titleFontScale : 32 * settings.titleFontScale,
+                  color: isDarkBg ? Colors.white : Colors.black,
+                ),
               ),
 
               const SizedBox(height: 16),
@@ -209,7 +217,7 @@ class StoryCard extends StatelessWidget {
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          _buildAvatar(avatarUrl, username!),
+                          _buildAvatar(avatarUrl, username),
                           if (story.isEarly)
                             Positioned(
                               top: -8,
@@ -243,25 +251,46 @@ class StoryCard extends StatelessWidget {
                       children: [
                         // 🟢 КЛИКАБЕЛЬНЫЙ ЮЗЕРНЕЙМ
                         GestureDetector(
-                          onTap:
-                              () =>
-                                  _navigateToUserProfile(context, story.userId),
+                          onTap: () => _navigateToUserProfile(context, story.userId),
                           child: Text(
                             username,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                               fontSize: 18,
-                               color: isDarkBg ? Colors.white : Colors.black,
-
+                              fontSize: 18,
+                              color: isDarkBg ? Colors.white : Colors.black,
                             ),
                           ),
                         ),
-                        Text(
-                          _formatDate(story.createdAt),
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 16,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              _formatDate(story.createdAt),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Icon(Icons.visibility_outlined, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${story.views}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Icon(Icons.share_outlined, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${story.shares}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -274,28 +303,24 @@ class StoryCard extends StatelessWidget {
               // 🟢 ПОЛНЫЙ ТЕКСТ ИСТОРИИ
               Container(
                 width: double.infinity,
-                child: Container(
-  width: double.infinity,
-  child: MarkdownBody(
-    data: story.content,
-    styleSheet: MarkdownStyleSheet(
-  p: TextStyle(
-    fontSize: 16 * settings.fontScale,
-    height: settings.lineHeight,
-    color: isDarkBg ? Colors.white70 : Colors.black87,
-  ),
-  h1: TextStyle(fontSize: 32 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
-  h2: TextStyle(fontSize: 28 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
-  h3: TextStyle(fontSize: 24 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
-),
-    onTapLink: (text, href, title) {
-      if (href != null) {
-        // открытие ссылок
-        launchUrl(Uri.parse(href));
-      }
-    },
-  ),
-)
+                child: MarkdownBody(
+                  data: story.content,
+                  styleSheet: MarkdownStyleSheet(
+                    p: TextStyle(
+                      fontSize: 16 * settings.fontScale,
+                      height: settings.lineHeight,
+                      color: isDarkBg ? Colors.white70 : Colors.black87,
+                    ),
+                    h1: TextStyle(fontSize: 32 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
+                    h2: TextStyle(fontSize: 28 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
+                    h3: TextStyle(fontSize: 24 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
+                  ),
+                  onTapLink: (text, href, title) {
+                    if (href != null) {
+                      launchUrl(Uri.parse(href));
+                    }
+                  },
+                ),
               ),
 
               const SizedBox(height: 12),
@@ -305,12 +330,11 @@ class StoryCard extends StatelessWidget {
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
-                  children:
-                      story.hashtags.map((hashtag) {
-                        return Chip(
-                          label: Text('#${hashtag.name}'),
-                        );
-                      }).toList(),
+                  children: story.hashtags.map((hashtag) {
+                    return Chip(
+                      label: Text('#${hashtag.name}'),
+                    );
+                  }).toList(),
                 ),
             ],
           ),
@@ -462,6 +486,7 @@ class StoryDetailPage extends StatefulWidget {
 class _StoryDetailPageState extends State<StoryDetailPage> {
   final st.StoryService _storyService = st.StoryService();
   final StoryReplyService _replyService = StoryReplyService();
+  late Story _currentStory; // 🟢 Локальная копия истории для обновлений
   List<Story> _replies = [];
   bool _isLoading = true;
   bool _hasError = false;
@@ -470,7 +495,28 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
 
 
 
+  Future<void> _shareStory() async {
+    final String shareUrl = 'https://ravell.wasmer.app/story/${_currentStory.id}';
+    
+    // 1. Сначала открываем нативный диалог шаринга (не блокируем UI)
+    Share.share(
+      '${_currentStory.title}\n\nЧитай продолжение в ReadReels: $shareUrl',
+      subject: _currentStory.title,
+    );
+
+    // 2. В фоне уведомляем бэкенд
+    try {
+      debugPrint('📡 Notifying backend about share for story ${_currentStory.id}...');
+      await _storyService.shareStory(_currentStory.id);
+      debugPrint('✅ Backend notified about share.');
+      _fetchReplies(); // Обновляем данные (включая счетчик репостов)
+    } catch (e) {
+      debugPrint('⚠️ Error updating share count on backend: $e');
+    }
+  }
+
   void _openReadingSettings() {
+
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.white,
@@ -579,6 +625,7 @@ Widget _colorOption(SettingsManager settings, Color color, String name) {
   @override
   void initState() {
     super.initState();
+    _currentStory = widget.story; // Инициализируем из виджета
     _fetchReplies();
     _incrementReadCounter();
     
@@ -599,19 +646,24 @@ Widget _colorOption(SettingsManager settings, Color color, String name) {
     await http.post(
       Uri.parse('https://ravell-backend-1.onrender.com/streak/update'),
       headers: {'Authorization': 'Bearer $token'},
-    );
+    ).catchError((e) => print('Streak update error: $e'));
 
-    // 2. грузим историю
-    final res = await http.get(
-      Uri.parse(
-        'https://ravell-backend-1.onrender.com/stories/${widget.story.id}',
-      ),
-      headers: {'Authorization': 'Bearer $token'},
-    );
+    // 2. грузим актуальные данные истории (включая просмотры)
+    try {
+      final updatedStory = await _storyService.getStory(widget.story.id);
+      if (mounted) {
+        setState(() {
+          _currentStory = updatedStory;
+          _calculateWordCounts(); // Пересчитываем слова, если нужно
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching updated story: $e');
+    }
   }
 
   void _calculateWordCounts() {
-    _totalWords = widget.story.content.split(RegExp(r'\s+')).length;
+    _totalWords = _currentStory.content.split(RegExp(r'\s+')).length;
     _totalRepliesWords = _replies.fold(
       0,
       (sum, reply) => sum + reply.content.split(RegExp(r'\s+')).length,
@@ -632,20 +684,34 @@ Widget _colorOption(SettingsManager settings, Color color, String name) {
 
       print('✅ Загружено ответов: ${_replies.length}');
 
-      _totalRepliesWords = _replies.fold(
-        0,
-        (sum, reply) => sum + reply.content.split(RegExp(r'\s+')).length,
-      );
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
 
-      setState(() {
-        _isLoading = false;
-      });
+      // Загружаем также актуальные данные самой истории (просмотры, лайки)
+      // Оборачиваем в отдельный try-catch, чтобы ошибка здесь не сломала всю страницу
+      try {
+        final updatedStory = await _storyService.getStory(widget.story.id);
+        if (mounted) {
+          setState(() {
+            _currentStory = updatedStory;
+            _calculateWordCounts();
+          });
+        }
+      } catch (e) {
+        debugPrint('⚠️ Ошибка при обновлении данных истории: $e');
+        // Не ставим _hasError = true, так как ответы и текущая история у нас уже есть
+      }
     } catch (e) {
       debugPrint('❌ Ошибка загрузки ответов: $e');
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
     }
   }
 
@@ -671,6 +737,12 @@ Widget _colorOption(SettingsManager settings, Color color, String name) {
               width: 60,
               height: 60,
             ),
+          ),
+          const SizedBox(width: 10),
+          
+          GestureDetector(
+            onTap: _shareStory,
+            child: SvgPicture.asset("assets/icons/share.svg", width: 60, height: 60),
           ),
           const SizedBox(width: 10),
           GestureDetector(
@@ -704,7 +776,7 @@ Widget _colorOption(SettingsManager settings, Color color, String name) {
                 children: [
                   // 🟢 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Передаем fromProfile в StoryCard
                   StoryCard(
-                    story: widget.story,
+                    story: _currentStory,
                     isReplyCard: false,
                     onStoryUpdated: _fetchReplies,
                     useLocalData: widget.fromProfile,

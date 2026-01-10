@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import 'package:readreels/managers/settings_manager.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:readreels/models/story.dart';
 import 'package:readreels/screens/story_detail.dart';
 import 'package:readreels/widgets/heart_animation.dart';
@@ -47,9 +48,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
   List<Story> seeds = [];
   List<Story> branches = [];
   List<Story> allStories = [];
-  Map<int, bool> likeStatuses = {};
   Offset tapPosition = Offset.zero;
-  Map<int, int> likeCounts = {};
   bool _isLoading = true;
   bool _hasError = false;
   String _errorMessage = '';
@@ -229,21 +228,6 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
       // сохраняем в локальное хранилище
       await _saveStoriesLocally(fetched, _currentStoryType);
 
-      // лайки и сортировка (не очищаем мапы, чтобы избежать моргания)
-      for (var story in _currentStories) {
-        likeCounts[story.id] = story.likesCount;
-        if (currentUserId != null) {
-          // Загружаем статус лайка асинхронно без блокировки UI
-          _storyService.isStoryLiked(story.id, currentUserId!).then((liked) {
-            if (mounted) {
-              setState(() {
-                likeStatuses[story.id] = liked;
-              });
-            }
-          });
-        }
-      }
-
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -287,7 +271,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
         _currentStories.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         break;
       case 'popular':
-        _currentStories.sort((a, b) => b.likesCount.compareTo(a.likesCount));
+        _currentStories.sort((a, b) => b.commentsCount.compareTo(a.commentsCount));
         break;
       case 'random':
       default:
@@ -306,58 +290,32 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
     _isRefreshing = false;
   }
 
-  Future<void> _handleLike(Story story, {bool isDoubleTap = false}) async {
-    if (currentUserId == null) {
-      if (mounted) {
-        context.go('/auth-check');
-      }
-      return;
-    }
 
+
+  Future<void> _handleShare(Story story) async {
+    final String shareUrl = 'https://ravell.wasmer.app/story/${story.id}';
+    
+    // 1. Сначала открываем нативный диалог шаринга
+    Share.share(
+      '${story.title}\n\nЧитай продолжение в ReadReels: $shareUrl',
+      subject: story.title,
+    );
+
+    // 2. В фоне уведомляем бэкенд
     try {
-      final bool wasLiked = likeStatuses[story.id] ?? false;
-      final int oldLikeCount = likeCounts[story.id] ?? 0;
-
-      // Оптимистичное обновление UI
-      setState(() {
-        likeStatuses[story.id] = !wasLiked;
-        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
-        if (isDoubleTap && !wasLiked) {
-          isHeartAnimating = true;
-        }
-      });
-
-      // Вызов API
-      final newCount = await _storyService.likeStory(story.id, currentUserId!);
-
-      // Синхронизация с серверным ответом
-      setState(() {
-        likeCounts[story.id] = newCount;
-      });
+      debugPrint('📡 Notifying backend about share (Feed) for story ${story.id}...');
+      await _storyService.shareStory(story.id);
+      debugPrint('✅ Backend notified about share (Feed).');
+      _refreshFeed();
     } catch (e) {
-      debugPrint('Error liking story: $e');
-      // Откат при ошибке
-      final bool wasLiked = likeStatuses[story.id] ?? false;
-      final int oldLikeCount = likeCounts[story.id] ?? 0;
-      setState(() {
-        likeStatuses[story.id] = !wasLiked;
-        likeCounts[story.id] = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
-        isHeartAnimating = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
-        );
-      }
+      debugPrint('⚠️ Error sharing story (Feed): $e');
     }
   }
 
   Widget _buildStoryCard(Story story, int index) {
+
     final settings = Provider.of<SettingsManager>(context);
     final isDarkBg = false; // Themes removed
-    final isLiked = likeStatuses[story.id] ?? false;
-    final currentLikeCount = likeCounts[story.id] ?? 0;
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
@@ -371,7 +329,7 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                               false, // 🟢 Не из профиля - онлайн данные
                         ),
                   ),
-                );
+                ).then((_) => _refreshFeed());
               },
               // onDoubleTapDown: (details) {
               //   _handleLike(story, isDoubleTap: true);
@@ -466,108 +424,98 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
 
                           // Контент истории
                           Expanded(
-                            child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  ExpandableStoryContent(
+                            child:ExpandableStoryContent(
                                     content: story.content,
                                     isDarkBackground: isDarkBg,
                                   ),
-                                  const SizedBox(height: 20),
-                                  // Хештеги (если есть)
-                                  if (story.hashtags.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 12,
-                                      ),
-                                      child: Wrap(
-                                        spacing: 8,
-                                        runSpacing: 4,
-                                        children:
-                                            story.hashtags.map((hashtag) {
-                                              return Chip(
-                                                label: Text(
-                                                  '#${hashtag.name}',
-                                                  style: TextStyle(
-                                                    fontSize:
-                                                        12 * settings.fontScale,
-                                                  ),
-                                                ),
-                                                backgroundColor:
-                                                    Colors.blue[50],
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                              );
-                                            }).toList(),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
                           ),
 
                           // Действия (кнопки лайка и ответа)
                           Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                // Кнопка ответить
-                                if (!story.isReply)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0,
-                                    ), // отступы слева и справа
-                                    child: _wrapWithShowcase(
-                                      showcaseKey:
-                                          index == 0 ? _replyKey : null,
-                                      description:
-                                          'Отвечай на историю своим развитием сюжета!',
-                                      child: SizedBox(
-                                        height: 70,
-                                        child: NeoIconButton(
-  onPressed: () {
-    if (currentUserId == null) {
-      // Гость: показываем сообщение вместо перехода
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(settings.translate('only_for_registered')),
-          duration: const Duration(seconds: 2),
+  padding: const EdgeInsets.only(top: 8, left: 10, right: 10),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween, // Растягиваем по краям
+    children: [
+      // 1. Кнопка ответить
+      if (!story.isReply)
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2.0),
+            child: SizedBox(
+              height: 75, // Немного уменьшил высоту для компактности
+              child: NeoIconButton(
+                onPressed: () {
+                  if (currentUserId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(settings.translate('only_for_registered'))),
+                    );
+                    return;
+                  }
+                  context.push(
+                    '/addStory',
+                    extra: {
+                      'replyTo': story.id,
+                      'parentTitle': story.title,
+                    },
+                  );
+                },
+                icon: const Icon(Icons.reply, size: 18),
+                child: Text(
+                  ' ${story.repliesCount}',
+                  style: TextStyle(
+                    fontSize: 14 * settings.fontScale,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
-      );
-      return;
-    }
-    context.push(
-      '/addStory',
-      extra: {
-        'replyTo': story.id,
-        'parentTitle': story.title,
-      },
-    );
-  },
-  icon: const Icon(
-    Icons.reply,
-    size: 18,
-  ),
-  child: Text(
-    currentUserId == null
-        ? ' ${settings.translate('only_for_registered')}'
-        : ' ${settings.translate('reply')} | ${_getReplyText(story.repliesCount)}',
-    style: TextStyle(
-      fontSize: 14 * settings.fontScale,
-      fontWeight: FontWeight.w500,
-    ),
+      SizedBox(width: 10),
+      // 2. Кнопка просмотров
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2.0),
+          child: SizedBox(
+            height: 75,
+            child: NeoIconButton(
+              onPressed: () {}, // Просмотры обычно просто инфо
+              icon: const Icon(Icons.remove_red_eye, size: 18),
+              child: Text(
+                ' ${story.views}',
+                style: TextStyle(
+                  fontSize: 14 * settings.fontScale,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      SizedBox(width: 10),
+      // 3. Кнопка поделиться
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2.0),
+          child: SizedBox(
+            height: 75,
+            child: NeoIconButton(
+              onPressed: () => _handleShare(story),
+              icon: const Icon(Icons.share, size: 18),
+              child: Text(
+                ' ${story.shares}',
+                style: TextStyle(
+                  fontSize: 14 * settings.fontScale,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
   ),
 ),
-
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -929,8 +877,16 @@ class _FeedState extends State<Feed> with SingleTickerProviderStateMixin {
                             vertical: 8,
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              Text(
+                                settings.translate('sort'),
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                ),
+                              ),
                               PopupMenuButton<String>(
                                 onSelected: (value) {
                                   setState(() {
