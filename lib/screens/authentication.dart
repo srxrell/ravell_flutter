@@ -257,7 +257,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                               isLogin = !isLogin;
                             });
                           },
-                          text: isLogin ? settings.translate('save') : settings.translate('nav_profile'), // Need 'create_account' and 'back_to_login'
+                          text: isLogin ? settings.translate('create_account') : settings.translate('back_to_login'), // Need 'create_account' and 'back_to_login'
                         ),
                       ),
                       SizedBox(height: 10),
@@ -268,7 +268,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                           onPressed: () async {
                             await logInAsGuest();
                           },
-                          text: settings.translate('nav_profile'), // Need 'login_as_guest'
+                          text: settings.translate('login_as_guest'), // Need 'login_as_guest'
                         ),
                       ),
                     ],
