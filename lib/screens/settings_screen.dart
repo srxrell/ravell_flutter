@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:readreels/managers/settings_manager.dart';
 import 'package:readreels/widgets/neowidgets.dart';
 import 'package:readreels/services/updateChecker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:readreels/theme.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -15,10 +16,33 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _updateChecker = UpdateChecker();
+  Future<void> _linkTelegram(int userId) async {
+  const botUsername = "ravell_fcm_bot"; 
+  // Попробуем сначала прямую схему приложения, если не выйдет - обычную ссылку
+  final tgUrl = Uri.parse("tg://resolve?domain=$botUsername&start=bind_$userId");
+  final httpsUrl = Uri.parse("https://t.me/$botUsername?start=bind_$userId");
+  
+  try {
+    if (await canLaunchUrl(tgUrl)) {
+      await launchUrl(tgUrl, mode: LaunchMode.externalApplication);
+    } else if (await canLaunchUrl(httpsUrl)) {
+      await launchUrl(httpsUrl, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Could not launch URL';
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
+    }
+  }
+}
 
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsManager>(context);
+    final userId = settings.userId;
 
     return Scaffold(
       appBar: AppBar(
@@ -32,6 +56,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (userId != null) ...[ // Показываем только если залогинен
+            Text(
+              // Добавь 'notifications': 'Уведомления' в L10n
+              settings.translate('notifications'), 
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _buildSettingsContainer(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.send, color: Colors.blue),
+                title: Text(
+                  // Добавь 'telegram_bot': 'Telegram Бот' в L10n
+                  settings.translate('link_telegram'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  // Пока используем локальный флаг, в идеале брать из профиля
+                  settings.isTelegramLinked 
+                      ? settings.translate('connected') // 'Подключено'
+                      : settings.translate('not_connected'), // 'Подключить'
+                  style: TextStyle(
+                    color: settings.isTelegramLinked ? Colors.green : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                trailing: const Icon(Icons.open_in_new, color: Colors.black),
+                onTap: () => _linkTelegram(userId),
+              ),
+            ),],
+            SizedBox(height: 10),
           Text(
             settings.translate('reading_settings'),
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),

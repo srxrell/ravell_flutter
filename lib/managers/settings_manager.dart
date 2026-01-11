@@ -8,6 +8,8 @@ class SettingsManager extends ChangeNotifier {
   double _lineHeight = 1.5;
   String _locale = 'ru';
   int readerBackground = 0xFFF5F5F5;
+  int? _userId;
+  int? get userId => _userId;
 
   double get fontScale => _fontScale;
   double get titleFontScale => _titleFontScale;
@@ -16,6 +18,8 @@ class SettingsManager extends ChangeNotifier {
   int get backgroundColor => readerBackground;
   String _moderationLevel = 'moderate';
 String get moderationLevel => _moderationLevel;
+bool _isTelegramLinked = false;
+  bool get isTelegramLinked => _isTelegramLinked;
 
   String translate(String key) => L10n.get(key, _locale);
 
@@ -31,6 +35,15 @@ String get moderationLevel => _moderationLevel;
     _locale = prefs.getString('app_locale') ?? 'ru';
     readerBackground = prefs.getInt('reader_bg_color') ?? 0xFFF5F5F5;
     _moderationLevel = prefs.getString('moderation_level') ?? 'moderate';
+    _userId = prefs.getInt('user_id');
+    
+    // Здесь можно вызвать метод проверки привязки Telegram с сервера
+    // await checkTelegramStatus(); 
+    notifyListeners();
+  }
+
+   void setTelegramLinked(bool linked) {
+    _isTelegramLinked = linked;
     notifyListeners();
   }
 

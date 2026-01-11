@@ -77,6 +77,10 @@ class L10n {
     // Search
     'search_hint': 'Искать истории или авторов...',
     'no_results': 'Ничего не найдено',
+    'link_telegram': 'Связать Telegram',
+    'link_telegram_description': 'Связать Telegram для получения уведомлений',
+    'connected': 'Подключено',
+    'not_connected': 'Не подключено',
 
     // Stories
     'publish': 'Опубликовать',
@@ -131,6 +135,7 @@ class L10n {
     'moderation_level_description': 'Уровень модерации',
     'early_access_info': 'Это информация о функциях раннего доступа!',
     'pioneer_status': "Статус 'Первооткрыватель'",
+    'notifications': 'Уведомления',
     'pioneer_subtitle':
         "Получите уникальный бейджик с возможностью кастомизации себе в профиль",
     'success_word': 'Ваше слово - успех!',
@@ -190,9 +195,14 @@ class L10n {
     'app_description': 'Ravell - book reading application',
     'search': 'Search',
     'feeds': 'Feeds',
+    'notifications': 'Notifications',
     'seeds': 'Seeds',
     'branches': 'Branches',
     'replies': 'Replies',
+    'link_telegram': 'Link Telegram',
+    'link_telegram_description': 'Link Telegram for notifications',
+    'connected': 'Connected',
+    'not_connected': 'Not connected',
     'no_replies': 'No replies yet',
     'write_reply': 'Write your reply...',
     'reply': 'Reply',
