@@ -21,29 +21,25 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 
-// 🟢 ИСПРАВЛЕННЫЙ StoryCard с логикой выбора источника данных
 class StoryCard extends StatelessWidget {
   final Story story;
   final bool isReplyCard;
   final void Function()? onStoryUpdated;
-  final bool useLocalData; // 🟢 НОВЫЙ ПАРАМЕТР
+  final bool useLocalData;
 
   const StoryCard({
     super.key,
     required this.story,
     required this.isReplyCard,
     this.onStoryUpdated,
-    this.useLocalData = false, // По умолчанию используем онлайн данные
+    this.useLocalData = false,
   });
 
-  // 🟢 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ АВАТАРА
   Future<String?> _getAvatarUrl() async {
-     // Вспомогательная функция для очистки
     String? clean(String? s) {
       if (s == null) return null;
       final trimmed = s.replaceAll(RegExp(r'\s+'), '');
-      if (trimmed.isEmpty || trimmed.contains('Useragent')) return null;
-      if (s.contains('User agent')) return null;
+      if (trimmed.isEmpty || trimmed.contains('Useragent') || trimmed.contains('Useragent')) return null;
       return trimmed;
     }
 
@@ -54,143 +50,84 @@ class StoryCard extends StatelessWidget {
     }
 
     if (useLocalData) {
-      // 🟢 ИСПОЛЬЗУЕМ ДАННЫЕ ИЗ SHAREDPREFERENCES
       try {
         final prefs = await SharedPreferences.getInstance();
         final avatarUrl = clean(prefs.getString('avatar_url'));
-
-        if (avatarUrl != null) {
-          return resolve(avatarUrl);
-        }
+        if (avatarUrl != null) return resolve(avatarUrl);
       } catch (e) {
-        print('Error getting avatar from SharedPreferences: $e');
+        debugPrint('Error getting local avatar: $e');
       }
     }
 
-    // 🟢 ИНАЧЕ ИСПОЛЬЗУЕМ ОНЛАЙН ДАННЫЕ ИЗ STORY
-    // 1. Пробуем новый формат: user -> profile -> avatar
+    // Безопасное приведение типа для user
     if (story.user != null && story.user is Map) {
-      final userMap = story.user as Map;
-      if (userMap['profile'] != null &&
-          userMap['profile'] is Map) {
-        final profile = userMap['profile'] as Map;
+      final userMap = story.user as Map<String, dynamic>;
+      if (userMap['profile'] != null && userMap['profile'] is Map) {
+        final profile = userMap['profile'] as Map<String, dynamic>;
         final avatar = clean(profile['avatar'] as String?);
-        if (avatar != null) {
-          return resolve(avatar);
-        }
+        if (avatar != null) return resolve(avatar);
       }
-
-      if (userMap['avatar'] != null) {
-        final avatar = clean(userMap['avatar'] as String?);
-        if (avatar != null) {
-          return resolve(avatar);
-        }
-      }
+      final avatar = clean(userMap['avatar'] as String?);
+      if (avatar != null) return resolve(avatar);
     }
 
-    // 2. Пробуем поле avatarUrl
     final cleanAvatarUrl = clean(story.avatarUrl);
-    if (cleanAvatarUrl != null) {
-      return resolve(cleanAvatarUrl);
-    }
+    if (cleanAvatarUrl != null) return resolve(cleanAvatarUrl);
 
-    // 3. Пробуем authorAvatar
     final cleanAuthorAvatar = clean(story.authorAvatar);
-    if (cleanAuthorAvatar != null) {
-      return resolve(cleanAuthorAvatar);
-    }
+    if (cleanAuthorAvatar != null) return resolve(cleanAuthorAvatar);
 
     return null;
   }
 
-  // 🟢 УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
   Future<String> _getUsername() async {
     if (useLocalData) {
-      // 🟢 ИСПОЛЬЗУЕМ ДАННЫЕ ИЗ SHAREDPREFERENCES
       try {
         final prefs = await SharedPreferences.getInstance();
         final username = prefs.getString('username');
-        if (username != null && username.isNotEmpty) {
-          return username;
-        }
+        if (username != null && username.isNotEmpty) return username;
       } catch (e) {
-        print('Error getting username from SharedPreferences: $e');
+        debugPrint('Error getting local username: $e');
       }
     }
 
-    // 🟢 ИНАЧЕ ИСПОЛЬЗУЕМ ОНЛАЙН ДАННЫЕ
-    // 1. Пробуем получить из user -> username
-    if (story.user != null && story.user is Map<String, dynamic>) {
+    if (story.user != null && story.user is Map) {
       final userMap = story.user as Map<String, dynamic>;
       final username = userMap['username'] as String?;
-      if (username != null && username.isNotEmpty) {
-        return username;
-      }
+      if (username != null && username.isNotEmpty) return username;
     }
 
-    // 2. Пробуем поле username
-    if (story.resolvedUsername.isNotEmpty) {
-      return story.resolvedUsername;
-    }
-
-    // 3. Fallback
+    if (story.resolvedUsername.isNotEmpty) return story.resolvedUsername;
     return 'Пользователь #${story.userId}';
   }
 
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsManager>();
-    final isDarkBg = Theme.of(context).brightness == Brightness.dark;
+    final Color currentBgColor = Color(settings.backgroundColor);
+    final bool isDarkBg = ThemeData.estimateBrightnessForColor(currentBgColor) == Brightness.dark;
 
     return FutureBuilder<List<dynamic>>(
       future: Future.wait([_getAvatarUrl(), _getUsername()]),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return Container(
-            decoration:
-                isReplyCard
-                    ? BoxDecoration(
-                      border: Border.all(color: Colors.black, width: 2.0),
-                      borderRadius: BorderRadius.circular(16.0),
-                    )
-                    : null,
-            padding: isReplyCard ? const EdgeInsets.all(16.0) : EdgeInsets.zero,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Заголовок истории
-                Text(
-                  story.title,
-                  style: GoogleFonts.russoOne(
-                    fontSize: 32 * settings.titleFontScale,
-                    color: isDarkBg ? Colors.white : Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildLoadingUserInfo(),
-                const SizedBox(height: 16),
-                _buildLoadingContent(),
-              ],
-            ),
-          );
+          return _buildSkeletonLoader(settings, isDarkBg);
         }
 
         final avatarUrl = snapshot.data?[0] as String?;
         final username = snapshot.data?[1] as String? ?? 'Пользователь';
 
         return Container(
-          decoration:
-              isReplyCard
-                  ? BoxDecoration(
-                    border: Border.all(color: Colors.black, width: 2.0),
-                    borderRadius: BorderRadius.circular(16.0),
-                  )
-                  : null,
+          decoration: isReplyCard
+              ? BoxDecoration(
+                  border: Border.all(color: isDarkBg ? Colors.white24 : Colors.black, width: 2.0),
+                  borderRadius: BorderRadius.circular(16.0),
+                )
+              : null,
           padding: isReplyCard ? const EdgeInsets.all(16.0) : EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Заголовок истории
               Text(
                 story.title,
                 style: GoogleFonts.russoOne(
@@ -198,20 +135,16 @@ class StoryCard extends StatelessWidget {
                   color: isDarkBg ? Colors.white : Colors.black,
                 ),
               ),
-
               const SizedBox(height: 16),
-
               Row(
                 children: [
-                  // 🟢 КЛИКАБЕЛЬНЫЙ АВАТАР
                   GestureDetector(
                     onTap: () => _navigateToUserProfile(context, story.userId),
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 40, height: 40,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.black, width: 2),
+                        border: Border.all(color: isDarkBg ? Colors.white : Colors.black, width: 2),
                         color: Colors.grey[200],
                       ),
                       child: Stack(
@@ -220,21 +153,13 @@ class StoryCard extends StatelessWidget {
                           _buildAvatar(avatarUrl, username),
                           if (story.isEarly)
                             Positioned(
-                              top: -8,
-                              right: -8,
+                              top: -8, right: -8,
                               child: GestureDetector(
                                 onTap: () => EarlyAccessSheet.show(context),
                                 child: Container(
                                   padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.star,
-                                    color: Colors.amber,
-                                    size: 16,
-                                  ),
+                                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                  child: const Icon(Icons.star, color: Colors.amber, size: 16),
                                 ),
                               ),
                             ),
@@ -242,14 +167,11 @@ class StoryCard extends StatelessWidget {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 12),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 🟢 КЛИКАБЕЛЬНЫЙ ЮЗЕРНЕЙМ
                         GestureDetector(
                           onTap: () => _navigateToUserProfile(context, story.userId),
                           child: Text(
@@ -263,33 +185,11 @@ class StoryCard extends StatelessWidget {
                         ),
                         Row(
                           children: [
-                            Text(
-                              _formatDate(story.createdAt),
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Icon(Icons.visibility_outlined, size: 14, color: Colors.grey),
+                            Text(_formatDate(story.createdAt), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.visibility_outlined, size: 12, color: Colors.grey),
                             const SizedBox(width: 4),
-                            Text(
-                              '${story.views}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Icon(Icons.share_outlined, size: 14, color: Colors.grey),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${story.shares}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                            ),
+                            Text('${story.views}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                           ],
                         ),
                       ],
@@ -297,45 +197,20 @@ class StoryCard extends StatelessWidget {
                   ),
                 ],
               ),
-
               const SizedBox(height: 16),
-
-              // 🟢 ПОЛНЫЙ ТЕКСТ ИСТОРИИ
-              Container(
-                width: double.infinity,
-                child: MarkdownBody(
-                  data: story.content,
-                  styleSheet: MarkdownStyleSheet(
-                    p: TextStyle(
-                      fontSize: 16 * settings.fontScale,
-                      height: settings.lineHeight,
-                      color: isDarkBg ? Colors.white70 : Colors.black87,
-                    ),
-                    h1: TextStyle(fontSize: 32 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
-                    h2: TextStyle(fontSize: 28 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
-                    h3: TextStyle(fontSize: 24 * settings.titleFontScale, color: isDarkBg ? Colors.white : Colors.black),
+              MarkdownBody(
+                data: story.content,
+                styleSheet: MarkdownStyleSheet(
+                  p: TextStyle(
+                    fontSize: 16 * settings.fontScale,
+                    height: settings.lineHeight,
+                    color: isDarkBg ? Colors.white70 : Colors.black87,
                   ),
-                  onTapLink: (text, href, title) {
-                    if (href != null) {
-                      launchUrl(Uri.parse(href));
-                    }
-                  },
                 ),
+                onTapLink: (text, href, title) {
+                  if (href != null) launchUrl(Uri.parse(href));
+                },
               ),
-
-              const SizedBox(height: 12),
-
-              // Хештеги
-              if (story.hashtags.isNotEmpty)
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: story.hashtags.map((hashtag) {
-                    return Chip(
-                      label: Text('#${hashtag.name}'),
-                    );
-                  }).toList(),
-                ),
             ],
           ),
         );
@@ -343,126 +218,59 @@ class StoryCard extends StatelessWidget {
     );
   }
 
-  // 🟢 МЕТОД ДЛЯ АВАТАРА
+  // Вспомогательный метод для скелетона
+  Widget _buildSkeletonLoader(SettingsManager settings, bool isDarkBg) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(width: 200, height: 24, color: isDarkBg ? Colors.white10 : Colors.grey[200]),
+        const SizedBox(height: 16),
+        _buildLoadingUserInfo(),
+      ],
+    );
+  }
+
   Widget _buildAvatar(String? avatarUrl, String username) {
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       return ClipOval(
         child: CachedNetworkImage(
           imageUrl: avatarUrl,
-          width: 36,
-          height: 36,
+          width: 36, height: 36,
           fit: BoxFit.cover,
-          httpHeaders: const {
-            'User-Agent': 'FlutterApp/1.0',
-          },
-          placeholder:
-              (context, url) => Container(
-                color: Colors.grey[200],
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                  ),
-                ),
-              ),
-          errorWidget:
-              (context, url, error) => _buildAvatarPlaceholder(username),
+          errorWidget: (context, url, error) => _buildAvatarPlaceholder(username),
         ),
       );
     }
-
     return _buildAvatarPlaceholder(username);
   }
 
   Widget _buildAvatarPlaceholder(String username) {
-    final placeholderText =
-        username.isNotEmpty ? username[0].toUpperCase() : '?';
-
+    final char = username.isNotEmpty ? username[0].toUpperCase() : '?';
     return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.blue, // Placeholder color, adjust as needed
-      ),
-      child: Center(
-        child: Text(
-          placeholderText,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-      ),
+      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.blue),
+      child: Center(child: Text(char, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
     );
   }
 
-  // 🟢 ЗАГРУЗОЧНЫЙ ИНТЕРФЕЙС
   Widget _buildLoadingUserInfo() {
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.grey[200],
-          ),
-        ),
+        Container(width: 40, height: 40, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.grey)),
         const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(width: 100, height: 16, color: Colors.grey[200]),
-              const SizedBox(height: 4),
-              Container(width: 80, height: 12, color: Colors.grey[200]),
-            ],
-          ),
-        ),
+        Container(width: 100, height: 16, color: Colors.grey),
       ],
     );
   }
 
-  Widget _buildLoadingContent() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(width: double.infinity, height: 12, color: Colors.grey[200]),
-        const SizedBox(height: 8),
-        Container(width: double.infinity, height: 12, color: Colors.grey[200]),
-        const SizedBox(height: 8),
-        Container(width: 200, height: 12, color: Colors.grey[200]),
-      ],
-    );
-  }
-
-  // 🟢 МЕТОД ДЛЯ ПЕРЕХОДА НА ПРОФИЛЬ
   void _navigateToUserProfile(BuildContext context, int userId) {
-    if (userId == 0) return;
-    try {
-      context.push('/profile/$userId');
-    } catch (e) {
-      print('Navigation error: $e');
-    }
+    if (userId != 0) context.push('/profile/$userId');
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays > 365) {
-      return '${(difference.inDays / 365).floor()}г назад';
-    } else if (difference.inDays > 30) {
-      return '${(difference.inDays / 30).floor()}мес назад';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}д назад';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}ч назад';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}мин назад';
-    } else {
-      return 'только что';
-    }
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays > 0) return '${diff.inDays}д назад';
+    if (diff.inHours > 0) return '${diff.inHours}ч назад';
+    return 'только что';
   }
 }
 
@@ -756,13 +564,14 @@ Widget _colorOption(SettingsManager settings, Color color, String name) {
           const SizedBox(width: 10),
         ],
       ),
-      body: _buildBody(),
+      body: _buildBody(isDark),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(bool isDark) {
     final settings = Provider.of<SettingsManager>(context);
-    final isDarkBg = false;
+    final Color textColor = isDark ? Colors.white : Colors.black;
+    final Color secondaryTextColor = isDark ? Colors.white70 : Colors.grey[600]!;
     return RefreshIndicator(
       onRefresh: _fetchReplies,
       child: CustomScrollView(
@@ -856,10 +665,10 @@ Widget _colorOption(SettingsManager settings, Color color, String name) {
                     Icon(
                       Icons.forum_outlined,
                       size: 64,
-                      color: isDarkBg ? Colors.white : Colors.black,
+                      color: isDark ? Colors.white : Colors.black,
                     ),
                     const SizedBox(height: 16),
-                    Text(settings.translate('no_replies')),
+                    Text(settings.translate('no_replies'), style: TextStyle(color: isDark ? Colors.white : Colors.black)),
                   ],
                 ),
               ),

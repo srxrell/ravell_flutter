@@ -8,6 +8,7 @@ class SettingsManager extends ChangeNotifier {
   double _lineHeight = 1.5;
   String _locale = 'ru';
   int readerBackground = 0xFFF5F5F5;
+  
   int? _userId;
   int? get userId => _userId;
 
