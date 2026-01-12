@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:readreels/screens/authentication.dart';
+import 'package:readreels/services/auth_service.dart';
 import 'package:readreels/managers/settings_manager.dart';
 import 'package:readreels/screens/premium_screen.dart';
 import 'package:readreels/services/updateChecker.dart';
@@ -60,11 +62,6 @@ class SettingsScreen extends StatelessWidget {
           ),
           SliverList(
             delegate: SliverChildListDelegate([
-              if (settings.userId != null) ...[
-                _buildSectionTitle(settings.translate('notifications')),
-                _buildNeoTile(context, Icons.send, settings.translate('link_telegram'), 
-                    () => _openSubScreen(context, const TelegramSettingsSubScreen())),
-              ],
               _buildSectionTitle(settings.translate('language')),
               _buildNeoTile(context, Icons.language, settings.translate('choose_language'), 
                   () => _openSubScreen(context, const LanguageSettingsSubScreen()), trailing: settings.locale.toUpperCase()),
@@ -81,6 +78,15 @@ class SettingsScreen extends StatelessWidget {
               // _buildSectionTitle(settings.translate('plan')),
               // _buildNeoTile(context, Icons.person, settings.translate('plan_account'), 
               //     () => _openSubScreen(context, PremiumScreen())),
+
+              // account settings (logout)
+              // on tap auth service logout
+              _buildSectionTitle(settings.translate('account')),
+              _buildNeoTile(context, Icons.logout, settings.translate('logout'), 
+                  () {
+                    AuthService().logout();
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => AuthenticationScreen()));
+                  }),
 
               _buildSectionTitle(settings.translate('app')),
               _buildNeoTile(context, Icons.info_outline, settings.translate('information_updates'), 

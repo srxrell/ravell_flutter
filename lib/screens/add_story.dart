@@ -309,14 +309,6 @@ class _EditStoryScreenState extends State<EditStoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: wordCount == 100 ? Colors.green : (wordCount > 100 ? Colors.red : btnColorDefault),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text('$wordCount / 100 слов', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
           const SizedBox(height: 10),
           TextField(
             
@@ -552,22 +544,21 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: wordCount == 100 ? Colors.green : (wordCount > 100 ? Colors.red : btnColorDefault),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text('$wordCount / 100 слов', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
           const SizedBox(height: 10),
           TextField(
             
             controller: _titleController,
-            style: theme.textTheme.headlineMedium,
+           strutStyle: StrutStyle(
+    forceStrutHeight: true,
+    height: 1.5, // Совпадает с высотой в TextStyle
+    fontSize: theme.textTheme.headlineMedium?.fontSize,
+  ),
+  style: theme.textTheme.headlineMedium?.copyWith(
+    height: 1.5, // Межстрочный интервал
+  ),
             textCapitalization: TextCapitalization.sentences, // 🟢 AUTO-CAPS
             decoration: InputDecoration(
-              contentPadding: EdgeInsets.symmetric(vertical: 8),
+              contentPadding: EdgeInsets.symmetric(vertical: 20),
               hintText: 'Заголовок истории',
               hintStyle: theme.textTheme.headlineMedium!.copyWith(
                 color: theme.textTheme.headlineMedium!.color!.withOpacity(0.5),
@@ -576,7 +567,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
               errorBorder: InputBorder.none,
-              isDense: true,
+              isDense: false,
               fillColor: Colors.transparent,
             ),
             maxLength: 100,
@@ -588,13 +579,17 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           TextField(
             
             controller: _contentController,
-             // 🟢 FIXED: Removed generic height: 1.5 to fix jitter in some cases, or set strutStyle
-            // Using cursorHeight to match font size approx
-            style: theme.textTheme.bodyLarge, 
-            cursorHeight: 24.0, 
+            strutStyle: StrutStyle(
+    forceStrutHeight: true,
+    height: 1.5, // Совпадает с высотой в TextStyle
+    fontSize: theme.textTheme.bodyLarge?.fontSize,
+  ),
+  style: theme.textTheme.bodyLarge?.copyWith(
+    height: 1.5, // Межстрочный интервал
+  ),
             textCapitalization: TextCapitalization.sentences, // 🟢 AUTO-CAPS
             decoration: InputDecoration(
-              contentPadding: EdgeInsets.symmetric(vertical: 8),
+              contentPadding: EdgeInsets.symmetric(vertical: 20),
               hintText: 'Начните писать свою историю здесь...',
               hintStyle: theme.textTheme.bodyLarge!.copyWith(
                 color: theme.textTheme.bodyLarge!.color!.withOpacity(0.5),
@@ -603,7 +598,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
               errorBorder: InputBorder.none,
-              isDense: true,
+              isDense: false,
               fillColor: Colors.transparent,
             ),
             maxLines: null,

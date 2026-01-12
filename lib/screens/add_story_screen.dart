@@ -133,6 +133,7 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isReplyMode = widget.replyToId != null;
 
     return Scaffold(
@@ -163,31 +164,7 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 8),
-                  
-                  // СЧЕТЧИК СЛОВ (как в CreateStoryScreen)
-                  ValueListenableBuilder(
-                    valueListenable: _contentController,
-                    builder: (context, value, child) {
-                      final count = _getWordCount(value.text);
-                      // Цвет меняется в зависимости от достижения цели
-                      final Color statusColor = count == 100 
-                          ? Colors.green 
-                          : (count > 100 ? Colors.red : neoAccent);
-
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '$count / 100 слов',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      );
-                    },
-                  ),
+                 
                   
                   const SizedBox(height: 16),
 
@@ -216,7 +193,14 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
                   if (!isReplyMode || _isStoryReply)
                     TextField(
                       controller: _titleController,
-                      style: GoogleFonts.russoOne(fontSize: 22),
+                      strutStyle: StrutStyle(
+    forceStrutHeight: true,
+    height: 1.5, // Совпадает с высотой в TextStyle
+    fontSize: theme.textTheme.headlineMedium?.fontSize,
+  ),
+  style: theme.textTheme.headlineMedium?.copyWith(
+    height: 1.5, // Межстрочный интервал
+  ),
                       textCapitalization: TextCapitalization.sentences,
                       decoration: _minimalInputDecoration('Заголовок истории'),
                     ),
@@ -229,7 +213,14 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
                     minLines: 10,
                     maxLines: null,
                     textCapitalization: TextCapitalization.sentences,
-                    style: const TextStyle(fontSize: 17, height: 1.5),
+                    strutStyle: StrutStyle(
+    forceStrutHeight: true,
+    height: 1.5, // Совпадает с высотой в TextStyle
+    fontSize: theme.textTheme.headlineMedium?.fontSize,
+  ),
+  style: theme.textTheme.headlineMedium?.copyWith(
+    height: 1.5, // Межстрочный интервал
+  ),
                     decoration: _minimalInputDecoration(
                       _isStoryReply || !isReplyMode ? 'Начните писать...' : 'Ваш комментарий...',
                       showUnderline: false,

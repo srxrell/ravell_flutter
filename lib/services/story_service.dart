@@ -113,6 +113,11 @@ class StoryService {
       }),
     );
 
+    print('📡 SENDING PAYLOAD: ${jsonEncode({
+  'title': title,
+  'reply_to': replyTo,
+})}');
+
     if (response.statusCode == 201) {
       final data = _safeJsonDecode(response);
       if (data is Map<String, dynamic>) {
