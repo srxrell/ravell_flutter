@@ -607,8 +607,9 @@ Widget _colorOption(SettingsManager settings, Color color, String name) {
                 ),
                 child: Text(
                   '${settings.translate('replies')} (${_replies.length})',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
+                    color: isDark ? Colors.white : Colors.black,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

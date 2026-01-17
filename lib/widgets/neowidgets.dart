@@ -48,10 +48,10 @@ class NeoIconButton extends StatelessWidget {
             color: _getButtonColor(),
             // Асимметричные границы: Слева/Верх = 4, Справа/Низ = 8
             border: const Border(
-              top: BorderSide(color: neoBlack, width: 4),
-              left: BorderSide(color: neoBlack, width: 4),
-              right: BorderSide(color: neoBlack, width: 8),
-              bottom: BorderSide(color: neoBlack, width: 8),
+              top: BorderSide(color: neoBlack, width: 2),
+              left: BorderSide(color: neoBlack, width: 2),
+              right: BorderSide(color: neoBlack, width: 4),
+              bottom: BorderSide(color: neoBlack, width: 4),
             ),
             borderRadius: BorderRadius.circular(20),
           ),

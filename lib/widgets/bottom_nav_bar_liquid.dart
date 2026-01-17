@@ -113,10 +113,10 @@ class PERSISTENT_BOTTOM_NAV_BAR_LIQUID_GLASS extends StatelessWidget {
       decoration: BoxDecoration(
         color: neoAccent,
         border: const Border(
-          top: BorderSide(width: 3, color: Colors.black),
-          bottom: BorderSide(width: 7, color: Colors.black),
-          left: BorderSide(width: 3, color: Colors.black),
-          right: BorderSide(width: 5, color: Colors.black),
+          top: BorderSide(width: 2, color: Colors.black),
+          bottom: BorderSide(width: 4, color: Colors.black),
+          left: BorderSide(width: 2, color: Colors.black),
+          right: BorderSide(width: 4, color: Colors.black),
         ),
         borderRadius: BorderRadius.circular(4410),
       ),
