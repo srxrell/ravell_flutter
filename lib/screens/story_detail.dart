@@ -304,11 +304,11 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
 
 
   Future<void> _shareStory() async {
-    final String shareUrl = 'https://ravell.wasmer.app/story/${_currentStory.id}';
+    final String shareUrl = 'https://ravell.wasmer.app/';
     
     // 1. Сначала открываем нативный диалог шаринга (не блокируем UI)
     Share.share(
-      '${_currentStory.title}\n\nЧитай продолжение в ReadReels: $shareUrl',
+      '${_currentStory.title}\n\n${_currentStory.content}\n\nЧитай больше историй в Ravell: $shareUrl',
       subject: _currentStory.title,
     );
 
