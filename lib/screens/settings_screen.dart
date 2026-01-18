@@ -70,15 +70,6 @@ class SettingsScreen extends StatelessWidget {
               _buildNeoTile(context, Icons.format_size, settings.translate('reading_settings'), 
                   () => _openSubScreen(context, const ReadingSettingsSubScreen())),
 
-              _buildSectionTitle(settings.translate('ai')),
-              _buildNeoTile(context, Icons.lock_outline, settings.translate('moderation_settings'), 
-                  () => _openSubScreen(context, const ModerationSettingsSubScreen())),
-                
-              
-              // _buildSectionTitle(settings.translate('plan')),
-              // _buildNeoTile(context, Icons.person, settings.translate('plan_account'), 
-              //     () => _openSubScreen(context, PremiumScreen())),
-
               // account settings (logout)
               // on tap auth service logout
               _buildSectionTitle(settings.translate('account')),

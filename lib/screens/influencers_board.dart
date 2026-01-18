@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:readreels/services/influencer_service.dart';
 import 'package:readreels/services/auth_service.dart';
 import '../models/influencer.dart';
+import 'package:readreels/managers/settings_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:readreels/widgets/early_access_bottom.dart';
@@ -41,26 +43,27 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsManager>(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Доска почета')),
+      appBar: AppBar(title:  Text(settings.translate('influence_list'))),
       
       body: FutureBuilder<List<Influencer>>(
         future: future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
-            return const Center(child: Text('Ошибка загрузки'));
+            return Center(child: Text(settings.translate('error_loading')));
           }
 
           final influencers = snapshot.data ?? [];
 
           if (influencers.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
-                'Ранние участники появятся здесь',
+                settings.translate('early_contributors_here'),
                 textAlign: TextAlign.center,
               ),
             );
@@ -105,7 +108,7 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
                                 errorWidget: (context, url, error) => Center(
                                   child: Text(
                                     inf.username[0].toUpperCase(),
-                                    style: const TextStyle(
+                                    style:  TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -115,7 +118,7 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
                           : Center(
                               child: Text(
                                 inf.username[0].toUpperCase(),
-                                style: const TextStyle(
+                                style:  TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -130,7 +133,7 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
                             children: [
                               Text(
                                 inf.username,
-                                style: const TextStyle(
+                                style:  TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -166,21 +169,21 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Early Influencer'),
+        title:  Text('Add Early Influencer'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: usernameController,
-              decoration: const InputDecoration(
+              decoration:  InputDecoration(
                 labelText: 'Username',
                 hintText: 'Enter username to add',
               ),
             ),
-            const SizedBox(height: 10),
+             SizedBox(height: 10),
             TextField(
               controller: ideaController,
-              decoration: const InputDecoration(
+              decoration:  InputDecoration(
                 labelText: 'Idea / Contribution',
                 hintText: 'What did they do?',
               ),
@@ -190,7 +193,7 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child:  Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -201,7 +204,7 @@ class _InfluencersBoardState extends State<InfluencersBoard> {
                 const SnackBar(content: Text('Request sent (Backend pending)')),
               );
             },
-            child: const Text('Add'),
+            child:  Text('Add'),
           ),
         ],
       ),
